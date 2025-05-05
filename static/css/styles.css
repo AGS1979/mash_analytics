@@ -224,3 +224,29 @@ main {
   scrollbar-width: thin;
   scrollbar-color: #3b82f6 rgba(31, 41, 55, 0.9);
 }
+
+/* make the history pane split top / bottom */
+.chat-history {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* top stays at top, bottom at bottom */
+  height: 100%;
+}
+
+/* static “bottom” info section */
+.chat-history-bottom {
+  background: rgba(31, 41, 55, 0.9);
+  border-top: 1px solid #3b82f6;
+  padding: 1rem;
+  color: #eaebf7;
+  font-size: 0.9rem;
+}
+
+.chat-history-bottom h4 {
+  margin-bottom: 0.5rem;
+}
+
+.chat-history-bottom ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}

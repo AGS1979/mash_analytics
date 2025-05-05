@@ -19,11 +19,28 @@
 
   <main>
     <div class="chat-container">
-      <div class="chat-history">
-        <button id="new-query-btn">New Query</button>
-        <h3 id="prev-chat-title">Prev Chat:</h3>
-        <ul id="chat-history-list"></ul>
-      </div>
+        <div class="chat-history">
+          <!-- top section: existing chat history -->
+          <div class="chat-history-top">
+            <button id="new-query-btn">New Query</button>
+            <h3 id="prev-chat-title">Prev Chat:</h3>
+            <ul id="chat-history-list"></ul>
+          </div>
+
+          <!-- bottom section: static info -->
+          <div class="chat-history-bottom">
+            <h4>Mash – Your Virtual Investment Analyst</h4>
+            <ol>
+              <li>Search for news on any topic</li>
+              <li>Generate stock reports</li>
+              <li>Get earnings calls summarized</li>
+              <li>Get insights from sustainability reports</li>
+              <li>…</li>
+              <li>…</li>
+            </ol>
+          </div>
+        </div>
+
       <div class="chat-main">
         <div id="chat-box"></div>
       </div>
