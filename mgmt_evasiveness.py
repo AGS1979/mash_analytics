@@ -150,6 +150,16 @@ def extract_evasiveness_parameters_from_text(q: str):
     Try several natural‐language patterns to pull out
     (company, quarter(int), year(int)).
     """
+    
+
+    # pattern #0: “Evaluate Tesla’s evasiveness in Q1 2025”
+    m = re.search(
+       r"(.+?)[’']s?\s+evasiveness.*?in\s+q([1-4])\s+(\d{4})",
+       q, re.IGNORECASE
+    )
+    if m:
+        return m.group(1).strip(), int(m.group(2)), int(m.group(3))
+
     # pattern #1: “… for <Company> Q<1-4> <YYYY>”
     m = re.search(r'\bfor\s+(.+?)\s+q([1-4])\s+(\d{4})\b', q, re.I)
     if m:
