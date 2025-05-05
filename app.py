@@ -183,8 +183,8 @@ def save_chat_history(history):
     with open(CHAT_HISTORY_FILE, "w") as f:
         json.dump(history, f)
 
-# --- Excel file for storing users ---
-EXCEL_FILE = "users.xlsx"
+# Excel file for storing users — absolute path
+EXCEL_FILE = os.path.join(app.root_path, "users.xlsx")
 
 def create_excel_if_not_exists():
     """Create the Excel file with a Users sheet if it doesn't exist."""
