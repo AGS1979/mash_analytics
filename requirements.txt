@@ -15,6 +15,7 @@ XlsxWriter
 yfinance
 pdfkit
 python-dotenv
+Flask-Cors
 
 
 
