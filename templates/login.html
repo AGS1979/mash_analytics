@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - Research Blitz</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <style>
+    /* Additional styles specific to the login page */
+    .login-container {
+      width: 400px;
+      margin: 80px auto;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+    .login-container h2 {
+      margin-bottom: 20px;
+      text-align: center;
+      color: #1f2937;
+    }
+    .login-container input[type="text"],
+    .login-container input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .login-container button {
+      width: 100%;
+      padding: 10px;
+      background-color: #307aff;
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .login-container button:hover {
+      background-color: #4d94ff;
+    }
+    .login-container .error {
+      color: red;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .toggle-link {
+      text-align: center;
+      margin-top: 10px;
+      cursor: pointer;
+      color: #307aff;
+      text-decoration: underline;
+    }
+    /* Hide the signup form by default */
+    #signup-form {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Same header as in index.html -->
+  <header>
+    <div class="logo">
+      <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
+    </div>
+    <div class="banner">Banner</div>
+    <div class="title">Research Blitz</div>
+  </header>
+
+  <main>
+    <div class="login-container">
+      <!-- Login Form -->
+      <div id="login-form">
+        <h2>Login to Research Blitz</h2>
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+        <form action="{{ url_for('login') }}" method="POST">
+          <input type="hidden" name="form_type" value="login" />
+          <input type="text" name="username" placeholder="Username" required />
+          <input type="password" name="password" placeholder="Password" required />
+          <button type="submit">Login</button>
+        </form>
+        <div class="toggle-link" onclick="toggleForms()">Don't have an account? Sign Up</div>
+      </div>
+
+      <!-- Sign Up Form -->
+      <div id="signup-form">
+        <h2>Sign Up for Research Blitz</h2>
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+        <form action="{{ url_for('signup') }}" method="POST">
+          <input type="text" name="username" placeholder="Choose a Username" required />
+          <input type="password" name="password" placeholder="Choose a Password" required />
+          <button type="submit">Sign Up</button>
+        </form>
+        <div class="toggle-link" onclick="toggleForms()">Already have an account? Log In</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function toggleForms() {
+      var loginForm = document.getElementById("login-form");
+      var signupForm = document.getElementById("signup-form");
+      if (loginForm.style.display === "none") {
+        loginForm.style.display = "block";
+        signupForm.style.display = "none";
+      } else {
+        loginForm.style.display = "none";
+        signupForm.style.display = "block";
+      }
+    }
+  </script>
+</body>
+</html>
