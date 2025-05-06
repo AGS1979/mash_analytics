@@ -98,7 +98,7 @@ main {
 
   /* allow vertical scroll but let children overflow horizontally */
   overflow-y: auto;
-  overflow-x: visible;     
+  overflow-x: hidden;     
 
   position: relative;      /* create a stacking context */
   z-index: 2;              /* lift left pane above right pane */
@@ -290,7 +290,7 @@ main {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease-in-out;
-  z-index: 10;
+  z-index: 1000;
 }
 
 /* Show it on hover */
