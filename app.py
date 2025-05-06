@@ -6,7 +6,7 @@ import pandas as pd
 import traceback  # Add this at the top
 import os
 from flask import Flask, request, jsonify, render_template, send_from_directory, url_for, session, redirect, send_file
-from StockReport import generate_stock_report, process_query_1
+from StockReport import create_stock_report, process_query_1
 from EarningsCallSummaries import main, process_query_2
 from flask_cors import CORS
 from MktPerf import (
@@ -313,7 +313,7 @@ def generate_report():
         print(f"✅ Extracted Ticker: {ticker}")
 
         # Generate stock report
-        file_path = generate_stock_report(ticker)
+        file_path = create_stock_report(ticker)
 
         if not file_path:
             return jsonify({"error": f"Failed to generate stock report for {ticker}."}), 400
