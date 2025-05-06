@@ -298,3 +298,11 @@ main {
   opacity: 1;
 }
 
+/* Hide the horizontal scrollbar but keep the vertical one */
+.chat-history::-webkit-scrollbar {
+  width: 8px;      /* vertical thumb width */
+  height: 0px;     /* zero height shuts off the horizontal bar */
+}
+
+/* (You already have overflow-y:auto; overflow-x:visible on .chat-history) */
+
