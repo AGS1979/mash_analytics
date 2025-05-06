@@ -270,21 +270,22 @@ main {
 .static-info li::after {
   content: attr(data-tooltip);
   position: absolute;
-  top: 50%;
-  left: calc(100% + 8px);
-  transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.8);
+  bottom: 100%;
+  left: 0;
+  transform: translateY(-8px);
+  background: rgba(0, 0, 0, 0.85);
   color: #fff;
   padding: 6px 10px;
   border-radius: 4px;
   white-space: pre-wrap;
   font-size: 14px;
   line-height: 1.4;
-  max-width: 180px;
+  max-width: 220px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease-in-out;
   z-index: 9999 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Show it on hover */
@@ -312,6 +313,11 @@ main {
 .chat-history::-webkit-scrollbar:horizontal {
   height: 0 !important;
 }
+
+.chat-container {
+  overflow: visible !important;  /* ⬅️ crucial: allow tooltip to escape bounds */
+}
+
 
 
 
