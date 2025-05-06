@@ -13,7 +13,7 @@ body {
   padding: 0;
   position: relative;
   min-height: 100vh;
-+  overflow-x: hidden;    /* ← add this line to prevent any horizontal scrollbar */ 
+  overflow-x: hidden;    /* ← add this line to prevent any horizontal scrollbar */ 
 }
 
 body::before {
