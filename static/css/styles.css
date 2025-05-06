@@ -98,11 +98,10 @@ main {
   padding: 20px;
 
   /* allow vertical scroll but let children overflow horizontally */
-  overflow-y: auto;
-  overflow-x: visible;     
+  overflow-y: auto;  
 
   position: relative;      /* create a stacking context */
-  z-index: 2;              /* lift left pane above right pane */
+  z-index: 10;              /* lift left pane above right pane */
 
   background-color: rgba(37, 49, 65, 0.95);
   border-top-left-radius: 15px;
@@ -285,12 +284,16 @@ main {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease-in-out;
-  z-index: 1001;
+  z-index: 9999;
 }
 
 /* Show it on hover */
 .static-info li:hover::after {
   opacity: 1;
+}
+
+.chat-history {
+  overflow-x: hidden !important; /* Force hiding horizontal scroll */
 }
 
 
