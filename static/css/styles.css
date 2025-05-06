@@ -13,8 +13,7 @@ body {
   padding: 0;
   position: relative;
   min-height: 100vh;
-  overflow-x: hidden;    /* ← add this line to prevent any horizontal scrollbar */ 
-}
+  }
 
 body::before {
   content: "";
@@ -90,6 +89,8 @@ main {
   background-color: rgba(37, 49, 65, 0.85);
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 0;
 }
 
 .chat-history {
@@ -214,12 +215,6 @@ main {
   background-color: #4d94ff;
 }
 
-/* Scrollbar Styles for Chat Box & History */
-#chat-box::-webkit-scrollbar,
-.chat-history::-webkit-scrollbar {
-  width: 8px;
-}
-
 #chat-box::-webkit-scrollbar-track,
 .chat-history::-webkit-scrollbar-track {
   background: rgba(31, 41, 55, 0.9);
@@ -298,11 +293,22 @@ main {
   opacity: 1;
 }
 
-/* Hide the horizontal scrollbar but keep the vertical one */
+
+/* make the vertical thumb 8px wide */
 .chat-history::-webkit-scrollbar {
-  width: 8px;      /* vertical thumb width */
-  height: 0px;     /* zero height shuts off the horizontal bar */
+  width: 8px;
 }
 
-/* (You already have overflow-y:auto; overflow-x:visible on .chat-history) */
+/* then kill the horizontal thumb */
+.chat-history::-webkit-scrollbar:horizontal {
+  height: 0 !important;
+}
+
+
+/* ── hide only the horizontal scrollbar in WebKit, keep the vertical one ── */
+.chat-history::-webkit-scrollbar:horizontal {
+  height: 0 !important;
+}
+
+
 
