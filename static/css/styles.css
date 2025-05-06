@@ -92,9 +92,10 @@ main {
 }
 
 .chat-history {
-  width: 25%;
+  width: 30%;              /* ↑ was 25% */
   padding: 20px;
-  overflow-y: auto;
+  overflow-y: auto;        /* allow vertical scrolling */
+  overflow-x: hidden;      /* prevent horizontal scroll */
   background-color: rgba(37, 49, 65, 0.95);
   border-top-left-radius: 15px;
   border-bottom-left-radius: 15px;
@@ -251,33 +252,36 @@ main {
   padding-left: 1.25rem;
 }
 
-/* ── Static‐Info Tooltip Styling ── */
-.static-info {
-  margin-top: 20px;
-}
+/* ——— static-info tooltips ——— */
+
 .static-info li {
   position: relative;
-  padding: 6px;
-  margin-bottom: 6px;
-  list-style: none;
-  cursor: help;
-  color: #eaebf7;
+  cursor: default;
 }
-.static-info li:hover {
-  background: rgba(59, 130, 246, 0.2);
-}
-/* Tooltip itself */
-.static-info li:hover::after {
+
+/* The popup */
+.static-info li::after {
   content: attr(data-tooltip);
   position: absolute;
-  left: 105%;      /* just to the right of the item */
   top: 50%;
+  left: calc(100% + 8px);
   transform: translateY(-50%);
-  white-space: nowrap;
-  background: rgba(31, 41, 55, 0.95);
+  background: rgba(0, 0, 0, 0.8);
   color: #fff;
   padding: 6px 10px;
   border-radius: 4px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 180px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-in-out;
   z-index: 10;
 }
+
+/* Show it on hover */
+.static-info li:hover::after {
+  opacity: 1;
+}
+
