@@ -98,7 +98,7 @@ main {
 
   /* allow vertical scroll but let children overflow horizontally */
   overflow-y: auto;
-  overflow-x: hidden;     
+  overflow-x: visible;     
 
   position: relative;      /* create a stacking context */
   z-index: 2;              /* lift left pane above right pane */
@@ -269,7 +269,7 @@ main {
 
 .static-info li {
   position: relative;
-  cursor: default;
+  z-index: 1000;
 }
 
 /* The popup */
@@ -290,7 +290,7 @@ main {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease-in-out;
-  z-index: 1000;
+  z-index: 1001;
 }
 
 /* Show it on hover */
