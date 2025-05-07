@@ -305,6 +305,7 @@ def generate_report():
 
         # Extract company and ticker
         ticker = process_query_1(query)
+        company_name = None
         print("📥 Query:", query)
         print("🔍 Extracted company name:", company_name)
         print("🔍 Extracted ticker:", ticker)
