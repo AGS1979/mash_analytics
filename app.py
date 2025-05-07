@@ -303,8 +303,8 @@ def generate_report():
 
         print(f"✅ Received query: {query}")
 
-        # Extract ticker symbol
-        ticker = process_query_1(query)
+        # Extract company and ticker
+        company_name, ticker = process_query_1(query)
         print("📥 Query:", query)
         print("🔍 Extracted company name:", company_name)
         print("🔍 Extracted ticker:", ticker)
