@@ -316,14 +316,13 @@ def generate_report():
         print(f"✅ Extracted Ticker: {ticker}")
 
         # Generate stock report
-        file_path = create_stock_report(ticker)
+        file_path, wb, ws = create_stock_report(ticker)
 
         if not file_path:
             return jsonify({"error": f"Failed to generate stock report for {ticker}."}), 400
-
-        # Generate download URL
         file_name = os.path.basename(file_path)
         file_url = url_for('send_report', filename=file_name, _external=True)
+
 
         print(f"✅ Report successfully generated: {file_url}")
 
