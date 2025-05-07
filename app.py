@@ -305,6 +305,9 @@ def generate_report():
 
         # Extract ticker symbol
         ticker = process_query_1(query)
+        print("📥 Query:", query)
+        print("🔍 Extracted company name:", company_name)
+        print("🔍 Extracted ticker:", ticker)
 
         if not ticker:
             print("❌ Could not extract ticker.")
