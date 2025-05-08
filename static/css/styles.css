@@ -34,13 +34,19 @@ body::before {
 
 /* Header */
 header {
+  position: fixed;               /* Make header fixed at top */
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 9999;                 /* Stay above all content */
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 14px 20px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.85);  /* Already present */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
+
 
 header .logo {
   flex: 1;
@@ -78,6 +84,7 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-top: 100px;  /* ← Add this to avoid content going under header */
 }
 
 /* Chat Container */
@@ -318,6 +325,63 @@ main {
   overflow: visible !important;  /* ⬅️ crucial: allow tooltip to escape bounds */
 }
 
+.chat-history {
+  max-height: calc(100vh - 100px);  /* Adjust if your header is taller */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: center;
+  }
+
+  .chat-container {
+    flex-direction: column;
+    width: 95%;
+  }
+
+  .chat-history {
+    width: 100%;
+    max-height: 300px;  /* Allow scroll but don’t overtake screen */
+    border-radius: 10px 10px 0 0;
+  }
+
+  .chat-main {
+    width: 100%;
+    padding: 20px;
+  }
+
+  #chat-box {
+    height: 300px;
+    font-size: 14px;
+  }
+
+  .text-input {
+    flex-direction: column;
+    align-items: stretch;
+    width: 95%;
+  }
+
+  .text-input textarea {
+    width: 100%;
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+
+  .text-input button {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  .static-info li::after {
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);  /* Center tooltips */
+  }
+}
 
 
 
