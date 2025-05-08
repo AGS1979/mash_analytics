@@ -58,10 +58,11 @@ def summarize_with_openai(text, topic):
 # ─── Called from Flask to create the Excel report ───────────────────────────
 def create_stock_report(ticker):
     profile = get_fmp_json(f"profile/{ticker}?")
-    if not profile:
-        return None, None, None
-    overview = profile[0]
+    if not profile or not isinstance(profile, list) or len(profile) == 0:
+        return None, None, None  # 🛑 Critical: return 3 items even on failure
 
+    
+    overview = profile[0]
     financials = pd.DataFrame(get_fmp_json(f"income-statement/{ticker}?limit=5"))
     estimates  = pd.DataFrame(get_fmp_json(f"analyst-estimates/{ticker}?limit=4"))
     ratings    = pd.DataFrame(get_fmp_json(f"rating/{ticker}?limit=4"))
