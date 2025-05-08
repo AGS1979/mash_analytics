@@ -159,6 +159,6 @@ def create_stock_report(ticker):
     os.makedirs("Stock Reports", exist_ok=True)
     filename = f"{ticker}_Stock_Report.xlsx"
     full_path = os.path.join("Stock Reports", filename)
-    wb._save(full_path)
+    wb.save(full_path)
 
     return full_path, wb, ws
