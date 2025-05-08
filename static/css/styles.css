@@ -153,10 +153,10 @@ main {
 
 /* Chat Box */
 #chat-box {
-  height: 400px;
+  height: 800px;
   overflow-y: auto;
   padding: 15px;
-  background-color: rgba(37, 49, 65, 0.95);
+  background-color: rgba(37, 49, 65, 0.85);
   border-radius: 8px;
   margin-bottom: 15px;
   display: flex;
