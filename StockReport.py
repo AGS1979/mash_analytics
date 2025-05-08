@@ -28,7 +28,6 @@ def process_query_1(query):
     result = response.json()
     return result["choices"][0]["message"]["content"].strip().upper()
 
-
 def get_fmp_json(endpoint):
     url = f"https://financialmodelingprep.com/api/v3/{endpoint}&apikey={FMP_API_KEY}"
     r = requests.get(url)
@@ -74,6 +73,17 @@ def create_stock_report(ticker):
 
     # Overview sheet
     overview_ws = wb.create_sheet("Company Overview")
+    overview_ws.column_dimensions['A'].width = 15
+    overview_ws.column_dimensions['B'].width = 120
+    overview_ws['B8'].alignment = Alignment(wrap_text=True)
+
+    # Format Market Cap (row 6)
+    try:
+        mkt_cap = float(overview.get("mktCap", 0)) / 1_000_000
+        overview_ws['B6'].value = f"{mkt_cap:,.0f} M"
+    except:
+        pass
+
     overview_data = [
         ("Company Name", overview.get("companyName")),
         ("Ticker", ticker),
@@ -89,15 +99,37 @@ def create_stock_report(ticker):
 
     # Add dataframes
     if not financials.empty:
-        add_dataframe_to_sheet(wb, "Financials", financials)
+        df_t = financials.set_index("date").T.reset_index()
+        df_t.columns = ["Line Item"] + [f"FY {col}" for col in df_t.columns[1:]]
+        # Convert numeric columns
+        for col in df_t.columns[1:]:
+            df_t[col] = df_t[col].apply(format_number_to_millions)
+        add_dataframe_to_sheet(wb, "Financials", df_t)
+
     if not estimates.empty:
         add_dataframe_to_sheet(wb, "Estimates", estimates)
+    if not estimates.empty:
+        df_t = estimates.set_index("date").T.reset_index()
+        df_t.columns = ["Estimate Item"] + [f"FY {col}" for col in df_t.columns[1:]]
+        for col in df_t.columns[1:]:
+            df_t[col] = df_t[col].apply(format_number_to_millions)
+        add_dataframe_to_sheet(wb, "Estimates", df_t)
+
     if not ratings.empty:
         add_dataframe_to_sheet(wb, "Consensus", ratings)
     if not insider.empty:
         add_dataframe_to_sheet(wb, "Insider Trades", insider)
     if not news.empty:
         add_dataframe_to_sheet(wb, "News", news[["publishedDate", "title", "site", "url"]])
+
+def format_number_to_millions(val):
+    try:
+        val = float(val)
+        if abs(val) > 1e3:  # Skip small values (likely per-share/ratios)
+            return f"{val/1_000_000:,.0f} M"
+        return val
+    except:
+        return val
 
     # Investment insights
     investment_text = f"""
