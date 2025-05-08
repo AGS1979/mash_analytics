@@ -1,3 +1,4 @@
+from StockReport import get_fmp_json
 from dotenv import load_dotenv
 load_dotenv()   # reads .env into os.environ
 import tempfile
@@ -719,7 +720,10 @@ def process_report():
     uploaded.save(pdf_path)
 
     # 4) Use the raw query as the company name (or parse out the company if you like)
-    company_name = query
+    ticker = process_query_1(query)
+    company_profile = get_fmp_json(f"profile/{ticker}?")
+    company_name = company_profile[0]['companyName'] if company_profile and isinstance(company_profile, list) else ticker
+
 
     try:
         # 5) Call your modified generate_esg_report → returns the HTML path
