@@ -27,7 +27,7 @@ body::before {
     Increase or decrease the RGBA alpha (0.6 -> 0.7, 0.8, etc.) to fade more.
   */
   background:
-    linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)),
+    linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),
     url("../images/AI.png") no-repeat center center / cover;
   z-index: -1; 
 }
@@ -329,6 +329,7 @@ main {
   max-height: calc(100vh - 100px);  /* Adjust if your header is taller */
   overflow-y: auto;
   overflow-x: hidden;
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
@@ -338,20 +339,30 @@ main {
     text-align: center;
   }
 
+  header .logo img {
+    max-height: 60px;
+  }
+
+  main {
+    margin-top: 130px;
+  }
+
   .chat-container {
     flex-direction: column;
     width: 95%;
+    margin-top: 20px;
   }
 
   .chat-history {
     width: 100%;
-    max-height: 300px;  /* Allow scroll but don’t overtake screen */
+    max-height: 250px;
+    overflow-y: auto;
     border-radius: 10px 10px 0 0;
   }
 
   .chat-main {
     width: 100%;
-    padding: 20px;
+    padding: 15px;
   }
 
   #chat-box {
@@ -379,9 +390,24 @@ main {
 
   .static-info li::after {
     left: 50%;
-    transform: translateX(-50%) translateY(-8px);  /* Center tooltips */
+    transform: translateX(-50%) translateY(-8px);
   }
 }
+
+@media (max-width: 768px) {
+  .login-container {
+    width: 90%;
+    padding: 20px;
+    font-size: 16px;
+  }
+
+  .login-container input,
+  .login-container button {
+    font-size: 16px;
+    padding: 10px;
+  }
+}
+
 
 
 
