@@ -507,13 +507,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function isEarningsReportQuery(query) {
-        const patterns = [
-            "earnings summary for",
-            "generate earnings report for",
-            "extract keywords from earnings call for",
-            "get key highlights from earnings call"
-        ];
-        return patterns.some(pattern => query.toLowerCase().includes(pattern));
+        return /(?:summary|summarize|get).*earnings call.*\bq[1-4]\s+\d{4}/i.test(query);
     }
 
     function isMarketPerformanceQuery(query) {
