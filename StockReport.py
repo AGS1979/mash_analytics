@@ -1,6 +1,6 @@
 import os
 import requests
-import openai
+from openai import OpenAI
 import openpyxl
 from openpyxl.styles import Font, Alignment
 from openpyxl.utils.dataframe import dataframe_to_rows
@@ -11,7 +11,7 @@ FMP_API_KEY = os.environ.get("FMP_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
-openai.api_key = OPENAI_API_KEY
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ─── Used by Flask to extract ticker ─────────────────────────────────────────
 def process_query_1(query):
@@ -48,7 +48,7 @@ def add_dataframe_to_sheet(wb, sheet_name, df):
 
 def summarize_with_openai(text, topic):
     prompt = f"Summarize the following {topic} in bullet points:\n{text}"
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.4
