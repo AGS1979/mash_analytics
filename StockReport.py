@@ -6,14 +6,14 @@ from openpyxl.styles import Font, Alignment
 from openpyxl.utils.dataframe import dataframe_to_rows
 import pandas as pd
 
-# --- Load secrets from environment ---
+# Load API keys from environment
 FMP_API_KEY = os.environ.get("FMP_API_KEY")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ─── Used by Flask to extract ticker ─────────────────────────────────────────
+# ──────────────────────────
 def process_query_1(query):
     prompt = f"Extract the stock ticker from this query using FMP tickers: '{query}'. Return ONLY the ticker."
     response = requests.post(
@@ -27,6 +27,7 @@ def process_query_1(query):
     )
     result = response.json()
     return result["choices"][0]["message"]["content"].strip().upper()
+
 
 def get_fmp_json(endpoint):
     url = f"https://financialmodelingprep.com/api/v3/{endpoint}&apikey={FMP_API_KEY}"
@@ -45,6 +46,16 @@ def add_dataframe_to_sheet(wb, sheet_name, df):
                 cell.font = Font(bold=True)
 
 
+def format_number_to_millions(val):
+    try:
+        val = float(val)
+        if abs(val) > 1e3:
+            return f"{val/1_000_000:,.0f} M"
+        return val
+    except:
+        return val
+
+
 def summarize_with_openai(text, topic):
     prompt = f"Summarize the following {topic} in bullet points:\n{text}"
     response = client.chat.completions.create(
@@ -55,13 +66,11 @@ def summarize_with_openai(text, topic):
     return response.choices[0].message.content
 
 
-# ─── Called from Flask to create the Excel report ───────────────────────────
 def create_stock_report(ticker):
     profile = get_fmp_json(f"profile/{ticker}?")
     if not profile or not isinstance(profile, list) or len(profile) == 0:
-        return None, None, None  # 🛑 Critical: return 3 items even on failure
+        return None, None, None
 
-    
     overview = profile[0]
     financials = pd.DataFrame(get_fmp_json(f"income-statement/{ticker}?limit=5"))
     estimates  = pd.DataFrame(get_fmp_json(f"analyst-estimates/{ticker}?limit=4"))
@@ -72,18 +81,10 @@ def create_stock_report(ticker):
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
 
-    # Overview sheet
-    overview_ws = wb.create_sheet("Company Overview")
-    overview_ws.column_dimensions['A'].width = 15
-    overview_ws.column_dimensions['B'].width = 120
-    overview_ws['B8'].alignment = Alignment(wrap_text=True)
-
-    # Format Market Cap (row 6)
-    try:
-        mkt_cap = float(overview.get("mktCap", 0)) / 1_000_000
-        overview_ws['B6'].value = f"{mkt_cap:,.0f} M"
-    except:
-        pass
+    # ─── Overview ────────────────────────────────
+    ws = wb.create_sheet("Company Overview")
+    ws.column_dimensions['A'].width = 15
+    ws.column_dimensions['B'].width = 120
 
     overview_data = [
         ("Company Name", overview.get("companyName")),
@@ -96,19 +97,25 @@ def create_stock_report(ticker):
         ("Description", overview.get("description")),
     ]
     for row in overview_data:
-        overview_ws.append(row)
+        ws.append(row)
+    ws['B8'].alignment = Alignment(wrap_text=True)
 
-    # Add dataframes
+    # Format Market Cap
+    try:
+        mkt_cap = float(overview.get("mktCap", 0)) / 1_000_000
+        ws['B6'].value = f"{mkt_cap:,.0f} M"
+    except:
+        pass
+
+    # ─── Financials ──────────────────────────────
     if not financials.empty:
         df_t = financials.set_index("date").T.reset_index()
         df_t.columns = ["Line Item"] + [f"FY {col}" for col in df_t.columns[1:]]
-        # Convert numeric columns
         for col in df_t.columns[1:]:
             df_t[col] = df_t[col].apply(format_number_to_millions)
         add_dataframe_to_sheet(wb, "Financials", df_t)
 
-    if not estimates.empty:
-        add_dataframe_to_sheet(wb, "Estimates", estimates)
+    # ─── Estimates ───────────────────────────────
     if not estimates.empty:
         df_t = estimates.set_index("date").T.reset_index()
         df_t.columns = ["Estimate Item"] + [f"FY {col}" for col in df_t.columns[1:]]
@@ -116,23 +123,19 @@ def create_stock_report(ticker):
             df_t[col] = df_t[col].apply(format_number_to_millions)
         add_dataframe_to_sheet(wb, "Estimates", df_t)
 
+    # ─── Ratings ────────────────────────────────
     if not ratings.empty:
         add_dataframe_to_sheet(wb, "Consensus", ratings)
+
+    # ─── Insider Trading ────────────────────────
     if not insider.empty:
         add_dataframe_to_sheet(wb, "Insider Trades", insider)
+
+    # ─── News ───────────────────────────────────
     if not news.empty:
         add_dataframe_to_sheet(wb, "News", news[["publishedDate", "title", "site", "url"]])
 
-def format_number_to_millions(val):
-    try:
-        val = float(val)
-        if abs(val) > 1e3:  # Skip small values (likely per-share/ratios)
-            return f"{val/1_000_000:,.0f} M"
-        return val
-    except:
-        return val
-
-    # Investment insights
+    # ─── Investment Insights ────────────────────
     investment_text = f"""
     Company: {overview.get("companyName")}
     Sector: {overview.get("sector")}
@@ -152,10 +155,10 @@ def format_number_to_millions(val):
     for line in risks.split('\n'):
         risk_ws.append([line.strip()])
 
-    # Save Excel file
+    # ─── Save and Return ────────────────────────
+    os.makedirs("Stock Reports", exist_ok=True)
     filename = f"{ticker}_Stock_Report.xlsx"
     full_path = os.path.join("Stock Reports", filename)
-    os.makedirs("Stock Reports", exist_ok=True)
-    wb.save(full_path)
+    wb._save(full_path)
 
-    return full_path, wb, wb["Company Overview"]
+    return full_path, wb, ws
