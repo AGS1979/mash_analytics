@@ -318,19 +318,16 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Helper function to detect if the user query is for an earnings call summary.
     function isEarningsCallSummaryQuery(query) {
-        const patterns = [
-        "earnings summary for",
-        "generate earnings report for",
-        "extract keywords from earnings call for",
-        "get key highlights from earnings call",
-        "summary of earnings call",                   // ✅ add this
-        "summarize earnings call for",                // ✅ already in use elsewhere
-        "earnings call for",                          // ✅ looser trigger
-        "summary of enterprise product's q1 2025",    // ✅ optional hardcoded test catch
-        "q1 2025 earnings call"                       // ✅ generic catch
-    ];
-    return patterns.some(pattern => query.toLowerCase().includes(pattern));
-}
+        const q = query.toLowerCase();
+        return (
+            q.includes("summary of earnings call") ||
+            q.includes("summarize earnings call") ||
+            q.includes("get me a summary") && q.includes("earnings") && q.includes("call") ||
+            q.match(/q[1-4]\s+\d{4}.*earnings call summary/) ||
+            q.match(/earnings call.*(overview|recap|summary)/)
+        );
+    }
+
 
     // Attach button event to trigger file input click
     document.getElementById("attach-btn").addEventListener("click", function() {
@@ -513,19 +510,16 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function isEarningsReportQuery(query) {
-    const patterns = [
-        "earnings summary for",
-        "generate earnings report for",
-        "extract keywords from earnings call for",
-        "get key highlights from earnings call",
-        "summary of earnings call",                   // ✅ add this
-        "summarize earnings call for",                // ✅ already in use elsewhere
-        "earnings call for",                          // ✅ looser trigger
-        "summary of enterprise product's q1 2025",    // ✅ optional hardcoded test catch
-        "q1 2025 earnings call"                       // ✅ generic catch
-    ];
-    return patterns.some(pattern => query.toLowerCase().includes(pattern));
-}
+        const q = query.toLowerCase();
+        return (
+            q.includes("extract keywords from") ||
+            q.includes("generate earnings report with") ||
+            q.includes("analyze earnings call for") ||
+            (q.includes("keywords") && q.includes("earnings call")) ||
+            (q.includes("growth") || q.includes("outlook") || q.includes("margin"))
+        );
+    }
+
 
 
     function isMarketPerformanceQuery(query) {
