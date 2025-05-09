@@ -46,6 +46,7 @@ from mgmt_evasiveness import (
     generate_evasiveness_report,
     merge_reports, extract_evasiveness_parameters_from_text
 )
+from DebtCovenantExtractor import analyze_debt_covenants
 
 
 # Define your email whitelist here
@@ -352,6 +353,24 @@ def generate_report():
     except Exception as e:
         print(f"🔥 Error in /generate-report: {str(e)}")
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
+
+@app.route("/generate-debt-covenants", methods=["POST"])
+def generate_debt_covenants():
+    data = request.get_json()
+    query = data.get("query", "")
+
+    # Basic ticker extraction — you likely already have this
+    import re
+    match = re.search(r"\b([A-Z]{1,5})\b", query)
+    ticker = match.group(1) if match else None
+
+    if not ticker:
+        return jsonify({"response": "Could not identify a valid ticker."})
+
+    html_table = analyze_debt_covenants(ticker)
+    return jsonify({"response": html_table})
+
 
 # Earnings Call Summary Route - This should ask for keywords if needed
 @app.route('/generate-earnings-report', methods=['POST'])

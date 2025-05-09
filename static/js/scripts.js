@@ -512,6 +512,8 @@ document.addEventListener("DOMContentLoaded", function() {
       handleApiCall('/fetch-news-updates', { query }, chatBox);
     } else if (isMarketPerformanceQuery(query)) {
       handleApiCall('/generate-market-performance', { query }, chatBox);
+    } else if (isDebtCovenantQuery(query)) {
+      handleApiCall('/generate-debt-covenants', { query }, chatBox);
     } else if (isStockReportQuery(query)) {
       handleApiCall('/generate-report', { query }, chatBox);
     } else if (isEarningsCallExtractionQuery(query)) {
@@ -552,6 +554,17 @@ document.addEventListener("DOMContentLoaded", function() {
         );
     }
 
+    function isDebtCovenantQuery(query) {
+        const phrases = [
+            "debt covenant",
+            "extract debt terms",
+            "loan covenant",
+            "financial covenants",
+            "bond covenant",
+            "credit agreement terms"
+        ];
+        return phrases.some(phrase => query.toLowerCase().includes(phrase));
+    }
 
 
     function isMarketPerformanceQuery(query) {

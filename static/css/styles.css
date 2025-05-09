@@ -385,5 +385,39 @@ main {
 }
 
 
+/* Ensure HTML tables render well inside bot messages */
+.bot-message table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background-color: rgba(255, 255, 255, 0.05); /* subtle contrast */
+  color: #e5e5e5;
+  font-size: 16px;
+}
+
+.bot-message th,
+.bot-message td {
+  border: 1px solid #3b82f6;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.bot-message th {
+  background-color: rgba(59, 130, 246, 0.4);  /* subtle blue */
+  font-weight: bold;
+}
+
+.bot-message tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.03); /* zebra rows */
+}
+
+@media (max-width: 768px) {
+  .bot-message table,
+  .bot-message th,
+  .bot-message td {
+    font-size: 14px;
+    word-wrap: break-word;
+  }
+}
 
 
