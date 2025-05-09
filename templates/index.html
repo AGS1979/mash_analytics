@@ -70,25 +70,25 @@
         </div>
 
       <div class="chat-main">
-        <div id="chat-box"></div>
-      </div>
-    </div>
+  <div id="chat-box"></div>
 
+  <!-- ✅ Now inside chat-main -->
+  <div class="text-input">
+    <button id="attach-btn" title="Attach a PDF file">+</button>
+    <input type="file" id="file-input" accept="application/pdf, text/html" multiple style="display: none;" />
+    <span id="file-info"></span>
+    <select id="summary-type" style="display: none;">
+      <option value="short">Short Summary</option>
+      <option value="long">Long Summary</option>
+      <option value="esg">ESG Sustainability Report</option>
+      <option value="esg_compare">ESG Comparison</option>
+    </select>
+    <textarea id="chat-input" placeholder="Enter text here..."></textarea>
+    <button id="send-btn">Send</button>
+  </div>
+</div>
+</div> <!-- end of chat-container -->
 
-    <!-- Chat Input Area with Integrated File Attachment -->
-    <div class="text-input">
-      <button id="attach-btn" title="Attach a PDF file">+</button>
-      <input type="file" id="file-input" accept="application/pdf, text/html" multiple style="display: none;" />
-      <span id="file-info"></span>
-      <select id="summary-type" style="display: none;">
-    <option value="short">Short Summary</option>
-    <option value="long">Long Summary</option>
-    <option value="esg">ESG Sustainability Report</option>
-    <option value="esg_compare">ESG Comparison</option>  <!-- Added ESG Comparison Option -->
-</select>
-      <textarea id="chat-input" placeholder="Enter text here..."></textarea>
-      <button id="send-btn">Send</button>
-    </div>
   </main>
 
 
