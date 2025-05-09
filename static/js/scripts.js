@@ -283,6 +283,20 @@ document.addEventListener("DOMContentLoaded", function() {
                     <a href="${data.document_url}" target="_blank">Download Generated Document</a>
                 </div>`;
             }
+            // Handle numerical sentence extraction (figures from earnings call)
+            else if (data.sentences && Array.isArray(data.sentences)) {
+                botMessageHtml += `<div class='bot-message'><strong>📊 Extracted Figures from Earnings Call:</strong><ul>`;
+                data.sentences.forEach((sentence, index) => {
+                    // Show only the first 15 sentences by default
+                    if (index < 15) {
+                        botMessageHtml += `<li>${sentence}</li>`;
+                    }
+                });
+                if (data.sentences.length > 15) {
+                    botMessageHtml += `<li><em>...and ${data.sentences.length - 15} more sentences. Refine your query or download full call for details.</em></li>`;
+                }
+                botMessageHtml += `</ul></div>`;
+            }
             // Handle Earnings Call Summary
             else if (data.summary) {
                 botMessageHtml += `<div class='bot-message'><strong>Earnings Call Summary:</strong><br>${data.summary}</div>`;
