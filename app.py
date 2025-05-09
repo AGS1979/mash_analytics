@@ -46,7 +46,7 @@ from mgmt_evasiveness import (
     generate_evasiveness_report,
     merge_reports, extract_evasiveness_parameters_from_text
 )
-from DebtCov import analyze_debt_covenants
+from DebtCov import analyze_debt_covenants, extract_ticker_from_query
 
 
 # Define your email whitelist here
@@ -359,7 +359,11 @@ def generate_report():
 def generate_debt_covenants():
     data = request.get_json()
     query = data.get("query", "")
+    print("📩 Raw query from frontend:", query)
 
+    # Use DeepSeek to extract ticker
+    ticker = extract_ticker_from_query(query)
+    print("🎯 Extracted ticker:", ticker)
     # Basic ticker extraction — you likely already have this
     ticker = process_query_1(query)
 
