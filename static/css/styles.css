@@ -435,3 +435,25 @@ main {
   width: 100%;
   box-sizing: border-box;
 }
+
+body {
+  overflow-x: hidden;  /* Prevent entire page from scrolling horizontally */
+}
+
+.chat-main {
+  overflow-x: hidden;  /* Prevent horizontal scroll inside right column */
+}
+
+.bot-message table {
+  width: 100%;
+  table-layout: fixed;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.bot-message td,
+.bot-message th {
+  word-break: break-word;
+  white-space: normal;
+  max-width: 1px; /* force break inside narrow columns if needed */
+}

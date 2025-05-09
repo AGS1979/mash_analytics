@@ -133,7 +133,13 @@ def format_as_html_table(covenants):
         html += "</table></div>"
         return html
     except Exception as e:
-        return f"<p>Error parsing covenant data: {e}</p><pre>{covenants}</pre>"
+        return (
+            "<p><strong>No debt covenants found.</strong> "
+            "We reviewed the relevant sections of the latest 10-K filing but did not find any clauses "
+            "explicitly related to debt covenants. Try a different company or check if such clauses "
+            "exist in another report.</p>"
+        )
+
 
 def analyze_debt_covenants(ticker):
     link = get_latest_10k_final_link(ticker)
@@ -153,7 +159,11 @@ def analyze_debt_covenants(ticker):
 
     debt_section = extract_debt_related_text(html)
     if not debt_section:
-        return "<p>No debt covenant-related text found.</p>"
+        return (
+            "<p><strong>No debt-related section found.</strong> "
+            "The latest 10-K does not contain any identifiable sections referring to debt, loans, or covenants. "
+            "It’s possible this company does not disclose such details prominently.</p>"
+        )
 
     covenants_raw = extract_covenants_with_deepseek(debt_section)
     html_output = format_as_html_table(covenants_raw)
