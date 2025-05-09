@@ -601,16 +601,11 @@ def document_short_summary():
         print("Final summary length:", len(final_summary))
 
         # Create and save the Word document with the dynamic title
-        create_word_document(final_summary, custom_title)
-        doc_filename = f"{custom_title}.docx"
+        doc_path = create_word_document(final_summary, custom_title)
+        doc_filename = os.path.basename(doc_path)
         doc_path = os.path.join(DOCS_FOLDER, doc_filename)
         temp_doc_path = os.path.join(app.root_path, doc_filename)
-        if os.path.exists(temp_doc_path):
-            os.rename(temp_doc_path, doc_path)
-
-            print("Document moved to:", doc_path)
-        else:
-            print("Warning: Document file not found in the expected location.")
+        
 
         return jsonify({
             "message": "Short document summary generated successfully!",
