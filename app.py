@@ -46,7 +46,7 @@ from mgmt_evasiveness import (
     generate_evasiveness_report,
     merge_reports, extract_evasiveness_parameters_from_text
 )
-from DebtCovenantExtractor import analyze_debt_covenants
+from DebtCov import analyze_debt_covenants
 
 
 # Define your email whitelist here
