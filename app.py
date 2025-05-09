@@ -604,8 +604,10 @@ def document_short_summary():
         create_word_document(final_summary, custom_title)
         doc_filename = f"{custom_title}.docx"
         doc_path = os.path.join(DOCS_FOLDER, doc_filename)
-        if os.path.exists(doc_filename):
-            os.rename(doc_filename, doc_path)
+        temp_doc_path = os.path.join(app.root_path, doc_filename)
+        if os.path.exists(temp_doc_path):
+            os.rename(temp_doc_path, doc_path)
+
             print("Document moved to:", doc_path)
         else:
             print("Warning: Document file not found in the expected location.")
@@ -614,7 +616,7 @@ def document_short_summary():
             "message": "Short document summary generated successfully!",
             "title": custom_title,
             "summary": final_summary,
-            "document_url": url_for('send_report', filename=doc_filename)
+            "document_url": url_for('download_doc', filename=doc_filename)
         }), 200
 
     except Exception as e:
