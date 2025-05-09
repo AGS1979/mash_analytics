@@ -1,9 +1,10 @@
+import os
 import re
 from  openai import OpenAI
 import PyPDF2
 from docx import Document
 import concurrent.futures
-import os
+
 
 # Read your DeepSeek key (and optional base URL) from env
 DEEPSEEK_API_KEY = os.environ["DEEPSEEK_API_KEY"]
@@ -84,20 +85,28 @@ def iterative_refine_summary(summaries, target_word_count=250, batch_size=5):
 
 # Function to sanitize title and create a Word document from the summary with a dynamic title
 def create_word_document(summary, title):
-    # Sanitize the title to avoid invalid characters for filenames
+    
+
     sanitized_title = re.sub(r'[<>:"/\\|?*]', '_', title)
     sanitized_title = re.sub(r"'", "_", sanitized_title)
-    sanitized_title = sanitized_title.strip()
-    
-    if not sanitized_title:
-        sanitized_title = "Untitled_Document"
-    sanitized_title = sanitized_title[:255]  # Limit to 255 characters
+    sanitized_title = sanitized_title.strip() or "Untitled_Document"
+    sanitized_title = sanitized_title[:255]  # max filename length
+
+    # Use the Flask `DOCS_FOLDER` via env variable or fallback
+    docs_folder = os.getenv("DOCS_FOLDER", "documents")
+    os.makedirs(docs_folder, exist_ok=True)
+
+    full_path = os.path.join(docs_folder, f"{sanitized_title}.docx")
 
     doc = Document()
     doc.add_heading(sanitized_title, 0)
     doc.add_paragraph('This document summarizes the key insights from the uploaded document.\n')
     doc.add_paragraph(summary)
-    doc.save(f'{sanitized_title}.docx')
+    doc.save(full_path)
+
+    return full_path  # ✅ return actual path
+
+
 
 # Main function to process the PDF
 def main():

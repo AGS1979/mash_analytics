@@ -564,6 +564,9 @@ def extract_earnings_call_data():
 
 @app.route('/document-short-summary', methods=['POST'])
 def document_short_summary():
+    # At the start of your route function
+    os.environ["DOCS_FOLDER"] = app.config['DOCS_FOLDER']
+
     try:
         if 'file' not in request.files:
             return jsonify({"error": "No file part in the request"}), 400
@@ -603,9 +606,6 @@ def document_short_summary():
         # Create and save the Word document with the dynamic title
         doc_path = create_word_document(final_summary, custom_title)
         doc_filename = os.path.basename(doc_path)
-        doc_path = os.path.join(DOCS_FOLDER, doc_filename)
-        temp_doc_path = os.path.join(app.root_path, doc_filename)
-        
 
         return jsonify({
             "message": "Short document summary generated successfully!",
@@ -613,6 +613,7 @@ def document_short_summary():
             "summary": final_summary,
             "document_url": url_for('download_doc', filename=doc_filename)
         }), 200
+
 
     except Exception as e:
         print(f"Error in document_short_summary: {e}")
