@@ -23,14 +23,25 @@ SEC_HEADERS = {
 
 
 def get_latest_10k_final_link(ticker):
+    ticker = ticker.upper()
     url = f"https://financialmodelingprep.com/api/v3/sec_filings/{ticker}?type=10-k&page=0&apikey={FMP_API_KEY}"
     response = requests.get(url)
+    print(f"🔗 URL requested: {url}")
+    
     if response.status_code != 200:
+        print("❌ Request failed:", response.status_code)
         return None
+
     data = response.json()
+    print(f"📄 Number of filings received: {len(data)}")
+
     for item in data:
-        if "finalLink" in item:
+        print(f"➡️ Checking item: {item.get('type')} | FinalLink: {item.get('finalLink')}")
+        if item.get("type", "").lower() == "10-k" and item.get("finalLink"):
+            print(f"✅ FinalLink found: {item['finalLink']}")
             return item["finalLink"]
+
+    print("❌ No valid 10-K with finalLink found.")
     return None
 
 
