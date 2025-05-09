@@ -311,7 +311,11 @@ document.addEventListener("DOMContentLoaded", function() {
                 botMessageHtml = `<div class='bot-message'>⚠ Unexpected response format.</div>`;
             }
 
-            chatBox.innerHTML += botMessageHtml;
+            const wrapper = document.createElement("div");
+            wrapper.className = "bot-message";
+            wrapper.innerHTML = botMessageHtml;
+            chatBox.appendChild(wrapper);
+
             chatHistory[currentChat].push({ type: 'bot', message: botMessageHtml });
             chatBox.scrollTop = chatBox.scrollHeight;
         })
