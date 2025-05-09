@@ -284,19 +284,25 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>`;
             }
             // Handle numerical sentence extraction (figures from earnings call)
-            else if (data.sentences && Array.isArray(data.sentences)) {
-                botMessageHtml += `<div class='bot-message'><strong>📊 Extracted Figures from Earnings Call:</strong><ul>`;
-                data.sentences.forEach((sentence, index) => {
-                    // Show only the first 15 sentences by default
-                    if (index < 15) {
-                        botMessageHtml += `<li>${sentence}</li>`;
-                    }
-                });
-                if (data.sentences.length > 15) {
-                    botMessageHtml += `<li><em>...and ${data.sentences.length - 15} more sentences. Refine your query or download full call for details.</em></li>`;
-                }
-                botMessageHtml += `</ul></div>`;
-            }
+            else if (data.company && data.quarter && data.year && data.sentences) {
+            console.log("📊 API Response:", data);
+
+            let botMessageHtml = `<div class='bot-message'><strong>📊 Extracted Figures from Earnings Call:</strong><br>`;
+            data.sentences.slice(0, 15).forEach(sentence => {
+                botMessageHtml += `${sentence}<br>`;
+            });
+            botMessageHtml += `...and ${data.sentences.length - 15} more sentences. `;
+            botMessageHtml += `<br><a href="/download/${data.company}_${data.year}_Q${data.quarter}_figures.xlsx" target="_blank" style="color:blue;font-weight:bold;">⬇ Download Full Report</a></div>`;
+
+            const wrapper = document.createElement("div");
+            wrapper.className = "bot-message";
+            wrapper.innerHTML = botMessageHtml;
+            chatBox.appendChild(wrapper);
+            chatHistory[currentChat].push({ type: 'bot', message: botMessageHtml });
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return;
+        }
+
             // Handle Earnings Call Summary
             else if (data.summary) {
                 botMessageHtml += `<div class='bot-message'><strong>Earnings Call Summary:</strong><br>${data.summary}</div>`;

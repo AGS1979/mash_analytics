@@ -491,6 +491,8 @@ def fetch_news_updates():
         print(f"Error in fetching news: {e}")
         return jsonify({"error": str(e)}), 500
 
+from openpyxl import Workbook
+
 @app.route('/extract-earnings-call-data', methods=['POST'])
 def extract_earnings_call_data():
     """Handles earnings call figure extraction."""
@@ -506,19 +508,43 @@ def extract_earnings_call_data():
 
         print(f"📢 Extracting earnings figures for query: {query}")
 
-        # Ensure we do NOT trigger earnings summary by checking for keywords like "summary" or "keywords"
+        # Block summary-type queries
         if "summary" in query.lower() or "keywords" in query.lower():
             return jsonify({"error": "Use the earnings summary route for this request."}), 400
 
+        # Run main extraction logic
         result = get_earnings_call_data(query)
-
         if "error" in result:
             return jsonify(result), 400
 
+        # ✅ Generate Excel file
+        company = result["company"]
+        quarter = result["quarter"]
+        year    = result["year"]
+        sentences = result["sentences"]
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Extracted Figures"
+        ws.append(["Extracted Sentences"])
+
+        for sentence in sentences:
+            ws.append([sentence])
+
+        # Define filename
+        filename = f"{company}_{year}_Q{quarter}_figures.xlsx"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        wb.save(filepath)
+
+        # Return JSON with download URL
+        download_url = url_for('download_report', filename=filename, _external=True)
+
+        result["download_url"] = download_url
         return jsonify(result), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/document-short-summary', methods=['POST'])
 def document_short_summary():
