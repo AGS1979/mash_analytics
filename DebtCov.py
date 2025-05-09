@@ -75,15 +75,28 @@ def extract_covenants_with_deepseek(debt_text):
 
 def format_as_html_table(covenants):
     try:
-        rows = json.loads(covenants)
-        html = "<table border='1'><tr><th>Type</th><th>Description</th><th>Condition</th></tr>"
+        # Extract only the JSON array using regex
+        match = re.search(r"\[\s*{.*?}\s*\]", covenants, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON array found in the response.")
+        rows = json.loads(match.group(0))
+
+        # Wrap table in a scrollable div
+        html = "<div style='overflow-x:auto;'>"
+        html += "<table border='1' style='width:100%; table-layout:fixed;'>"
+        html += "<tr><th>Type</th><th>Description</th><th>Condition</th></tr>"
         for row in rows:
-            html += f"<tr><td>{row.get('Type')}</td><td>{row.get('Description')}</td><td>{row.get('Condition', '')}</td></tr>"
-        html += "</table>"
+            html += (
+                "<tr>"
+                f"<td>{row.get('Type')}</td>"
+                f"<td>{row.get('Description')}</td>"
+                f"<td>{row.get('Condition', '')}</td>"
+                "</tr>"
+            )
+        html += "</table></div>"
         return html
     except Exception as e:
         return f"<p>Error parsing covenant data: {e}</p><pre>{covenants}</pre>"
-
 
 def analyze_debt_covenants(ticker):
     link = get_latest_10k_final_link(ticker)

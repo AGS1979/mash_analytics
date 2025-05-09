@@ -420,4 +420,16 @@ main {
   }
 }
 
+.bot-message table {
+  table-layout: fixed;           /* Force equal column widths */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+
+.bot-message td,
+.bot-message th {
+  word-break: break-word;       /* Break long words */
+  white-space: normal;          /* Allow wrapping */
+}
 
