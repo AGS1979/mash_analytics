@@ -48,6 +48,15 @@ from mgmt_evasiveness import (
 )
 
 
+# Define your email whitelist here
+WHITELISTED_EMAILS = {
+    "avinashg.singh@aranca.com",
+    "ujjal.roy@aranca.com",
+    "rohit.dhawan@aranca.com",
+    "avi104@yahoo.co.in",
+    "vishal.kumar@aranca.com"
+}
+
 # Add the current directory to the sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -256,15 +265,17 @@ def signup():
     error = None
     username = request.form.get('username')
     password = request.form.get('password')
+
     if not username or not password:
-        error = "Please provide both username and password."
+        error = "Please provide both email and password."
+    elif username not in WHITELISTED_EMAILS:
+        error = "This email is not authorized to sign up. Please contact admin."
     elif user_exists(username):
-        error = "Username already taken. Choose another."
+        error = "Email already registered. Please log in."
     else:
         add_user(username, password)
-        # After sign up, redirect to login page.
         return redirect(url_for('login'))
-    # If error, render the same login page with an error message for the signup section.
+
     return render_template('login.html', error=error)
 
 @app.route('/logout')
