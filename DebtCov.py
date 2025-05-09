@@ -22,6 +22,27 @@ SEC_HEADERS = {
 }
 
 
+
+def extract_ticker_from_query(query):
+    system_msg = "You are a financial assistant. Given a user query, return ONLY the stock ticker symbol for the company mentioned. If no valid ticker can be determined, return 'UNKNOWN'."
+    user_msg = f"Query: {query}"
+
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg}
+        ],
+        temperature=0
+    )
+
+    raw_output = response.choices[0].message.content.strip()
+    print("🧠 DeepSeek raw output:", raw_output)
+
+    if raw_output.upper() == "UNKNOWN":
+        return None
+    return raw_output.upper()
+
 def get_latest_10k_final_link(ticker):
     ticker = ticker.upper()
     url = f"https://financialmodelingprep.com/api/v3/sec_filings/{ticker}?type=10-k&page=0&apikey={FMP_API_KEY}"

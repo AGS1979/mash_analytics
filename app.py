@@ -355,23 +355,20 @@ def generate_report():
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 
-@app.route("/generate-debt-covenants", methods=["POST"])
+@app.route('/generate-debt-covenants', methods=['POST'])
 def generate_debt_covenants():
     data = request.get_json()
     query = data.get("query", "")
     print("📩 Raw query from frontend:", query)
 
-    # Use DeepSeek to extract ticker
     ticker = extract_ticker_from_query(query)
     print("🎯 Extracted ticker:", ticker)
-    # Basic ticker extraction — you likely already have this
-    ticker = process_query_1(query)
 
     if not ticker:
-        return jsonify({"response": "Could not identify a valid ticker."})
+        return jsonify({"response": "<p>Could not identify a valid ticker.</p>"})
 
-    html_table = analyze_debt_covenants(ticker)
-    return jsonify({"response": html_table})
+    result = analyze_debt_covenants(ticker)
+    return jsonify({"response": result})
 
 
 # Earnings Call Summary Route - This should ask for keywords if needed
