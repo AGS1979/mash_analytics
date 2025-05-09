@@ -534,17 +534,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
     function isEarningsCallExtractionQuery(query) {
         const patterns = [
-            "extract figures from earnings call for",
-            "get numerical data from earnings call for",
-            "show earnings call data with numbers for",
+            "extract figures",
+            "get figures",
+            "numerical figures",
             "numbers from",
-            "numerical figures from",
             "metrics from",
-            "highlight figures in"
+            "highlight figures",
+            "extract data",
+            "data from earnings call",
+            "figures from earnings call"
         ];
 
-        return patterns.some(pattern => query.toLowerCase().includes(pattern));
+        const lower = query.toLowerCase();
+        return patterns.some(pattern => lower.includes(pattern) && lower.includes("earnings call"));
     }
+
 
     function isEarningsReportQuery(query) {
         const q = query.toLowerCase();
