@@ -323,9 +323,11 @@ document.addEventListener("DOMContentLoaded", function() {
             q.includes("summary of earnings call") ||
             q.includes("summarize earnings call") ||
             q.includes("can you summarize earnings call") ||
-            q.includes("get me a summary") && q.includes("earnings") && q.includes("call") ||
+            (q.includes("get me a summary") && q.includes("earnings") && q.includes("call")) ||
             q.match(/q[1-4]\s+\d{4}.*earnings call summary/) ||
-            q.match(/earnings call.*(overview|recap|summary)/)
+            q.match(/earnings call.*(overview|recap|summary)/) ||
+            q.match(/summarize\s+.+?'s\s+q[1-4]\s+\d{4}\s+earnings call/i) ||  // ⬅ handles "Caterpillar's Q1 2025 earnings call"
+            q.match(/can you summarize\s+.+?'s\s+q[1-4]\s+\d{4}\s+earnings call/i)
         );
     }
 
@@ -505,8 +507,13 @@ document.addEventListener("DOMContentLoaded", function() {
         const patterns = [
             "extract figures from earnings call for",
             "get numerical data from earnings call for",
-            "show earnings call data with numbers for"
+            "show earnings call data with numbers for",
+            "numbers from",
+            "numerical figures from",
+            "metrics from",
+            "highlight figures in"
         ];
+
         return patterns.some(pattern => query.toLowerCase().includes(pattern));
     }
 
