@@ -565,7 +565,7 @@ def extract_earnings_call_data():
 @app.route('/document-short-summary', methods=['POST'])
 def document_short_summary():
     # At the start of your route function
-    os.environ["DOCS_FOLDER"] = app.config['DOCS_FOLDER']
+    os.environ["DOCS_FOLDER"] = os.path.abspath(app.config['DOCS_FOLDER'])
 
     try:
         if 'file' not in request.files:
