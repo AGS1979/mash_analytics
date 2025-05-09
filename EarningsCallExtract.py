@@ -50,9 +50,23 @@ def fetch_earning_call_transcript(ticker, year, quarter):
     return ""
 
 def extract_sentences_with_numbers(text):
-    """Extract sentences that contain numeric figures."""
+    """
+    Extracts sentences containing both numbers and relevant financial/business keywords.
+    """
+    keywords = [
+        "revenue", "sales", "margin", "profit", "earnings", "guidance", "outlook", "forecast",
+        "free cash flow", "cash flow", "EBIT", "operating", "inventory", "backlog", "dividend",
+        "return", "cost", "expense", "growth", "performance", "expect", "project", "estimate",
+        "competition", "market", "industry", "volume", "price", "demand", "supply"
+    ]
+
+    pattern = re.compile(r'\b(?:' + '|'.join(map(re.escape, keywords)) + r')\b', flags=re.IGNORECASE)
     sentences = re.split(r'(?<=[.!?])\s+', text)
-    return [s for s in sentences if re.search(r'\d+', s)]
+    
+    return [
+        sentence for sentence in sentences
+        if re.search(r'\d+', sentence) and pattern.search(sentence)
+    ]
 
 def filter_by_keywords(sentences, keywords):
     """Filters the numeric sentences by presence of any keyword."""
