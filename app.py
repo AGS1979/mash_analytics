@@ -361,9 +361,7 @@ def generate_debt_covenants():
     query = data.get("query", "")
 
     # Basic ticker extraction — you likely already have this
-    import re
-    match = re.search(r"\b([A-Z]{1,5})\b", query)
-    ticker = match.group(1) if match else None
+    ticker = process_query_1(query)
 
     if not ticker:
         return jsonify({"response": "Could not identify a valid ticker."})
