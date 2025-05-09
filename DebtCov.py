@@ -2,15 +2,24 @@ import os
 import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
-from flask import jsonify
 import re
+import json
 
-# Load keys from environment (your structure)
+# Load API keys
 FMP_API_KEY = os.environ.get("FMP_API_KEY")
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 DEEPSEEK_API_BASE = os.getenv("DEEPSEEK_API_BASE", "https://api.deepseek.com")
 
+# DeepSeek client
 client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_API_BASE)
+
+# SEC-compliant headers
+SEC_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; MaShBot/1.0; https://mash-analytics.onrender.com/chat)",
+    "Accept-Encoding": "gzip, deflate",
+    "Host": "www.sec.gov",
+    "Connection": "keep-alive"
+}
 
 
 def get_latest_10k_final_link(ticker):
@@ -27,42 +36,22 @@ def get_latest_10k_final_link(ticker):
 
 def extract_debt_related_text(html):
     soup = BeautifulSoup(html, "html.parser")
-
-    # Convert to plain text fallback if HTML structure fails
-    fallback_text = soup.get_text(separator="\n")
-
-    # Keywords to search in section headers
-    keywords = [
-        "debt", "long-term debt", "credit facility", "covenant",
-        "loan agreement", "senior notes", "borrowings", "indenture"
-    ]
-
-    # Compile a case-insensitive regex for note headers
-    pattern = re.compile(r"(note\s+\d+\s*[-–—]?\s*)?(%s)" % "|".join(keywords), re.IGNORECASE)
+    pattern = re.compile(r"(note\s+\d+\s*[-–—]?\s*)?(debt|borrowings|credit|covenant|loan)", re.IGNORECASE)
+    candidates = soup.find_all(['b', 'strong', 'div', 'span', 'p'])
 
     extracted = []
-
-    # Look for bold or strong tags which often contain note headers
-    candidates = soup.find_all(['b', 'strong'])
-
     for tag in candidates:
-        header_text = tag.get_text(strip=True)
-        if pattern.search(header_text):
-            # Try to find the relevant following content
+        header = tag.get_text(strip=True)
+        if pattern.search(header):
             content_block = []
             next_node = tag.find_next_sibling()
-            while next_node and (next_node.name in ['p', 'div', 'span', 'table']):
+            while next_node and next_node.name in ['p', 'div', 'span', 'table']:
                 content_block.append(next_node.get_text(strip=True))
                 next_node = next_node.find_next_sibling()
-
             if content_block:
-                extracted.append(f"<h4>{header_text}</h4><p>{'</p><p>'.join(content_block)}</p>")
+                extracted.append(f"<h4>{header}</h4><p>{'</p><p>'.join(content_block)}</p>")
 
-    # If no structured HTML block found, fallback to text extraction
-    if not extracted:
-        return None  # Let upstream handler return "no covenants found"
-
-    return "<br><br>".join(extracted)
+    return "<br><br>".join(extracted) if extracted else None
 
 
 def extract_covenants_with_deepseek(debt_text):
@@ -85,7 +74,6 @@ def extract_covenants_with_deepseek(debt_text):
 
 
 def format_as_html_table(covenants):
-    import json
     try:
         rows = json.loads(covenants)
         html = "<table border='1'><tr><th>Type</th><th>Description</th><th>Condition</th></tr>"
@@ -102,7 +90,17 @@ def analyze_debt_covenants(ticker):
     if not link:
         return "<p>10-K filing not found for ticker.</p>"
 
-    html = requests.get(link).text
+    print(f"✅ Fetching HTML from: {link}")
+    resp = requests.get(link, headers=SEC_HEADERS)
+    content_type = resp.headers.get("Content-Type", "")
+    print(f"🔎 Content-Type: {content_type}")
+
+    if "html" not in content_type.lower():
+        return "<p>10-K filing is not in HTML format. Please try another company or use a different year.</p>"
+
+    html = resp.text
+    print("🧪 Preview of HTML:", html[:500])
+
     debt_section = extract_debt_related_text(html)
     if not debt_section:
         return "<p>No debt covenant-related text found.</p>"

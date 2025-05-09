@@ -308,6 +308,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 botMessageHtml += `<div class='bot-message'><strong>Earnings Call Summary:</strong><br>${data.summary}</div>`;
             }
             // Handle General Message Responses
+            else if (data.response) {
+              botMessageHtml = `<div class='bot-message'>${data.response}</div>`;
+            }
             else if (data.message) {
                 botMessageHtml = `<div class='bot-message'>${data.message}</div>`;
             }
