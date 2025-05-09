@@ -22,9 +22,11 @@ SEC_HEADERS = {
 }
 
 
-
 def extract_ticker_from_query(query):
-    system_msg = "You are a financial assistant. Given a user query, return ONLY the stock ticker symbol for the company mentioned. If no valid ticker can be determined, return 'UNKNOWN'."
+    system_msg = (
+        "You are a financial assistant. Given a user query, return ONLY the stock ticker symbol "
+        "for the company mentioned. Respond with ONLY the ticker in uppercase. If no ticker can be found, respond with 'UNKNOWN'."
+    )
     user_msg = f"Query: {query}"
 
     response = client.chat.completions.create(
@@ -36,12 +38,15 @@ def extract_ticker_from_query(query):
         temperature=0
     )
 
-    raw_output = response.choices[0].message.content.strip()
-    print("🧠 DeepSeek raw output:", raw_output)
+    raw = response.choices[0].message.content.strip()
+    print("🧠 DeepSeek raw output:", raw)
 
-    if raw_output.upper() == "UNKNOWN":
+    # Clean and extract the first uppercase ticker (assumes all caps, 1–5 letters)
+    match = re.search(r'\b[A-Z]{1,5}\b', raw)
+    if match:
+        return match.group(0)
+    else:
         return None
-    return raw_output.upper()
 
 def get_latest_10k_final_link(ticker):
     ticker = ticker.upper()
