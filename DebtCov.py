@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 from openai import OpenAI
 from flask import jsonify
+import re
 
 # Load keys from environment (your structure)
 FMP_API_KEY = os.environ.get("FMP_API_KEY")
@@ -26,16 +27,42 @@ def get_latest_10k_final_link(ticker):
 
 def extract_debt_related_text(html):
     soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text(separator="\n")
 
-    # Heuristic: sentences around the term 'covenant'
-    lines = text.split("\n")
-    debt_mentions = []
-    for i, line in enumerate(lines):
-        if "covenant" in line.lower():
-            context = "\n".join(lines[max(i-4, 0):min(i+5, len(lines))])
-            debt_mentions.append(context)
-    return "\n\n".join(debt_mentions)
+    # Convert to plain text fallback if HTML structure fails
+    fallback_text = soup.get_text(separator="\n")
+
+    # Keywords to search in section headers
+    keywords = [
+        "debt", "long-term debt", "credit facility", "covenant",
+        "loan agreement", "senior notes", "borrowings", "indenture"
+    ]
+
+    # Compile a case-insensitive regex for note headers
+    pattern = re.compile(r"(note\s+\d+\s*[-–—]?\s*)?(%s)" % "|".join(keywords), re.IGNORECASE)
+
+    extracted = []
+
+    # Look for bold or strong tags which often contain note headers
+    candidates = soup.find_all(['b', 'strong'])
+
+    for tag in candidates:
+        header_text = tag.get_text(strip=True)
+        if pattern.search(header_text):
+            # Try to find the relevant following content
+            content_block = []
+            next_node = tag.find_next_sibling()
+            while next_node and (next_node.name in ['p', 'div', 'span', 'table']):
+                content_block.append(next_node.get_text(strip=True))
+                next_node = next_node.find_next_sibling()
+
+            if content_block:
+                extracted.append(f"<h4>{header_text}</h4><p>{'</p><p>'.join(content_block)}</p>")
+
+    # If no structured HTML block found, fallback to text extraction
+    if not extracted:
+        return None  # Let upstream handler return "no covenants found"
+
+    return "<br><br>".join(extracted)
 
 
 def extract_covenants_with_deepseek(debt_text):
