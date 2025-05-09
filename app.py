@@ -604,7 +604,7 @@ def document_short_summary():
         print("Final summary length:", len(final_summary))
 
         # Create and save the Word document with the dynamic title
-        doc_path = create_word_document(final_summary, custom_title)
+        doc_path = create_word_document(final_summary, custom_title, docs_folder=app.config['DOCS_FOLDER'])
         doc_filename = os.path.basename(doc_path)
 
         return jsonify({
