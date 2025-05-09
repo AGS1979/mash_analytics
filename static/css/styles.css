@@ -27,7 +27,7 @@ body::before {
     Increase or decrease the RGBA alpha (0.6 -> 0.7, 0.8, etc.) to fade more.
   */
   background:
-    linear-gradient(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)),
+    linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)),
     url("../images/AI.png") no-repeat center center / cover;
   z-index: -1; 
 }
@@ -87,35 +87,9 @@ main {
   margin-top: 100px;  /* ← Add this to avoid content going under header */
 }
 
-/* Chat Container */
-.chat-container {
-  display: flex;
-  width: 90%;
-  max-width: 1200px;
-  margin: 40px auto;
-  background-color: rgba(37, 49, 65, 0.85);
-  border-radius: 15px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.0);
-  position: relative;
-  z-index: 0;
-  height: 800px;  /* 👈 Add this line */
-}
 
-.chat-history {
-  width: 30%;              /* ← bump up from 25% */
-  padding: 20px;
 
-  /* allow vertical scroll but let children overflow horizontally */
-  overflow-y: auto;  
 
-  position: relative;      /* create a stacking context */
-  z-index: 10;              /* lift left pane above right pane */
-
-  background-color: rgba(37, 49, 65, 0.95);
-  border-top-left-radius: 15px;
-  border-bottom-left-radius: 15px;
-  border-right: 2px solid #3b82f6;
-}
 
 
 .chat-history h3 {
@@ -141,17 +115,15 @@ main {
   background-color: #3b82f6;
 }
 
+
 .chat-main {
   display: flex;
   flex-direction: column;
   height: 100%;
   position: relative;
+  z-index: 1;
 }
 
-.chat-main {
-  position: relative;  /* establish its own stacking context */
-  z-index: 1;          /* sit underneath .chat-history */
-}
 
 /* Chat Box */
 #chat-box {
@@ -186,13 +158,22 @@ main {
   max-width: 80%;
 }
 
-/* Text Input Area */
+
 .text-input {
-  margin: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  background-color: rgba(31, 41, 55, 0.95);
   padding: 15px;
+  z-index: 999;
   border-top: 1px solid #3b82f6;
-  background-color: rgba(31, 41, 55, 0.9);
 }
+
+
+
 
 .text-input textarea {
   flex: 1;
@@ -241,13 +222,22 @@ main {
   scrollbar-color: #3b82f6 rgba(31, 41, 55, 0.9);
 }
 
-/* make the history pane split top / bottom */
-.chat-history {
+.chat-container {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between; /* top stays at top, bottom at bottom */
-  height: 100%;
+  width: 90%;
+  max-width: 1200px;
+  height: calc(100vh - 170px);  /* full screen minus header + input */
+  margin: 100px auto 0 auto;    /* header offset */
+  background-color: rgba(37, 49, 65, 0.95);
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: visible;
+  z-index: 1;
+  padding-bottom: 100px; /* for fixed input box */
 }
+
+
 
 /* static “bottom” info section */
 .chat-history-bottom {
@@ -301,38 +291,33 @@ main {
   opacity: 1;
 }
 
-.chat-history {
-  overflow-x: hidden !important; /* Force hiding horizontal scroll */
-}
-
-
-/* make the vertical thumb 8px wide */
-.chat-history::-webkit-scrollbar {
-  width: 8px;
-}
-
-/* then kill the horizontal thumb */
-.chat-history::-webkit-scrollbar:horizontal {
-  height: 0 !important;
-}
-
 
 /* ── hide only the horizontal scrollbar in WebKit, keep the vertical one ── */
 .chat-history::-webkit-scrollbar:horizontal {
   height: 0 !important;
 }
 
-.chat-container {
-  height: calc(100vh - 120px);  /* Adjusted height to fit screen and header */
-  overflow: hidden;
+.chat-history {
+  width: 30%;
+  padding: 20px;
+  background-color: rgba(37, 49, 65, 0.95);
+  border-top-left-radius: 15px;
+  border-bottom-left-radius: 15px;
+  border-right: 2px solid #3b82f6;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: sticky;
+  top: 100px;  /* match header height */
+
+  height: calc(100vh - 120px);  /* leave room for header & input */
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
-.chat-history {
-  height: 100%;
-  overflow-y: auto;
-  position: sticky;  /* Keeps it fixed when right side scrolls */
-  top: 100px;         /* match the header height */
-}
 
 @media (max-width: 768px) {
   header {
@@ -349,26 +334,10 @@ main {
     margin-top: 130px;
   }
 
-  .chat-container {
-    flex-direction: column;
-    width: 95%;
-    margin-top: 20px;
-  }
 
-  .chat-history {
-    width: 100%;
-    max-height: 250px;
-    overflow-y: auto;
-    border-radius: 10px 10px 0 0;
-  }
-
-  .chat-main {
-    width: 100%;
-    padding: 15px;
-  }
 
   #chat-box {
-    height: 300px;
+    height: calc(100vh - 240px); /* header + fixed input box padding */
     font-size: 14px;
   }
 
