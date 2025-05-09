@@ -322,6 +322,7 @@ document.addEventListener("DOMContentLoaded", function() {
         return (
             q.includes("summary of earnings call") ||
             q.includes("summarize earnings call") ||
+            q.includes("can you summarize earnings call") ||
             q.includes("get me a summary") && q.includes("earnings") && q.includes("call") ||
             q.match(/q[1-4]\s+\d{4}.*earnings call summary/) ||
             q.match(/earnings call.*(overview|recap|summary)/)
@@ -513,7 +514,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const q = query.toLowerCase();
         return (
             q.includes("extract keywords from") ||
-            q.includes("generate earnings report with") ||
+            q.includes("earnings report with") ||
             q.includes("analyze earnings call for") ||
             (q.includes("keywords") && q.includes("earnings call")) ||
             (q.includes("growth") || q.includes("outlook") || q.includes("margin"))
