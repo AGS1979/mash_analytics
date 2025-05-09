@@ -68,6 +68,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['DOCS_FOLDER'] = DOCS_FOLDER
 app.config['REPORTS_DIR'] = REPORTS_DIR
 
+# Ensure folders exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(DOCS_FOLDER, exist_ok=True)
+os.makedirs(REPORTS_DIR, exist_ok=True)
+
 
 # ─── 1) End‐point to generate & store the XLSX ────────────────────────────────
 @app.route('/analyze-evasiveness', methods=['POST'])
