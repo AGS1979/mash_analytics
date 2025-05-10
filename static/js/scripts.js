@@ -535,12 +535,17 @@ document.addEventListener("DOMContentLoaded", function() {
     function isEarningsCallExtractionQuery(query) {
         const patterns = [
             "extract figures",
+            "extract the figures",
+            "get the figures",
             "get figures",
             "numerical figures",
+            "get numerical figures",
+            "extract numbers from",
             "numbers from",
             "metrics from",
             "highlight figures",
             "extract data",
+            "extract the data from",
             "data from earnings call",
             "figures from earnings call"
         ];
