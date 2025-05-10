@@ -73,29 +73,31 @@ def get_latest_10k_final_link(ticker):
 
 def extract_debt_related_text(html):
     soup = BeautifulSoup(html, "html.parser")
-    pattern = re.compile(r"(note\s+\d+\s*[-–—]?\s*)?(debt|borrowings|credit|covenant|loan)", re.IGNORECASE)
-    candidates = soup.find_all(['b', 'strong', 'div', 'span', 'p'])
+    all_text = soup.get_text(separator="\n", strip=True)
 
-    extracted = []
-    for tag in candidates:
-        header = tag.get_text(strip=True)
-        if pattern.search(header):
-            content_block = []
-            next_node = tag.find_next_sibling()
-            while next_node and next_node.name in ['p', 'div', 'span', 'table']:
-                content_block.append(next_node.get_text(strip=True))
-                next_node = next_node.find_next_sibling()
-            if content_block:
-                extracted.append(f"<h4>{header}</h4><p>{'</p><p>'.join(content_block)}</p>")
+    # Get paragraphs around keywords (5 lines before & after)
+    lines = all_text.splitlines()
+    matches = []
+    keywords = re.compile(r"\b(covenant|debt|credit agreement|indenture|loan agreement|restrictive covenant)\b", re.IGNORECASE)
 
-    return "<br><br>".join(extracted) if extracted else None
+    for i, line in enumerate(lines):
+        if keywords.search(line):
+            context = lines[max(i - 5, 0): min(i + 6, len(lines))]
+            matches.append("\n".join(context))
+
+    return "\n\n---\n\n".join(matches) if matches else None
 
 
 def extract_covenants_with_deepseek(debt_text):
     system_msg = (
-        "You are a financial assistant. Extract all debt covenant clauses from the input text. "
-        "Categorize each clause as either: Financial Covenant, Negative Covenant, or Affirmative Covenant. "
-        "Return result as a list of dictionaries with keys: 'Type', 'Description', 'Condition' (if applicable)."
+        "You are a financial assistant. Extract all clauses related to debt covenants from the given SEC 10-K text. "
+        "Debt covenants may appear as terms like 'limitations on indebtedness', 'coverage ratios', 'negative pledges', "
+        "'maintenance of insurance', or restrictions under 'indenture agreements'. \n\n"
+        "Return each clause as a dictionary with keys:\n"
+        "  - 'Type' (Financial Covenant, Negative Covenant, Affirmative Covenant)\n"
+        "  - 'Description' (full clause)\n"
+        "  - 'Condition' (only if explicitly stated)\n\n"
+        "Return a list of these dictionaries. If none are found, return an empty list []."
     )
     user_msg = f"Text: {debt_text}"
 
@@ -141,6 +143,10 @@ def format_as_html_table(covenants):
         )
 
 
+
+print(f"🔍 Extracted {debt_section.count('---')} covenant-relevant blocks")
+
+
 def analyze_debt_covenants(ticker):
     link = get_latest_10k_final_link(ticker)
     if not link:
@@ -158,6 +164,13 @@ def analyze_debt_covenants(ticker):
     print("🧪 Preview of HTML:", html[:500])
 
     debt_section = extract_debt_related_text(html)
+
+    # ✅ Fallback: try broader regex-based scan if main extraction fails
+    if not debt_section:
+        print("🔁 No specific debt/covenant section found. Performing broader keyword scan.")
+        debt_section = extract_covenant_keywords_fallback(html)
+
+    # ✅ If even fallback fails, return error message
     if not debt_section:
         return (
             "<p><strong>No debt-related section found.</strong> "
@@ -165,6 +178,13 @@ def analyze_debt_covenants(ticker):
             "It’s possible this company does not disclose such details prominently.</p>"
         )
 
+
     covenants_raw = extract_covenants_with_deepseek(debt_section)
     html_output = format_as_html_table(covenants_raw)
     return html_output
+
+def extract_covenant_keywords_fallback(html):
+    soup = BeautifulSoup(html, "html.parser")
+    text = soup.get_text(separator="\n", strip=True)
+    snippets = re.findall(r".{0,250}(covenant[s]?|debt|indenture|credit agreement).{0,250}", text, re.IGNORECASE)
+    return "\n\n".join(snippets) if snippets else None
