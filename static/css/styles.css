@@ -233,9 +233,8 @@ main {
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   z-index: 1;
-  padding-bottom: 100px; /* for fixed input box */
 }
 
 
@@ -312,7 +311,8 @@ main {
   position: sticky;
   top: 100px;  /* match header height */
 
-  height: calc(100vh - 120px);  /* leave room for header & input */
+  height: calc(100vh - 170px);  /* leave room for header & input */
+  padding-bottom: 100px; /* ← Match .chat-container bottom padding */
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
