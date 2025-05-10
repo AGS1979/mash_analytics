@@ -96,7 +96,7 @@ document.addEventListener("DOMContentLoaded", function() {
       let z;
 
       // 0) “How evasive was Tesla in Q1 2025”
-      let re0 = /(?:how\s+evasive\s+(?:was|is)\s+)(.+?)\s+in\s+q([1-4])\s+(\d{4})/i;
+      let re0 = /(?:how\s+evasive\s+(?:was|is)\s+)(.+?)\s+in(?:\s+\w+){0,3}?\s+q([1-4])\s+(\d{4})/i;
       if (z = query.match(re0)) {
         return {
           company: z[1].trim(),
