@@ -82,10 +82,11 @@ def parse_keywords_from_query(query):
 
 def get_earnings_call_data(query):
     """Main handler for extracting numeric + keyword-based sentences."""
+    query = re.sub(r"^(also|please|can you|kindly|just)\b[,:]?\s*", "", query.strip(), flags=re.IGNORECASE)
     ticker = extract_ticker_deepseek(query)
     if not ticker:
         return {"error": "Could not extract ticker from the query."}
-    query = re.sub(r"^(also|please|can you|kindly|just)\b[,:]?\s*", "", query.strip(), flags=re.IGNORECASE)
+    
     match = re.search(r'\bQ([1-4])\b[\s,:\-]*(\d{4})', query, re.IGNORECASE)
     if not match:
         return {"error": "Could not extract quarter and year."}
