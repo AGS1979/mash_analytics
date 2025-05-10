@@ -142,11 +142,6 @@ def format_as_html_table(covenants):
             "exist in another report.</p>"
         )
 
-
-
-print(f"🔍 Extracted {debt_section.count('---')} covenant-relevant blocks")
-
-
 def analyze_debt_covenants(ticker):
     link = get_latest_10k_final_link(ticker)
     if not link:
