@@ -435,6 +435,9 @@ document.addEventListener("DOMContentLoaded", function() {
       } else if (summaryType === 'earnings-call') {
         formData.append('file', fileInput.files[0]);
         endpoint = '/generate-earnings-call-summary';
+      } else if (summaryType === 'redflag') {
+        formData.append('file', fileInput.files[0]);
+        endpoint = '/analyze-redflags';
       }
 
       fetch(endpoint, { method: 'POST', body: formData })
@@ -519,6 +522,8 @@ document.addEventListener("DOMContentLoaded", function() {
       handleApiCall('/generate-debt-covenants', { query }, chatBox);
     } else if (isStockReportQuery(query)) {
       handleApiCall('/generate-report', { query }, chatBox);
+    } else if (isRedFlagQuery(query)) {
+    handleApiCall('/analyze-redflags', { text: query }, chatBox);
     } else if (isEarningsCallExtractionQuery(query)) {
       handleApiCall('/extract-earnings-call-data', { query }, chatBox);
     } else {
@@ -531,6 +536,12 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("new-query-btn").addEventListener("click", function() {
         resetChatInterface();
     });
+
+
+
+    function isRedFlagQuery(query) {
+      return query.toLowerCase().includes("red flag") || query.toLowerCase().includes("flagged statement");
+    }
 
     function isEarningsCallExtractionQuery(query) {
     const patterns = [

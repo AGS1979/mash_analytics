@@ -47,7 +47,8 @@ from mgmt_evasiveness import (
     merge_reports, extract_evasiveness_parameters_from_text
 )
 from DebtCov import analyze_debt_covenants, extract_ticker_from_query
-
+from openpyxl import Workbook
+from redflaganalysis import get_red_flag_sentences
 
 # Define your email whitelist here
 WHITELISTED_EMAILS = {
@@ -371,6 +372,22 @@ def generate_debt_covenants():
     return jsonify({"response": result})
 
 
+@app.route('/analyze-redflags', methods=['POST'])
+def analyze_red_flags():
+    if 'file' in request.files:
+        file = request.files['file']
+        text = file.read().decode('utf-8')
+    else:
+        json_data = request.get_json()
+        text = json_data.get("text", "")
+
+    if not text.strip():
+        return jsonify({"error": "No valid text provided"}), 400
+
+    red_flags = get_red_flag_sentences(text)
+    return jsonify({"red_flags": red_flags, "count": len(red_flags)})
+
+
 # Earnings Call Summary Route - This should ask for keywords if needed
 @app.route('/generate-earnings-report', methods=['POST'])
 def generate_earnings_report_route():
@@ -452,6 +469,26 @@ def generate_earnings_call_summary_route():
         print(f"🔥 ERROR: Internal Server Error: {str(e)}")
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
+
+from RedFlagAnalyzer import get_red_flag_sentences
+
+@app.route('/analyze-redflags', methods=['POST'])
+def analyze_red_flags():
+    if 'file' in request.files:
+        file = request.files['file']
+        text = file.read().decode('utf-8')
+    else:
+        json_data = request.get_json()
+        text = json_data.get("text", "")
+
+    if not text.strip():
+        return jsonify({"error": "No valid text provided"}), 400
+
+    red_flags = get_red_flag_sentences(text)
+    return jsonify({"red_flags": red_flags, "count": len(red_flags)})
+
+
+
 @app.route('/generate-market-performance', methods=['POST'])
 def generate_market_performance():
     """This route handles market performance report generation based on the user query."""
@@ -525,7 +562,7 @@ def fetch_news_updates():
         print(f"Error in fetching news: {e}")
         return jsonify({"error": str(e)}), 500
 
-from openpyxl import Workbook
+
 
 @app.route('/extract-earnings-call-data', methods=['POST'])
 def extract_earnings_call_data():
