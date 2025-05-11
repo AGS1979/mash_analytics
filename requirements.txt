@@ -16,6 +16,11 @@ yfinance
 pdfkit
 python-dotenv
 Flask-Cors
+transformers
+torch
+datasets
+evaluate
+nltk
 
 
 
