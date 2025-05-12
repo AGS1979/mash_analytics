@@ -9,25 +9,20 @@ classifier = pipeline("text-classification",
                       device=-1)  # Use device=0 if running on GPU
 
 def get_red_flag_sentences(text):
-    """
-    Splits the input text into sentences and classifies each one.
-    Returns only those classified as red flags (LABEL_1).
-    """
     import re
-
-    # 🔍 Strip known prefixes to avoid misclassification
     if text.lower().startswith("highlight red flag statements in this passage:"):
         text = text[len("highlight red flag statements in this passage:"):].strip()
 
-    # Basic sentence split
     sentences = re.split(r'(?<=[.?!])\s+', text.strip())
-
     red_flags = []
+
     for sentence in sentences:
         if not sentence.strip():
             continue
         result = classifier(sentence)[0]
-        if result["label"] == "LABEL_1" and result["score"] > 0.6:
-            red_flags.append(sentence.strip())
+        if result["label"] == "LABEL_1" and result["score"] > 0.75:
+            red_flags.append((sentence.strip(), round(result["score"], 2)))
+
     return red_flags
+
 

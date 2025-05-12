@@ -308,12 +308,20 @@ document.addEventListener("DOMContentLoaded", function() {
                 botMessageHtml += `<div class='bot-message'><strong>Earnings Call Summary:</strong><br>${data.summary}</div>`;
             }
             else if (data.red_flags && Array.isArray(data.red_flags)) {
-                botMessageHtml = `<div class='bot-message'>
-                <strong>🚩 Red Flag Statements Detected (${data.count}):</strong><br>
-                <ul style="margin-top: 8px;">` +
-                data.red_flags.map(sentence => `<li>${sentence}</li>`).join('') +
-                `</ul></div>`;
+              let botMessageHtml = `<div class='bot-message'><strong>🚩 Red Flag Statements Detected (${data.count}):</strong><br>`;
+              data.red_flags.forEach((entry, idx) => {
+                botMessageHtml += `<span><strong>[${entry.score}]</strong> ${entry.sentence}</span><br>`;
+              });
+              botMessageHtml += `</div>`;
+              const wrapper = document.createElement("div");
+              wrapper.className = "bot-message";
+              wrapper.innerHTML = botMessageHtml;
+              chatBox.appendChild(wrapper);
+              chatHistory[currentChat].push({ type: 'bot', message: botMessageHtml });
+              chatBox.scrollTop = chatBox.scrollHeight;
+              return;
             }
+
             // Handle General Message Responses
             else if (data.response) {
               botMessageHtml = `<div class='bot-message'>${data.response}</div>`;

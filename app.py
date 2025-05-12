@@ -385,7 +385,10 @@ def analyze_red_flags():
         return jsonify({"error": "No valid text provided"}), 400
 
     red_flags = get_red_flag_sentences(text)
-    return jsonify({"red_flags": red_flags, "count": len(red_flags)})
+    return jsonify({
+        "count": len(red_flags),
+        "red_flags": [{"sentence": s, "score": score} for s, score in red_flags]
+    })
 
 
 # Earnings Call Summary Route - This should ask for keywords if needed
@@ -468,7 +471,7 @@ def generate_earnings_call_summary_route():
     except Exception as e:
         print(f"🔥 ERROR: Internal Server Error: {str(e)}")
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
-        
+
 
 @app.route('/generate-market-performance', methods=['POST'])
 def generate_market_performance():
