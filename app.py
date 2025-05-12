@@ -469,9 +469,6 @@ def generate_earnings_call_summary_route():
         print(f"🔥 ERROR: Internal Server Error: {str(e)}")
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
-
-from RedFlagAnalyzer import get_red_flag_sentences
-
 @app.route('/analyze-redflags', methods=['POST'])
 def analyze_red_flags():
     if 'file' in request.files:
