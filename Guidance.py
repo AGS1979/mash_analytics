@@ -15,13 +15,15 @@ deepseek_client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_API_BASE)
 
 
 def extract_ticker_and_period(query):
-    """Use DeepSeek to extract ticker, quarter, and year."""
     prompt = f"""
-You are a financial assistant. Extract the stock ticker, quarter, and year from the user query below. 
-If the quarter and year are not explicitly mentioned, infer if the query is asking for the most recent quarter.
+You are a financial assistant. Given the user query below, extract the stock ticker, quarter, and year.
 
-Return ONLY this JSON:
-{{"ticker": "XXX", "quarter": Q, "year": YYYY}}
+Only respond with a valid JSON object like this:
+{{
+  "ticker": "TSLA",
+  "quarter": 1,
+  "year": 2025
+}}
 
 Query: {query}
 """
@@ -32,34 +34,17 @@ Query: {query}
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content.strip()
-        try:
-            result = json.loads(content)
-            return result["ticker"], int(result["quarter"]), int(result["year"])
-        except Exception:
-            print("🔎 Raw response from DeepSeek:", content)
-            # Fallback: regex parse
-            try:
-                ticker = re.search(r'"?ticker"?\s*[:=]\s*"?([A-Z.]+)"?', content).group(1)
-                quarter = int(re.search(r'"?quarter"?\s*[:=]\s*"?([1-4])"?', content).group(1))
-                year = int(re.search(r'"?year"?\s*[:=]\s*"?(\d{4})"?', content).group(1))
-                return ticker, quarter, year
-            except Exception as e:
-                print("❌ Regex fallback failed:", e)
-                return None, None, None
 
+        # ✅ Clean up any markdown/code formatting
+        content = content.replace("```json", "").replace("```", "").strip()
+
+        # Parse the JSON
+        result = json.loads(content)
+        return result["ticker"], int(result["quarter"]), int(result["year"])
     except Exception as e:
         print("❌ DeepSeek parsing failed:", e)
+        print("🔎 Raw DeepSeek response:", content)
         return None, None, None
-
-
-def fetch_transcript_from_fmp(ticker, year, quarter):
-    url = f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}?year={year}&quarter={quarter}&apikey={FMP_API_KEY}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        if data and isinstance(data, list) and "content" in data[0]:
-            return data[0]["content"]
-    return None
 
 
 def summarize_long_transcript(transcript):
