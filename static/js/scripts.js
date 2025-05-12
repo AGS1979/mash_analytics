@@ -326,6 +326,16 @@ document.addEventListener("DOMContentLoaded", function() {
             else if (data.response) {
               botMessageHtml = `<div class='bot-message'>${data.response}</div>`;
             }
+            // Handle Guidance Change (very likely just "message" key)
+            else if (endpoint === '/analyze-guidance-change' && data.message) {
+                botMessageHtml = `
+                    <div class='bot-message'>
+                        <strong>🔎 Guidance Update Result:</strong><br>
+                        ${data.message}
+                    </div>
+                `;
+            }
+            // General fallback for message responses
             else if (data.message) {
                 botMessageHtml = `<div class='bot-message'>${data.message}</div>`;
             }

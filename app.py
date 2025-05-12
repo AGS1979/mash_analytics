@@ -665,12 +665,16 @@ def document_short_summary():
 def analyze_guidance_change_route():
     try:
         data = request.get_json()
-        query = data.get("query", "")
+        query = data.get("query", "").strip()
+
         if not query:
             return jsonify({"error": "Query parameter is missing."}), 400
 
         print(f"📩 Guidance change query received: {query}")
         response = process_guidance_query(query)
+
+        if not response:
+            return jsonify({"error": "Failed to generate a response."}), 500
 
         return jsonify({"message": response}), 200
 
