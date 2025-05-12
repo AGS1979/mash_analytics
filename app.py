@@ -468,23 +468,7 @@ def generate_earnings_call_summary_route():
     except Exception as e:
         print(f"🔥 ERROR: Internal Server Error: {str(e)}")
         return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
-
-@app.route('/analyze-redflags', methods=['POST'])
-def analyze_red_flags():
-    if 'file' in request.files:
-        file = request.files['file']
-        text = file.read().decode('utf-8')
-    else:
-        json_data = request.get_json()
-        text = json_data.get("text", "")
-
-    if not text.strip():
-        return jsonify({"error": "No valid text provided"}), 400
-
-    red_flags = get_red_flag_sentences(text)
-    return jsonify({"red_flags": red_flags, "count": len(red_flags)})
-
-
+        
 
 @app.route('/generate-market-performance', methods=['POST'])
 def generate_market_performance():
