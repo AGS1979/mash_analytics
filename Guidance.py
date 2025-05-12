@@ -26,15 +26,35 @@ Return a JSON with:
 - quarter: integer (1 to 4)
 - year: integer
 
+Only return JSON and nothing else.
+
 Query: {query}
 """
+
     try:
         response = deepseek_client.chat.completions.create(
             model="deepseek-chat",
             messages=[{"role": "user", "content": prompt}]
         )
         content = response.choices[0].message.content.strip()
-        result = json.loads(content)
+        import re
+
+        try:
+            result = json.loads(content)
+            return result["ticker"], int(result["quarter"]), int(result["year"])
+        except Exception:
+            print("🔎 Raw response from DeepSeek:", content)
+
+            # Try regex fallback
+            try:
+                ticker = re.search(r'"?ticker"?\s*[:=]\s*"?([A-Z.]+)"?', content).group(1)
+                quarter = int(re.search(r'"?quarter"?\s*[:=]\s*"?([1-4])"?', content).group(1))
+                year = int(re.search(r'"?year"?\s*[:=]\s*"?(\d{4})"?', content).group(1))
+                return ticker, quarter, year
+            except Exception as e:
+                print("❌ Regex fallback failed:", e)
+                return None, None, None
+
         return result["ticker"], int(result["quarter"]), int(result["year"])
     except Exception as e:
         print("❌ DeepSeek parsing failed:", e)
