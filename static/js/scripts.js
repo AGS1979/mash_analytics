@@ -494,6 +494,12 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
 
+    // ✅ Add here
+    if (isRedFlagQuery(query)) {
+      handleApiCall('/analyze-redflags', { text: query }, chatBox);
+      return;
+    }
+
     // 2b) 10-K Filings
     if (is10KQuery(query)) {
       const params = extract10KParameters(query);
@@ -522,8 +528,7 @@ document.addEventListener("DOMContentLoaded", function() {
       handleApiCall('/generate-debt-covenants', { query }, chatBox);
     } else if (isStockReportQuery(query)) {
       handleApiCall('/generate-report', { query }, chatBox);
-    } else if (isRedFlagQuery(query)) {
-    handleApiCall('/analyze-redflags', { text: query }, chatBox);
+      
     } else if (isEarningsCallExtractionQuery(query)) {
       handleApiCall('/extract-earnings-call-data', { query }, chatBox);
     } else {
