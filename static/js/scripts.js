@@ -541,9 +541,11 @@ document.addEventListener("DOMContentLoaded", function() {
       handleApiCall('/generate-market-performance', { query }, chatBox);
     } else if (isDebtCovenantQuery(query)) {
       handleApiCall('/generate-debt-covenants', { query }, chatBox);
+    } else if (isGuidanceChangeQuery(query)) {
+      handleApiCall('/analyze-guidance-change', { query }, chatBox);
     } else if (isStockReportQuery(query)) {
       handleApiCall('/generate-report', { query }, chatBox);
-
+      
     } else if (isEarningsCallExtractionQuery(query)) {
       handleApiCall('/extract-earnings-call-data', { query }, chatBox);
     } else {
@@ -605,6 +607,16 @@ document.addEventListener("DOMContentLoaded", function() {
         return phrases.some(phrase => query.toLowerCase().includes(phrase));
     }
 
+
+    function isGuidanceChangeQuery(query) {
+        const phrases = [
+            "guidance", "upgrade guidance", "downgrade guidance",
+            "raise forecast", "lower forecast", "guidance change",
+            "was guidance upgraded", "was guidance downgraded",
+            "full year guidance", "revised guidance"
+        ];
+        return phrases.some(phrase => query.toLowerCase().includes(phrase));
+    }
 
     function isMarketPerformanceQuery(query) {
         const phrases = [

@@ -49,6 +49,8 @@ from mgmt_evasiveness import (
 from DebtCov import analyze_debt_covenants, extract_ticker_from_query
 from openpyxl import Workbook
 from redflaganalysis import get_red_flag_sentences
+from Guidance import process_guidance_query  # 👈 Import the new module
+
 
 # Define your email whitelist here
 WHITELISTED_EMAILS = {
@@ -657,6 +659,25 @@ def document_short_summary():
     except Exception as e:
         print(f"Error in document_short_summary: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/analyze-guidance-change', methods=['POST'])
+def analyze_guidance_change_route():
+    try:
+        data = request.get_json()
+        query = data.get("query", "")
+        if not query:
+            return jsonify({"error": "Query parameter is missing."}), 400
+
+        print(f"📩 Guidance change query received: {query}")
+        response = process_guidance_query(query)
+
+        return jsonify({"message": response}), 200
+
+    except Exception as e:
+        print(f"🔥 Error in /analyze-guidance-change: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/document-long-summary', methods=['POST'])
 def document_long_summary():
