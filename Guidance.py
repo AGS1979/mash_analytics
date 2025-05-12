@@ -47,6 +47,16 @@ Query: {query}
         return None, None, None
 
 
+def fetch_transcript_from_fmp(ticker, year, quarter):
+    url = f"https://financialmodelingprep.com/api/v3/earning_call_transcript/{ticker}?year={year}&quarter={quarter}&apikey={FMP_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if data and isinstance(data, list) and "content" in data[0]:
+            return data[0]["content"]
+    return None
+
+
 def summarize_long_transcript(transcript):
     """Split and summarize transcript in chunks using DeepSeek."""
     chunks = wrap(transcript, 2000)
