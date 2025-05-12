@@ -4,8 +4,9 @@ import json
 from openai import OpenAI
 
 # Load API keys
-FMP_API_KEY = os.getenv("FMP_API_KEY")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+FMP_API_KEY = os.environ.get("FMP_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 client = OpenAI(api_key=DEEPSEEK_API_KEY)
 
 def extract_ticker_and_period(query):
