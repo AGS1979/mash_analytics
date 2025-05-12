@@ -15,7 +15,11 @@ def get_red_flag_sentences(text):
     """
     import re
 
-    # Basic sentence split; improve later with nltk or spacy if needed
+    # 🔍 Strip known prefixes to avoid misclassification
+    if text.lower().startswith("highlight red flag statements in this passage:"):
+        text = text[len("highlight red flag statements in this passage:"):].strip()
+
+    # Basic sentence split
     sentences = re.split(r'(?<=[.?!])\s+', text.strip())
 
     red_flags = []
@@ -26,3 +30,4 @@ def get_red_flag_sentences(text):
         if result["label"] == "LABEL_1" and result["score"] > 0.6:
             red_flags.append(sentence.strip())
     return red_flags
+

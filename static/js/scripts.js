@@ -307,6 +307,13 @@ document.addEventListener("DOMContentLoaded", function() {
             else if (data.summary) {
                 botMessageHtml += `<div class='bot-message'><strong>Earnings Call Summary:</strong><br>${data.summary}</div>`;
             }
+            else if (data.red_flags && Array.isArray(data.red_flags)) {
+                botMessageHtml = `<div class='bot-message'>
+                <strong>🚩 Red Flag Statements Detected (${data.count}):</strong><br>
+                <ul style="margin-top: 8px;">` +
+                data.red_flags.map(sentence => `<li>${sentence}</li>`).join('') +
+                `</ul></div>`;
+            }
             // Handle General Message Responses
             else if (data.response) {
               botMessageHtml = `<div class='bot-message'>${data.response}</div>`;
@@ -528,7 +535,7 @@ document.addEventListener("DOMContentLoaded", function() {
       handleApiCall('/generate-debt-covenants', { query }, chatBox);
     } else if (isStockReportQuery(query)) {
       handleApiCall('/generate-report', { query }, chatBox);
-      
+
     } else if (isEarningsCallExtractionQuery(query)) {
       handleApiCall('/extract-earnings-call-data', { query }, chatBox);
     } else {
