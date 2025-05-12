@@ -271,8 +271,8 @@ main {
   bottom: 100%;
   left: 0;
   transform: translateY(-8px);
-  background: rgba(0, 0, 0, 0.85);
-  color: #fff;
+  background: #fff;
+  color: #000;
   padding: 6px 10px;
   border-radius: 4px;
   white-space: pre-wrap;
