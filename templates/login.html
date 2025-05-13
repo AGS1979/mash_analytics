@@ -135,6 +135,18 @@
       margin-bottom: 20px;
     }
 
+
+    .login-halo {
+      position: relative;
+      margin-top: 30px;
+      width: 420px;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.2), transparent 70%);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+    }
+
+
     .login-container input[type="text"],
     .login-container input[type="password"] {
       width: 100%;
@@ -198,6 +210,37 @@
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+  <style>
+    #particles-js {
+      position: absolute;
+      top: -40px;
+      left: -40px;
+      width: 440px;
+      height: 440px;
+      z-index: 0;
+    }
+
+    .mascot-halo {
+      position: relative;
+      width: 360px;
+      margin: 60px auto 30px auto;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+      z-index: 1;
+    }
+
+    .mascot-halo img {
+      width: 100%;
+      border-radius: 16px;
+      position: relative;
+      z-index: 2;
+    }
+  </style>
+
+
 </head>
 <body>
 
@@ -213,11 +256,10 @@
   <!-- Main Content -->
   <main>
     <!-- Lottie AI animation -->
-    <div class="lottie-wrapper">
-      
-        <img src="{{ url_for('static', filename='images/mascot.gif') }}" alt="AI Mascot" style="max-width: 100%; height: auto;" />
-      
-    </div>
+    <div class="mascot-halo">
+  <div id="particles-js"></div>
+  <img src="{{ url_for('static', filename='images/mascot.gif') }}" alt="AI Mascot" />
+</div>
 
     <!-- Intro Message -->
     <div class="intro-section">
@@ -235,6 +277,7 @@
     </div>
 
     <!-- Login Box -->
+    <div class="login-halo">
     <div class="login-container">
       <!-- Login Form -->
       <div id="login-form">
@@ -262,6 +305,7 @@
         <div class="toggle-link" onclick="toggleForms()">Already have an account? Log In</div>
       </div>
     </div>
+    </div>
   </main>
 
   <!-- Footer -->
@@ -282,6 +326,26 @@
       signupForm.style.display = (signupForm.style.display === "none") ? "block" : "none";
     }
   </script>
+
+  <script>
+tsParticles.load("particles-js", {
+  fullScreen: false,
+  background: { color: "transparent" },
+  particles: {
+    number: { value: 30 },
+    color: { value: "#60a5fa" },
+    shape: { type: "circle" },
+    opacity: { value: 0.6 },
+    size: { value: 3 },
+    move: { enable: true, speed: 1.5 }
+  },
+  interactivity: {
+    events: { onhover: { enable: false }, onclick: { enable: false } }
+  }
+});
+</script>
+
+
 
 </body>
 </html>
