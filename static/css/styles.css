@@ -227,8 +227,8 @@ main {
   display: flex;
   width: 90%;
   max-width: 1200px;
-  height: calc(100vh - 170px);  /* full screen minus header + input */
-  margin: 100px auto 0 auto;    /* header offset */
+  height: calc(100vh - 140px); /* reduce padding space */
+  margin: 80px auto 0 auto; /* reduce from 100px */
   background-color: rgba(37, 49, 65, 0.95);
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
@@ -321,6 +321,32 @@ main {
 
 
 @media (max-width: 768px) {
+  .chat-container {
+    flex-direction: column;
+    width: 95%;
+    height: auto;
+    margin-top: 80px;
+    border-radius: 10px;
+  }
+
+  .chat-history {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 2px solid #3b82f6;
+    border-radius: 10px 10px 0 0;
+    padding-bottom: 10px;
+    position: relative;
+    top: 0;
+  }
+
+  .chat-main {
+    width: 100%;
+    height: auto;
+    padding: 15px;
+    border-radius: 0 0 10px 10px;
+  }
+
   header {
     flex-direction: column;
     align-items: flex-start;
@@ -456,4 +482,12 @@ body {
   word-break: break-word;
   white-space: normal;
   max-width: 1px; /* force break inside narrow columns if needed */
+}
+
+@media (max-width: 768px) {
+  .new-query-button {
+    font-size: 14px;
+    padding: 8px 12px;
+    width: 100%;
+  }
 }
