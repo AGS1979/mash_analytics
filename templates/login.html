@@ -5,48 +5,141 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Login - Research Blitz</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <style>
-    /* Additional styles specific to the login page */
-    .login-container {
-      width: 400px;
-      margin: 80px auto;
-      padding: 20px;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 8px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    body {
+      margin: 0;
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(to bottom right, #0f172a, #1e293b);
+      color: #e5e5e5;
+      overflow-x: hidden;
     }
-    .login-container h2 {
-      margin-bottom: 20px;
-      text-align: center;
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+      z-index: 9999;
+    }
+
+    header .logo img {
+      height: 60px;
+    }
+
+    header .banner, header .title {
+      font-weight: bold;
       color: #1f2937;
     }
+
+    header .banner {
+      font-size: 20px;
+    }
+
+    header .title {
+      font-size: 18px;
+    }
+
+    main {
+      margin-top: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .intro-section {
+      max-width: 800px;
+      text-align: center;
+      margin-bottom: 30px;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    .intro-section h1 {
+      font-size: 36px;
+      margin-bottom: 10px;
+      color: #ffffff;
+    }
+
+    .intro-section p {
+      font-size: 18px;
+      color: #cbd5e1;
+    }
+
+    .lottie-wrapper {
+      width: 300px;
+      height: 300px;
+      margin: 0 auto 30px;
+    }
+
+    .steps {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .step-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 220px;
+      text-align: center;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.2s;
+    }
+
+    .step-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+      color: #1f2937;
+    }
+
+    .login-container h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
     .login-container input[type="text"],
     .login-container input[type="password"] {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin: 10px 0;
       border: 1px solid #ccc;
-      border-radius: 5px;
+      border-radius: 6px;
     }
+
     .login-container button {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       background-color: #307aff;
       border: none;
       color: #fff;
       font-size: 16px;
-      border-radius: 5px;
+      border-radius: 6px;
       cursor: pointer;
-      transition: background-color 0.2s ease;
     }
+
     .login-container button:hover {
-      background-color: #4d94ff;
+      background-color: #1d6ef5;
     }
-    .login-container .error {
-      color: red;
-      margin-bottom: 15px;
-      text-align: center;
-    }
+
     .toggle-link {
       text-align: center;
       margin-top: 10px;
@@ -54,23 +147,42 @@
       color: #307aff;
       text-decoration: underline;
     }
-    /* Hide the signup form by default */
-    #signup-form {
-      display: none;
-    main {
-      padding-top: 100px; /* enough space to clear the fixed header */
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      min-height: calc(100vh - 100px); /* fills screen below header */
+
+    .footer {
+      margin-top: 50px;
+      padding: 30px;
+      text-align: center;
+      background: #0f172a;
+      color: #cbd5e1;
+      font-size: 14px;
     }
 
+    .footer a {
+      color: #60a5fa;
+      text-decoration: none;
+      margin: 0 10px;
+    }
+
+    @media (max-width: 768px) {
+      .steps {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .intro-section h1 {
+        font-size: 28px;
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <!-- Same header as in index.html -->
+
+  <!-- Header -->
   <header>
     <div class="logo">
       <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
@@ -79,7 +191,35 @@
     <div class="title">Research Blitz</div>
   </header>
 
+  <!-- Main Content -->
   <main>
+    <!-- Lottie AI animation -->
+    <div class="lottie-wrapper">
+      <lottie-player
+        src="https://assets4.lottiefiles.com/packages/lf20_ai_brain.json"
+        background="transparent"
+        speed="1"
+        loop
+        autoplay>
+      </lottie-player>
+    </div>
+
+    <!-- Intro Message -->
+    <div class="intro-section">
+      <h1>MaSh — Your Intelligent Research Copilot</h1>
+      <p>Run deep earnings analysis, detect management red flags, and unlock insights in seconds.</p>
+    </div>
+
+    <!-- How-To Steps -->
+    <div class="steps">
+      <div class="step-card">1. Login to MaSh</div>
+      <div class="step-card">2. Ask a query in plain English</div>
+      <div class="step-card">3. Get a structured research report</div>
+      <div class="step-card">4. Explore red flags, ESG, guidance</div>
+      <div class="step-card">5. Download or share results</div>
+    </div>
+
+    <!-- Login Box -->
     <div class="login-container">
       <!-- Login Form -->
       <div id="login-form">
@@ -96,12 +236,9 @@
         <div class="toggle-link" onclick="toggleForms()">Don't have an account? Sign Up</div>
       </div>
 
-      <!-- Sign Up Form -->
-      <div id="signup-form">
+      <!-- Signup Form -->
+      <div id="signup-form" style="display: none;">
         <h2>Sign Up for Research Blitz</h2>
-        {% if error %}
-          <div class="error">{{ error }}</div>
-        {% endif %}
         <form action="{{ url_for('signup') }}" method="POST">
           <input type="text" name="username" placeholder="Choose a Username" required />
           <input type="password" name="password" placeholder="Choose a Password" required />
@@ -112,18 +249,24 @@
     </div>
   </main>
 
+  <!-- Footer -->
+  <div class="footer">
+    <p>
+      <strong>About Us:</strong> MaSh Analytics builds AI-driven tools for financial research, analysis, and automation.<br>
+      <strong>Contact:</strong> <a href="mailto:info@mash-analytics.net">info@mash-analytics.net</a> |
+      <a href="https://linkedin.com/company/mash-analytics" target="_blank">LinkedIn</a>
+    </p>
+    <p>© 2025 MaSh Analytics. All rights reserved.</p>
+  </div>
+
   <script>
     function toggleForms() {
       var loginForm = document.getElementById("login-form");
       var signupForm = document.getElementById("signup-form");
-      if (loginForm.style.display === "none") {
-        loginForm.style.display = "block";
-        signupForm.style.display = "none";
-      } else {
-        loginForm.style.display = "none";
-        signupForm.style.display = "block";
-      }
+      loginForm.style.display = (loginForm.style.display === "none") ? "block" : "none";
+      signupForm.style.display = (signupForm.style.display === "none") ? "block" : "none";
     }
   </script>
+
 </body>
 </html>
