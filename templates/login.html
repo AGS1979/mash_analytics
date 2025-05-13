@@ -73,10 +73,29 @@
     }
 
     .lottie-wrapper {
-      width: 300px;
-      height: 300px;
-      margin: 0 auto 30px;
+      width: 350px;
+      height: auto;
+      margin: 40px auto 20px auto;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); /* subtle blue glow */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.3s ease;
     }
+
+    .lottie-wrapper:hover {
+      transform: scale(1.03);
+    }
+
+    .lottie-wrapper img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+    }
+
 
     .steps {
       display: flex;
@@ -195,9 +214,9 @@
   <main>
     <!-- Lottie AI animation -->
     <div class="lottie-wrapper">
-      <div class="lottie-wrapper">
+      
         <img src="{{ url_for('static', filename='images/mascot.gif') }}" alt="AI Mascot" style="max-width: 100%; height: auto;" />
-      </div>
+      
     </div>
 
     <!-- Intro Message -->
