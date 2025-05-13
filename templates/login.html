@@ -57,6 +57,15 @@
     /* Hide the signup form by default */
     #signup-form {
       display: none;
+    main {
+      padding-top: 100px; /* enough space to clear the fixed header */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      min-height: calc(100vh - 100px); /* fills screen below header */
+    }
+
     }
   </style>
 </head>

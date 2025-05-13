@@ -397,12 +397,13 @@ main {
     width: 90%;
     padding: 20px;
     font-size: 16px;
+    margin-top: 120px; /* push below header */
   }
 
   .login-container input,
   .login-container button {
     font-size: 16px;
-    padding: 10px;
+    padding: 12px;
   }
 }
 
