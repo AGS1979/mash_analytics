@@ -91,7 +91,7 @@ def extract_debt_related_text(html):
 def extract_covenants_with_deepseek(debt_text):
     system_msg = (
         "You are a financial assistant. Extract all clauses related to debt covenants from the given SEC 10-K text. "
-        "Debt covenants may appear as terms like 'limitations on indebtedness', 'coverage ratios', 'negative pledges', "
+        "Debt covenants may appear as terms like 'limitations on indebtedness', 'debt agreements', 'loan agreements', 'borrowing agreements', 'restrictive covenants', 'covenants', 'coverage ratios', 'negative pledges', "
         "'maintenance of insurance', or restrictions under 'indenture agreements'. \n\n"
         "Return each clause as a dictionary with keys:\n"
         "  - 'Type' (Financial Covenant, Negative Covenant, Affirmative Covenant)\n"
