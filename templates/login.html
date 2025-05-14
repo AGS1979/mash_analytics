@@ -149,6 +149,7 @@
     }
 
 
+
     .login-container input[type="text"],
     .login-container input[type="password"] {
       width: 100%;
@@ -157,6 +158,26 @@
       border: 1px solid #ccc;
       border-radius: 6px;
     }
+
+
+.carousel-container {
+  margin-top: 40px;
+  max-width: 720px;
+  width: 90%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+  padding: 20px;
+}
+
+.carousel-slide {
+  text-align: center;
+  font-size: 18px;
+  color: #cbd5e1;
+  padding: 20px;
+}
 
     .login-container button {
       width: 100%;
@@ -242,6 +263,12 @@
     }
   </style>
 
+<!-- Slick Carousel CSS & JS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css"/>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.css"/>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
+
 
 </head>
 <body>
@@ -296,6 +323,17 @@
         <div class="toggle-link" onclick="toggleForms()">Don't have an account? Sign Up</div>
       </div>
 
+<div class="carousel-container">
+  <div class="carousel">
+    <div class="carousel-slide">📊 LLM-powered earnings call & MD&A analysis</div>
+    <div class="carousel-slide">⚠️ Detect red flags, inconsistencies, evasive answers</div>
+    <div class="carousel-slide">📁 Download custom reports & Excel outputs</div>
+    <div class="carousel-slide">🔍 ESG & guidance commentary summarized</div>
+    <div class="carousel-slide">🧠 Built for analysts. Optimized for scale.</div>
+  </div>
+</div>
+
+
       <!-- Signup Form -->
       <div id="signup-form" style="display: none;">
         <h2>Sign Up for Research Blitz</h2>
@@ -347,6 +385,20 @@ tsParticles.load("particles-js", {
 });
 </script>
 
+<script>
+  $(document).ready(function(){
+    $('.carousel').slick({
+      autoplay: true,
+      autoplaySpeed: 3000,
+      arrows: false,
+      dots: true,
+      infinite: true,
+      speed: 600,
+      fade: false,
+      cssEase: 'ease-in-out'
+    });
+  });
+</script>
 
 
 </body>
