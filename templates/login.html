@@ -174,7 +174,7 @@
 
 
 .case-carousel-wrapper {
-  margin: 60px auto;
+  margin: 40px auto 20px auto;
   width: 92%;
   max-width: 1200px;
 }
@@ -216,6 +216,11 @@
 }
 
 .case-carousel .label {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
 
 
 .carousel-card {
@@ -368,6 +373,9 @@
   <img src="{{ url_for('static', filename='images/mascot.gif') }}" alt="AI Mascot" />
 </div>
 
+
+
+
     <!-- Intro Message -->
     <div class="intro-section">
       <h1>Meet MaSh — Your Intelligent Research Engine</h1>
@@ -402,7 +410,29 @@
       </div>
 
 
-
+<!-- Case Studies Carousel (AFTER login-halo) -->
+<div class="case-carousel-wrapper">
+  <div class="case-carousel">
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case1.png') }}" alt="Case 1" />
+      <h3>Global MegaFund transforms screening process</h3>
+      <p class="stat">137%</p>
+      <p class="label">INCREASE IN OPPORTUNITIES</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case2.png') }}" alt="Case 2" />
+      <h3>Hedge Fund augments decision making</h3>
+      <p class="stat">3x</p>
+      <p class="label">DATA LEVERAGED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case3.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+  </div>
+</div>
 
       <!-- Signup Form -->
       <div id="signup-form" style="display: none;">
@@ -446,29 +476,7 @@
   </main>
 
 
-<!-- Case Studies Carousel (AFTER login-halo) -->
-<div class="case-carousel-wrapper">
-  <div class="case-carousel">
-    <div class="case-card">
-      <img src="{{ url_for('static', filename='images/case1.png') }}" alt="Case 1" />
-      <h3>Global MegaFund transforms screening process</h3>
-      <p class="stat">137%</p>
-      <p class="label">INCREASE IN OPPORTUNITIES</p>
-    </div>
-    <div class="case-card">
-      <img src="{{ url_for('static', filename='images/case2.png') }}" alt="Case 2" />
-      <h3>Hedge Fund augments decision making</h3>
-      <p class="stat">3x</p>
-      <p class="label">DATA LEVERAGED</p>
-    </div>
-    <div class="case-card">
-      <img src="{{ url_for('static', filename='images/case3.png') }}" alt="Case 3" />
-      <h3>Litigation team surfaces key evidence</h3>
-      <p class="stat">3x</p>
-      <p class="label">KEY POINTS IDENTIFIED</p>
-    </div>
-  </div>
-</div>
+
 
 
   <!-- Footer -->
@@ -541,7 +549,7 @@ $('.case-carousel').slick({
   ]
 });
 
-  
+
 </script>
 
 
