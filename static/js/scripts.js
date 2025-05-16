@@ -472,16 +472,33 @@ document.addEventListener("DOMContentLoaded", function() {
             addChatMessage("bot", `Error: ${data.error}`);
             return;
           }
-          let botHtml = `<div class='bot-message'><strong>✅ Report Ready!</strong></div>`;
+
+          // ✅ Handle inline red flag display for file-based input
+          if (data.red_flags && Array.isArray(data.red_flags)) {
+            let html = `<div class='bot-message'><strong>🚩 Red Flag Statements Detected (${data.count}):</strong><br>`;
+            data.red_flags.forEach(entry => {
+              html += `<span><strong>[${entry.score}]</strong> ${entry.sentence}</span><br>`;
+            });
+            html += `</div>`;
+            addChatMessage("bot", html);
+            return;
+          }
+
+          // fallback in case only download URL was provided
           if (data.download_url) {
-            botHtml += `<div class='bot-message'>
+            let botHtml = `<div class='bot-message'>
+              ✅ Report Ready!<br>
               <a href="${data.download_url}" target="_blank" style="color:blue;font-weight:bold;">
                 ⬇ Download Report
-              </a>
-            </div>`;
+              </a></div>`;
+            addChatMessage("bot", botHtml);
+            return;
           }
-          addChatMessage("bot", botHtml);
+
+          // generic message fallback
+          addChatMessage("bot", `<div class='bot-message'>✅ Report Ready!</div>`);
         })
+
         .catch(err => {
           console.error(err);
           addChatMessage("bot", `An error occurred: ${err.message}`);
