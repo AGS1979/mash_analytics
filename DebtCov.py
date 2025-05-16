@@ -111,8 +111,21 @@ def format_as_html_table(covenants_raw):
         rows = json.loads(match.group(0))
         if not isinstance(rows, list) or not rows:
             raise ValueError("Empty or invalid JSON array.")
-        html = "<div style='overflow-x:auto;'><table border='1' style='width:100%; table-layout:fixed;'>"
-        html += "<tr><th>Type</th><th>Description</th><th>Condition</th></tr>"
+        html = (
+            "<div class='debt-covenant-wrapper'>"
+            "<table class='debt-covenant-table'>"
+            "<tr><th>Type</th><th>Description</th><th>Condition</th></tr>"
+        )
+        for row in rows:
+            html += (
+                "<tr>"
+                f"<td>{row.get('Type')}</td>"
+                f"<td>{row.get('Description')}</td>"
+                f"<td>{row.get('Condition', '')}</td>"
+                "</tr>"
+            )
+        html += "</table></div>"
+
         for row in rows:
             html += (
                 "<tr>"
