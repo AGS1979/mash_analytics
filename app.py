@@ -379,6 +379,7 @@ def generate_debt_covenants():
 @app.route('/analyze-redflags', methods=['POST'])
 def analyze_red_flags():
     try:
+        # 1) Check for file upload (PDF)
         if 'file' in request.files:
             file = request.files['file']
             reader = PdfReader(file)
@@ -387,22 +388,27 @@ def analyze_red_flags():
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text
+
+        # 2) Or check for raw text input
         else:
             json_data = request.get_json()
             text = json_data.get("text", "")
 
+        # 3) Validate
         if not text.strip():
             return jsonify({"error": "No valid text provided"}), 400
 
+        # 4) Run red flag extraction
         red_flags = get_red_flag_sentences(text)
 
+        # 5) Return JSON result — inline only
         return jsonify({
             "count": len(red_flags),
             "red_flags": [{"sentence": s, "score": score} for s, score in red_flags]
-        })
+        }), 200
 
     except Exception as e:
-        print("❌ Error in analyze_redflags:", e)
+        print("❌ Error in /analyze-redflags:", e)
         return jsonify({"error": str(e)}), 500
 
 # Earnings Call Summary Route - This should ask for keywords if needed
