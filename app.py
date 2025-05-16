@@ -50,6 +50,8 @@ from DebtCov import analyze_debt_covenants, extract_ticker_from_query
 from openpyxl import Workbook
 from redflaganalysis import get_red_flag_sentences
 from Guidance import process_guidance_query  # 👈 Import the new module
+from PyPDF2 import PdfReader
+
 
 
 # Define your email whitelist here
@@ -376,22 +378,32 @@ def generate_debt_covenants():
 
 @app.route('/analyze-redflags', methods=['POST'])
 def analyze_red_flags():
-    if 'file' in request.files:
-        file = request.files['file']
-        text = file.read().decode('utf-8')
-    else:
-        json_data = request.get_json()
-        text = json_data.get("text", "")
+    try:
+        if 'file' in request.files:
+            file = request.files['file']
+            reader = PdfReader(file)
+            text = ''
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+        else:
+            json_data = request.get_json()
+            text = json_data.get("text", "")
 
-    if not text.strip():
-        return jsonify({"error": "No valid text provided"}), 400
+        if not text.strip():
+            return jsonify({"error": "No valid text provided"}), 400
 
-    red_flags = get_red_flag_sentences(text)
-    return jsonify({
-        "count": len(red_flags),
-        "red_flags": [{"sentence": s, "score": score} for s, score in red_flags]
-    })
+        red_flags = get_red_flag_sentences(text)
 
+        return jsonify({
+            "count": len(red_flags),
+            "red_flags": [{"sentence": s, "score": score} for s, score in red_flags]
+        })
+
+    except Exception as e:
+        print("❌ Error in analyze_redflags:", e)
+        return jsonify({"error": str(e)}), 500
 
 # Earnings Call Summary Route - This should ask for keywords if needed
 @app.route('/generate-earnings-report', methods=['POST'])
