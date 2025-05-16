@@ -54,12 +54,15 @@ def get_latest_10k_final_link(ticker):
 
 def extract_debt_related_text(html):
     soup = BeautifulSoup(html, "html.parser")
+
+    # Remove irrelevant tags
+    for tag in soup(['script', 'style', 'table', 'figure', 'a']):
+        tag.decompose()
+
     all_text = soup.get_text(separator="\n", strip=True)
+    paragraphs = [p.strip() for p in all_text.split("\n") if len(p.strip()) > 80]
 
-    paragraphs = all_text.split("\n\n")  # split by paragraph
     matches = []
-
-    # Match paragraphs with any of these terms
     keyword_pattern = re.compile(
         r"\b(covenant|restrictive covenant|credit agreement|loan agreement|revolving credit|debt agreement|compliance with all covenants|limitation on.*debt)\b",
         re.IGNORECASE
@@ -67,9 +70,10 @@ def extract_debt_related_text(html):
 
     for para in paragraphs:
         if keyword_pattern.search(para):
-            matches.append(para.strip())
+            matches.append(para)
 
     return "\n\n".join(matches) if matches else None
+
 
 def clean_and_shorten(text, max_blocks=7):
     paragraphs = [p.strip() for p in text.split('\n\n') if len(p.strip()) > 100]
@@ -155,8 +159,7 @@ def analyze_debt_covenants(ticker):
         )
 
     debt_text = clean_and_shorten(debt_section)
-    print("📄 Extracted Debt Text Sent to DeepSeek:\n")
-    print(debt_text[:2000])  # print first 2000 characters
+    print("📄 Final Debt Text for DeepSeek:\n", debt_text[:1500])
     covenants_raw = extract_covenants_with_deepseek(debt_text)
     print("📤 Raw DeepSeek output:\n", covenants_raw[:1000])  # Optional preview
     return format_as_html_table(covenants_raw)
