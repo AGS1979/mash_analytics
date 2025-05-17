@@ -126,12 +126,14 @@
 </script>
 <script>
   const nameEl = document.getElementById("user-name-span");
-  if (nameEl) {
-    const name = sessionStorage.getItem("userFirstName");
-    const company = sessionStorage.getItem("userCompany");
-    nameEl.textContent = name && company ? `${name} from ${company}` : "User";
-  }
+  const companyEl = document.getElementById("user-company-span");
+  const name = sessionStorage.getItem("userFirstName");
+  const company = sessionStorage.getItem("userCompany");
+
+  if (nameEl && name) nameEl.textContent = name;
+  if (companyEl && company) companyEl.textContent = company;
 </script>
+
 
 
   <script src="static/js/scripts.js"></script>
