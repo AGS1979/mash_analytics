@@ -117,8 +117,8 @@
 <script>
   // currentUser is now available in your JavaScript
   var currentUser = "{{ session['username'] }}";
-  var userFirstName = "{{ session.get('first_name', '') }}";
-  var userCompany = "{{ session.get('company_name', '') }}";
+  var userFirstName = "{{ first_name }}";
+  var userCompany = "{{ company_name }}";
 
   // Store in sessionStorage so other scripts can use it too
   sessionStorage.setItem("userFirstName", userFirstName);
