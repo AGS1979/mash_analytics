@@ -410,10 +410,16 @@
         {% if error %}
           <div class="error">{{ error }}</div>
         {% endif %}
-        <form action="{{ url_for('login') }}" method="POST">
+        <form action="{{ url_for('login') }}" method="POST" onsubmit="return storeUserDetails();">
           <input type="hidden" name="form_type" value="login" />
+          <div class="user-info-form">
+          <input type="text" id="first-name" placeholder="Enter your first name" required />
+          <input type="text" id="company-name" placeholder="Enter your company name" required />
+        </div>
           <input type="text" name="username" placeholder="Username" required />
           <input type="password" name="password" placeholder="Password" required />
+          <!-- NEW FIELDS -->
+        
           <button type="submit">Login</button>
         </form>
         <div class="toggle-link" onclick="toggleForms()">Don't have an account? Sign Up</div>
@@ -591,6 +597,22 @@ $('.case-carousel').slick({
 
 </script>
 
+<script>
+  function storeUserDetails() {
+    const first = document.getElementById("first-name").value.trim();
+    const company = document.getElementById("company-name").value.trim();
+
+    if (!first || !company) {
+      alert("Please enter your first name and company name.");
+      return false;
+    }
+
+    sessionStorage.setItem("userFirstName", first);
+    sessionStorage.setItem("userCompany", company);
+    return true;
+  }
+</script>
 
 </body>
 </html>
+

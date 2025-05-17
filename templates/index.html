@@ -22,8 +22,10 @@
 
 <!-- 👇 PLACE THE LANDING PANEL HERE -->
   <div id="landing-panel" class="landing-panel">
-    <h1>Welcome, {{ session['username'] }}!</h1>
-    <p>Select an option to continue:</p>
+    <div id="user-welcome" class="welcome-bar">
+  Welcome, <span id="user-name-span"></span> from <span id="user-company-span"></span>!
+</div>
+ 
 
     <div class="button-options">
       <button onclick="activateChat()">Activate Chat</button>
@@ -36,7 +38,7 @@
       <!-- You can add more info here: support links, how-to guides, etc. -->
     </div>
   </div>
-    
+
     <div id="chat-ui" style="display: none;">
       <div class="chat-container">
           <div class="chat-history">

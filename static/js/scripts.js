@@ -37,15 +37,25 @@ document.getElementById("summary-type").addEventListener("change", function() {
 
 
     function activateChat() {
-          document.getElementById("landing-panel").style.display = "none";
-          document.getElementById("chat-ui").style.display = "block";
-        }
+      window.history.pushState({ page: "chat-ui" }, "", "#chat");
+      document.getElementById("landing-panel").style.display = "none";
+      document.getElementById("chat-ui").style.display = "block";
+    }
 
+    // Handle back button
+    window.addEventListener("popstate", function (event) {
+      if (!event.state || event.state.page !== "chat-ui") {
+        document.getElementById("chat-ui").style.display = "none";
+        document.getElementById("landing-panel").style.display = "block";
+      }
+    });
         function useCustomAgents() {
           alert("🚧 'Custom Agents' feature coming soon! Reach out to admin for early access.");
           // Optional: You can also navigate to another page or module:
           // window.location.href = "/custom-agents";
+
         }
+        
 
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -91,7 +101,20 @@ document.addEventListener("DOMContentLoaded", function() {
         return null;
     }
 
+document.addEventListener("DOMContentLoaded", function () {
+  const name = sessionStorage.getItem("userFirstName");
+  const company = sessionStorage.getItem("userCompany");
 
+  if (name && company) {
+    const nameEl = document.getElementById("user-name-span");
+    const companyEl = document.getElementById("user-company-span");
+
+    if (nameEl && companyEl) {
+      nameEl.textContent = name;
+      companyEl.textContent = company;
+    }
+  }
+});
 
     // Detect if the user is asking for a management-evasiveness analysis
     function isEvasivenessQuery(q) {
