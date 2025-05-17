@@ -270,7 +270,6 @@ def login():
 
 @app.route('/signup', methods=['POST'])
 def signup():
-    create_excel_if_not_exists()
     username = request.form.get('username')
     password = request.form.get('password')
     first_name = request.form.get('first_name')
@@ -279,12 +278,16 @@ def signup():
     if not username or not password:
         return render_template('login.html', error="Please provide both email and password.")
     elif username not in WHITELISTED_EMAILS:
-        return render_template('login.html', error="This email is not authorized to sign up. Please contact admin.")
-    elif user_exists(username):
-        return render_template('login.html', error="Email already registered. Please log in.")
-    else:
-        add_user(username, password, first_name, company_name)
-        return redirect(url_for('login'))
+        return render_template('login.html', error="This email is not authorized to sign up.")
+    
+    # Instead of Excel, store user in memory (for now)
+    session['logged_in'] = True
+    session['username'] = username
+    session['first_name'] = first_name
+    session['company_name'] = company_name
+
+    return redirect(url_for('chat'))
+
 
 
 
@@ -302,6 +305,10 @@ def logout():
 def chat():
     if not session.get('logged_in') or not session.get('username'):
         return redirect(url_for('login'))
+    # ✅ Add print to verify session values
+    print("➡️ Session username:", session.get("username"))
+    print("➡️ Session first_name:", session.get("first_name"))
+    print("➡️ Session company_name:", session.get("company_name"))
     return render_template(
         'index.html',
         username=session["username"],
