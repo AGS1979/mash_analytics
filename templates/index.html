@@ -19,77 +19,96 @@
   </header>
 
   <main>
-    <div class="chat-container">
-        <div class="chat-history">
-          <!-- top section: existing chat history -->
-          <div class="chat-history-top">
-            <button id="new-query-btn">New Query</button>
-            <h3 id="prev-chat-title">Prev Chat:</h3>
-            <ul id="chat-history-list"></ul>
-          </div>
 
-                    <!-- bottom section: static info -->
-          <div class="chat-history-bottom">
-            <h4>MaSh – Your Virtual Investment Analyst</h4>
-            <ol class="static-info">
-              <li data-tooltip="Type ‘Latest news on <topic>’ and hit Send.">
-                Search for News on any Topic
-              </li>
-              <li data-tooltip="Type ‘Stock report on Tesla’ or ‘Generate company report on Albemarle’ and hit Send.">
-                Generate Stock Reports
-              </li>
-              <li data-tooltip="Type ‘Summarize earnings call for AAPL Q1 2025’ and hit Send.">
-                Get Earnings Calls Summarized
-              </li>
-              <li data-tooltip="Upload a sustainability‐report PDF, choose ESG, then click Send.">
-                Get Insights from Sustainability Reports
-              </li>
-              <li data-tooltip="Just ask the agent how evasive a company was for a particular quarter. Ideal to use full company name and period as 'Qx 20xx'">
-                Management Evasiveness Scores
-              </li>
-              <li data-tooltip="Get key figures from earnings calls. Just ask the agent to extract data or figures from a company's earnings call transcript for a particular quarter.">
-                Earnings Call Data Extraction
-              </li>
-              <li data-tooltip="Extract debt covenants from 10-Ks. Ask the agent to share debt covenants for a particular company.">
-                Debt Covenant Analysis
-              </li>
-              <li data-tooltip="Analyze doccuments, texts and management comments for red flags. Use queries such as 'Highlight red flag statements in this passage: [paste text]' or 'Which of these are red flag statements' or Scan the below for red flags. or 'Red flag analysis: [paste]'">
-                Red Flag Analysis
-              </li>
-              <li data-tooltip="Find out if full year guidances have undergone a change.">
-                Company Guidance Review
-              </li>
-              <li data-tooltip="Evaluate how direct management responses have been.">
-                Management evasiveness
-              </li>
-              <li data-tooltip="(Add more instructions here…)">5) …</li>
-              <li data-tooltip="(Add more instructions here…)">6) …</li>
-            </ol>
-          </div>
+<!-- 👇 PLACE THE LANDING PANEL HERE -->
+  <div id="landing-panel" class="landing-panel">
+    <h1>Welcome, {{ session['username'] }}!</h1>
+    <p>Select an option to continue:</p>
 
-        </div>
+    <div class="button-options">
+      <button onclick="activateChat()">Activate Chat</button>
+      <button onclick="useCustomAgents()">Use Custom Agents</button>
+    </div>
 
-      <div class="chat-main">
-  <div id="chat-box"></div>
-
-  <!-- ✅ Now inside chat-main -->
-  <div class="text-input">
-    <button id="attach-btn" title="Attach a PDF file">+</button>
-    <input type="file" id="file-input" accept="application/pdf, text/html" multiple style="display: none;" />
-    <span id="file-info"></span>
-    <select id="summary-type" style="display: none;">
-      <option value="short">Short Summary</option>
-      <option value="long">Long Summary</option>
-      <option value="esg">ESG Sustainability Report</option>
-      <option value="esg_compare">ESG Comparison</option>
-      <option value="redflag">Red Flag Analysis</option>
-    </select>
-    <textarea id="chat-input" placeholder="Enter text here..."></textarea>
-    <button id="send-btn">Send</button>
+    <div class="info-section">
+      <h3>About MaSh</h3>
+      <p>MaSh is your intelligent financial research assistant. Choose an option to explore its capabilities.</p>
+      <!-- You can add more info here: support links, how-to guides, etc. -->
+    </div>
   </div>
-</div>
-</div> <!-- end of chat-container -->
+    
+    <div id="chat-ui" style="display: none;">
+      <div class="chat-container">
+          <div class="chat-history">
+            <!-- top section: existing chat history -->
+            <div class="chat-history-top">
+              <button id="new-query-btn">New Query</button>
+              <h3 id="prev-chat-title">Prev Chat:</h3>
+              <ul id="chat-history-list"></ul>
+            </div>
 
+                      <!-- bottom section: static info -->
+            <div class="chat-history-bottom">
+              <h4>MaSh – Your Virtual Investment Analyst</h4>
+              <ol class="static-info">
+                <li data-tooltip="Type ‘Latest news on <topic>’ and hit Send.">
+                  Search for News on any Topic
+                </li>
+                <li data-tooltip="Type ‘Stock report on Tesla’ or ‘Generate company report on Albemarle’ and hit Send.">
+                  Generate Stock Reports
+                </li>
+                <li data-tooltip="Type ‘Summarize earnings call for AAPL Q1 2025’ and hit Send.">
+                  Get Earnings Calls Summarized
+                </li>
+                <li data-tooltip="Upload a sustainability‐report PDF, choose ESG, then click Send.">
+                  Get Insights from Sustainability Reports
+                </li>
+                <li data-tooltip="Just ask the agent how evasive a company was for a particular quarter. Ideal to use full company name and period as 'Qx 20xx'">
+                  Management Evasiveness Scores
+                </li>
+                <li data-tooltip="Get key figures from earnings calls. Just ask the agent to extract data or figures from a company's earnings call transcript for a particular quarter.">
+                  Earnings Call Data Extraction
+                </li>
+                <li data-tooltip="Extract debt covenants from 10-Ks. Ask the agent to share debt covenants for a particular company.">
+                  Debt Covenant Analysis
+                </li>
+                <li data-tooltip="Analyze doccuments, texts and management comments for red flags. Use queries such as 'Highlight red flag statements in this passage: [paste text]' or 'Which of these are red flag statements' or Scan the below for red flags. or 'Red flag analysis: [paste]'">
+                  Red Flag Analysis
+                </li>
+                <li data-tooltip="Find out if full year guidances have undergone a change.">
+                  Company Guidance Review
+                </li>
+                <li data-tooltip="Evaluate how direct management responses have been.">
+                  Management evasiveness
+                </li>
+                <li data-tooltip="(Add more instructions here…)">5) …</li>
+                <li data-tooltip="(Add more instructions here…)">6) …</li>
+              </ol>
+            </div>
+
+          </div>
+
+        <div class="chat-main">
+    <div id="chat-box"></div>
+
+    <!-- ✅ Now inside chat-main -->
+    <div class="text-input">
+      <button id="attach-btn" title="Attach a PDF file">+</button>
+      <input type="file" id="file-input" accept="application/pdf, text/html" multiple style="display: none;" />
+      <span id="file-info"></span>
+      <select id="summary-type" style="display: none;">
+        <option value="short">Short Summary</option>
+        <option value="long">Long Summary</option>
+        <option value="esg">ESG Sustainability Report</option>
+        <option value="esg_compare">ESG Comparison</option>
+        <option value="redflag">Red Flag Analysis</option>
+      </select>
+      <textarea id="chat-input" placeholder="Enter text here..."></textarea>
+      <button id="send-btn">Send</button>
+    </div>
+  </div>
+  </div> <!-- end of chat-container -->
+</div>
   </main>
 
 
