@@ -427,8 +427,9 @@
         <h2>Sign Up for Research Blitz</h2>
         <form action="{{ url_for('signup') }}" method="POST" onsubmit="return storeUserDetails();">
           <div class="user-info-form">
-          <input type="text" id="first-name" placeholder="Enter your first name" required />
-          <input type="text" id="company-name" placeholder="Enter your company name" required />
+          <input type="text" id="first-name" name="first_name" placeholder="Enter your first name" required />
+          <input type="text" id="company-name" name="company_name" placeholder="Enter your company name" required />
+
         </div>
           <input type="text" name="username" placeholder="Choose a Username" required />
           <input type="password" name="password" placeholder="Choose a Password" required />
