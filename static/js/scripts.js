@@ -35,6 +35,19 @@ document.getElementById("summary-type").addEventListener("change", function() {
     }
 });
 
+
+    function activateChat() {
+          document.getElementById("landing-panel").style.display = "none";
+          document.getElementById("chat-ui").style.display = "block";
+        }
+
+        function useCustomAgents() {
+          alert("🚧 'Custom Agents' feature coming soon! Reach out to admin for early access.");
+          // Optional: You can also navigate to another page or module:
+          // window.location.href = "/custom-agents";
+        }
+
+
 document.addEventListener("DOMContentLoaded", function() {
     // Immediately set the current chat to the logged-in user if available.
     if (typeof currentUser !== "undefined" && currentUser) {
@@ -60,17 +73,6 @@ document.addEventListener("DOMContentLoaded", function() {
     // New Helper Functions for 10K Queries
     // -------------------------
 
-
-    function activateChat() {
-      document.getElementById("landing-panel").style.display = "none";
-      document.getElementById("chat-ui").style.display = "block";
-    }
-
-    function useCustomAgents() {
-      alert("🚧 'Custom Agents' feature coming soon! Reach out to admin for early access.");
-      // Optional: You can also navigate to another page or module:
-      // window.location.href = "/custom-agents";
-    }
 
     // Detect if the query is about 10K filings
     function is10KQuery(query) {
