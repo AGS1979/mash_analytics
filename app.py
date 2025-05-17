@@ -213,26 +213,29 @@ def create_excel_if_not_exists():
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Users"
-        ws.append(["Username", "Password"])  # Headers
+        ws.append(["Username", "Password", "FirstName", "Company"])
         wb.save(EXCEL_FILE)
 
-def get_user_password(username):
-    """Return the stored password for the given username, or None if not found."""
+def get_user_info(username):
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb["Users"]
     for row in ws.iter_rows(min_row=2, values_only=True):
         if row[0] == username:
-            return row[1]
+            return {
+                "username": row[0],
+                "password": row[1],
+                "first_name": row[2] if len(row) > 2 else "",
+                "company_name": row[3] if len(row) > 3 else ""
+            }
     return None
 
 def user_exists(username):
     return get_user_password(username) is not None
 
-def add_user(username, password):
-    """Append a new user to the Excel file (storing the password in plain text)."""
+def add_user(username, password, first_name, company_name):
     wb = openpyxl.load_workbook(EXCEL_FILE)
     ws = wb["Users"]
-    ws.append([username, password])
+    ws.append([username, password, first_name, company_name])
     wb.save(EXCEL_FILE)
 
 
@@ -243,23 +246,23 @@ def add_user(username, password):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    create_excel_if_not_exists()  # Ensure Excel exists
+    create_excel_if_not_exists()
     error = None
     if request.method == 'POST' and request.form.get("form_type") == "login":
         username = request.form.get('username')
         password = request.form.get('password')
-        # For demo, you can continue to use the hard-coded admin credentials...
-        # If admin logs in, let him in.
+
         if username == "admin" and password == "password":
             session['logged_in'] = True
             session['username'] = username
             return redirect(url_for('chat'))
         else:
-            # Otherwise, check the Excel file
-            stored_password = get_user_password(username)
-            if stored_password and stored_password == password:
+            user_info = get_user_info(username)
+            if user_info and user_info["password"] == password:
                 session['logged_in'] = True
                 session['username'] = username
+                session['first_name'] = user_info["first_name"]
+                session['company_name'] = user_info["company_name"]
                 return redirect(url_for('chat'))
             else:
                 error = "Invalid username or password. Please try again."
@@ -268,21 +271,21 @@ def login():
 @app.route('/signup', methods=['POST'])
 def signup():
     create_excel_if_not_exists()
-    error = None
     username = request.form.get('username')
     password = request.form.get('password')
+    first_name = request.form.get('first_name')
+    company_name = request.form.get('company_name')
 
     if not username or not password:
-        error = "Please provide both email and password."
+        return render_template('login.html', error="Please provide both email and password.")
     elif username not in WHITELISTED_EMAILS:
-        error = "This email is not authorized to sign up. Please contact admin."
+        return render_template('login.html', error="This email is not authorized to sign up. Please contact admin.")
     elif user_exists(username):
-        error = "Email already registered. Please log in."
+        return render_template('login.html', error="Email already registered. Please log in.")
     else:
-        add_user(username, password)
+        add_user(username, password, first_name, company_name)
         return redirect(url_for('login'))
 
-    return render_template('login.html', error=error)
 
 @app.route('/logout')
 def logout():

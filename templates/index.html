@@ -23,7 +23,7 @@
 <!-- 👇 PLACE THE LANDING PANEL HERE -->
   <div id="landing-panel" class="landing-panel">
     <div id="user-welcome" class="welcome-bar">
-  Welcome, <span id="user-name-span"></span>!
+  Welcome, <span id="user-name-span"></span> from <span id="user-company-span"></span>!
 </div>
 
 
@@ -124,8 +124,18 @@
   sessionStorage.setItem("userFirstName", userFirstName);
   sessionStorage.setItem("userCompany", userCompany);
 </script>
+<script>
+  const nameEl = document.getElementById("user-name-span");
+  if (nameEl) {
+    const name = sessionStorage.getItem("userFirstName");
+    const company = sessionStorage.getItem("userCompany");
+    nameEl.textContent = name && company ? `${name} from ${company}` : "User";
+  }
+</script>
 
 
   <script src="static/js/scripts.js"></script>
+
+
 </body>
 </html>
