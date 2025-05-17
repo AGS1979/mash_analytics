@@ -230,7 +230,7 @@ def get_user_info(username):
     return None
 
 def user_exists(username):
-    return get_user_password(username) is not None
+    return get_user_info(username) is not None
 
 def add_user(username, password, first_name, company_name):
     wb = openpyxl.load_workbook(EXCEL_FILE)
@@ -287,6 +287,7 @@ def signup():
         return redirect(url_for('login'))
 
 
+
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
@@ -298,13 +299,16 @@ def logout():
 #############################
 
 @app.route('/chat')
-@app.route('/chat')
 def chat():
-    # Redirect to login if not authenticated or username is missing.
     if not session.get('logged_in') or not session.get('username'):
         return redirect(url_for('login'))
-    # Return a rendered template with the username passed in.
-    return render_template('index.html', username=session["username"])
+    return render_template(
+        'index.html',
+        username=session["username"],
+        first_name=session.get("first_name", ""),
+        company_name=session.get("company_name", "")
+    )
+
 
 
 # Redirect root to /chat if logged in, else to /login
