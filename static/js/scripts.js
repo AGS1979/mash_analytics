@@ -55,7 +55,7 @@ document.getElementById("summary-type").addEventListener("change", function() {
           // window.location.href = "/custom-agents";
 
         }
-        
+
 
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -63,6 +63,20 @@ document.addEventListener("DOMContentLoaded", function() {
     if (typeof currentUser !== "undefined" && currentUser) {
         currentChat = currentUser;  // Use the username as the key for this chat session
         loadUserChat(currentUser);
+    }
+
+
+    const name = sessionStorage.getItem("userFirstName");
+    const company = sessionStorage.getItem("userCompany");
+
+    if (name && company) {
+      const nameEl = document.getElementById("user-name-span");
+      const companyEl = document.getElementById("user-company-span");
+
+      if (nameEl && companyEl) {
+        nameEl.textContent = name;
+        companyEl.textContent = company;
+      }
     }
 
     let isFirstQuery = true; // Flag to track if it's the first query in a new chat
@@ -101,20 +115,7 @@ document.addEventListener("DOMContentLoaded", function() {
         return null;
     }
 
-document.addEventListener("DOMContentLoaded", function () {
-  const name = sessionStorage.getItem("userFirstName");
-  const company = sessionStorage.getItem("userCompany");
-
-  if (name && company) {
-    const nameEl = document.getElementById("user-name-span");
-    const companyEl = document.getElementById("user-company-span");
-
-    if (nameEl && companyEl) {
-      nameEl.textContent = name;
-      companyEl.textContent = company;
-    }
-  }
-});
+    
 
     // Detect if the user is asking for a management-evasiveness analysis
     function isEvasivenessQuery(q) {
