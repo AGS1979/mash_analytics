@@ -117,7 +117,9 @@ main {
 
 
 .chat-main {
-  flex: 1 1 70%; /* ✅ this is good */
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0; /* ✅ this is good */
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -230,7 +232,7 @@ main {
 .chat-container {
   display: flex;
   width: 100%;
-  max-width: 2800px;
+  max-width: 100%;
   height: calc(100vh - 140px); /* reduce padding space */
   margin: 70px auto 0 auto; /* reduce from 100px */
   background-color: rgba(37, 49, 65, 0.95);
@@ -303,7 +305,7 @@ main {
 }
 
 .chat-history {
-  width: 40%;
+  width: 350px;
   padding: 20px;
   background-color: rgba(37, 49, 65, 0.95);
   border-top-left-radius: 15px;
