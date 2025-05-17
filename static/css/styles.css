@@ -117,7 +117,7 @@ main {
 
 
 .chat-main {
-  flex: 1;
+  flex: 1 1 70%; /* ✅ this is good */
   display: flex;
   flex-direction: column;
   padding: 20px;
@@ -126,7 +126,11 @@ main {
   z-index: 1;
   border-top-right-radius: 15px;
   border-bottom-right-radius: 15px;
+  overflow-x: hidden; /* ✅ already present later */
+  border-left: 2px solid #3b82f6;
+
 }
+
 
 
 
@@ -226,7 +230,7 @@ main {
 .chat-container {
   display: flex;
   width: 90%;
-  max-width: 1600px;
+  max-width: 1800px;
   height: calc(100vh - 140px); /* reduce padding space */
   margin: 20px auto 0 auto; /* reduce from 100px */
   background-color: rgba(37, 49, 65, 0.95);
@@ -235,6 +239,7 @@ main {
   position: relative;
   overflow: hidden;
   z-index: 1;
+  padding: 0;
 }
 
 
@@ -298,7 +303,7 @@ main {
 }
 
 .chat-history {
-  width: 30%;
+  width: 25%;
   padding: 20px;
   background-color: rgba(37, 49, 65, 0.95);
   border-top-left-radius: 15px;
@@ -327,6 +332,7 @@ main {
     height: auto;
     margin-top: 80px;
     border-radius: 10px;
+    padding: 0;
   }
 
   .chat-history {
