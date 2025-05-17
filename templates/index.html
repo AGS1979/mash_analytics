@@ -23,9 +23,9 @@
 <!-- 👇 PLACE THE LANDING PANEL HERE -->
   <div id="landing-panel" class="landing-panel">
     <div id="user-welcome" class="welcome-bar">
-  Welcome, <span id="user-name-span"></span> from <span id="user-company-span"></span>!
+  Welcome, <span id="user-name-span"></span>!
 </div>
- 
+
 
     <div class="button-options">
       <button onclick="activateChat()">Activate Chat</button>
@@ -117,6 +117,12 @@
 <script>
   // currentUser is now available in your JavaScript
   var currentUser = "{{ session['username'] }}";
+  var userFirstName = "{{ session.get('first_name', '') }}";
+  var userCompany = "{{ session.get('company_name', '') }}";
+
+  // Store in sessionStorage so other scripts can use it too
+  sessionStorage.setItem("userFirstName", userFirstName);
+  sessionStorage.setItem("userCompany", userCompany);
 </script>
 
 
