@@ -51,6 +51,10 @@ from openpyxl import Workbook
 from redflaganalysis import get_red_flag_sentences
 from Guidance import process_guidance_query  # 👈 Import the new module
 from PyPDF2 import PdfReader
+from custom_agents import custom_agents_bp
+
+app.register_blueprint(custom_agents_bp)
+
 
 
 

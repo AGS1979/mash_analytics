@@ -50,11 +50,9 @@ document.getElementById("summary-type").addEventListener("change", function() {
       }
     });
         function useCustomAgents() {
-          alert("🚧 'Custom Agents' feature coming soon! Reach out to admin for early access.");
-          // Optional: You can also navigate to another page or module:
-          // window.location.href = "/custom-agents";
-
+          window.location.href = "/custom-agents";
         }
+
 
 
 

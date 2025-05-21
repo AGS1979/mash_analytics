@@ -1,0 +1,17 @@
+{% extends "index.html" %}
+{% block content %}
+<div style="padding: 20px;">
+  <h2 style="color: #0f172a;">Custom AI Agent Prototypes</h2>
+  <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+    {% for agent in agents %}
+      <div style="background: #f1f5f9; padding: 20px; border-radius: 12px; width: 300px;">
+        <h3>{{ agent.name }}</h3>
+        <strong>Category:</strong> {{ agent.category }}<br><br>
+        <p>{{ agent.description }}</p>
+        <pre style="background: #e2e8f0; padding: 10px;">{{ agent.output }}</pre>
+        <button onclick="alert('You can request this agent soon via subscription.')" style="margin-top: 10px;">Request This Agent</button>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
