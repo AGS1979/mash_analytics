@@ -1,17 +1,41 @@
-{% extends "index.html" %}
-{% block content %}
-<div style="padding: 20px;">
-  <h2 style="color: #0f172a;">Custom AI Agent Prototypes</h2>
-  <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-    {% for agent in agents %}
-      <div style="background: #f1f5f9; padding: 20px; border-radius: 12px; width: 300px;">
-        <h3>{{ agent.name }}</h3>
-        <strong>Category:</strong> {{ agent.category }}<br><br>
-        <p>{{ agent.description }}</p>
-        <pre style="background: #e2e8f0; padding: 10px;">{{ agent.output }}</pre>
-        <button onclick="alert('You can request this agent soon via subscription.')" style="margin-top: 10px;">Request This Agent</button>
-      </div>
-    {% endfor %}
-  </div>
-</div>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Custom Agents</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="MaSh Analytics">
+        </div>
+        <div class="banner">Custom Research Agents</div>
+        <div class="title logout">
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </header>
+
+    <main>
+        <section class="landing-panel">
+            <h1>Explore Our Research Agents</h1>
+            <p>Discover AI-powered tools tailored for financial research, strategy, and analysis.</p>
+        </section>
+
+        <section class="agent-grid">
+            {% for agent in agents %}
+                <div class="agent-card">
+                    <h2>{{ agent.name }}</h2>
+                    <p><strong>Category:</strong> {{ agent.category }}</p>
+                    <p>{{ agent.description }}</p>
+                    <div class="agent-output">
+                        <strong>Example Output:</strong>
+                        <pre>{{ agent.output }}</pre>
+                    </div>
+                </div>
+            {% endfor %}
+        </section>
+    </main>
+</body>
+</html>

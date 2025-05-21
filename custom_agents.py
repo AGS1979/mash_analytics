@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template
 
-custom_agents_bp = Blueprint('custom_agents', __name__, template_folder='templates')
+custom_agents_bp = Blueprint('custom_agents', __name__)
 
 AGENTS = [
     {
