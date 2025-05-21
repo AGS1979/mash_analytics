@@ -259,7 +259,8 @@ def login():
             session['username'] = username
             return redirect(url_for('chat'))
 
-        user = users_db.get(username)
+        users = session.get('users', {})
+        user = users.get(username)
         if user and user["password"] == password:
             session['logged_in'] = True
             session['username'] = username
@@ -270,6 +271,7 @@ def login():
             error = "Invalid username or password. Please try again."
 
     return render_template('login.html', error=error)
+
 
 
 @app.route('/signup', methods=['POST'])
@@ -283,23 +285,29 @@ def signup():
         return render_template('login.html', error="Please provide both email and password.")
     elif username not in WHITELISTED_EMAILS:
         return render_template('login.html', error="This email is not authorized to sign up.")
-    elif username in users_db:
+
+    # Use session to store users (persistent for the session)
+    if 'users' not in session:
+        session['users'] = {}
+    
+    if username in session['users']:
         return render_template('login.html', error="User already exists. Please log in.")
 
-    # ✅ Save user to in-memory database
-    users_db[username] = {
+    # Save to session-stored users
+    session['users'][username] = {
         "password": password,
         "first_name": first_name,
         "company_name": company_name
     }
 
-    # ✅ Log them in
+    # Log in
     session['logged_in'] = True
     session['username'] = username
     session['first_name'] = first_name
     session['company_name'] = company_name
 
     return redirect(url_for('chat'))
+
 
 
 
