@@ -63,6 +63,9 @@ WHITELISTED_EMAILS = {
     "vishal.kumar@aranca.com"
 }
 
+
+users_db = {}
+
 # Add the current directory to the sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -246,7 +249,6 @@ def add_user(username, password, first_name, company_name):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    create_excel_if_not_exists()
     error = None
     if request.method == 'POST' and request.form.get("form_type") == "login":
         username = request.form.get('username')
@@ -256,17 +258,19 @@ def login():
             session['logged_in'] = True
             session['username'] = username
             return redirect(url_for('chat'))
+
+        user = users_db.get(username)
+        if user and user["password"] == password:
+            session['logged_in'] = True
+            session['username'] = username
+            session['first_name'] = user["first_name"]
+            session['company_name'] = user["company_name"]
+            return redirect(url_for('chat'))
         else:
-            user_info = get_user_info(username)
-            if user_info and user_info["password"] == password:
-                session['logged_in'] = True
-                session['username'] = username
-                session['first_name'] = user_info["first_name"]
-                session['company_name'] = user_info["company_name"]
-                return redirect(url_for('chat'))
-            else:
-                error = "Invalid username or password. Please try again."
+            error = "Invalid username or password. Please try again."
+
     return render_template('login.html', error=error)
+
 
 @app.route('/signup', methods=['POST'])
 def signup():
@@ -279,14 +283,24 @@ def signup():
         return render_template('login.html', error="Please provide both email and password.")
     elif username not in WHITELISTED_EMAILS:
         return render_template('login.html', error="This email is not authorized to sign up.")
-    
-    # Instead of Excel, store user in memory (for now)
+    elif username in users_db:
+        return render_template('login.html', error="User already exists. Please log in.")
+
+    # ✅ Save user to in-memory database
+    users_db[username] = {
+        "password": password,
+        "first_name": first_name,
+        "company_name": company_name
+    }
+
+    # ✅ Log them in
     session['logged_in'] = True
     session['username'] = username
     session['first_name'] = first_name
     session['company_name'] = company_name
 
     return redirect(url_for('chat'))
+
 
 
 
