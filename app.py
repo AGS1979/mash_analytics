@@ -53,7 +53,7 @@ from Guidance import process_guidance_query  # 👈 Import the new module
 from PyPDF2 import PdfReader
 from custom_agents import custom_agents_bp
 
-app.register_blueprint(custom_agents_bp)
+
 
 
 
@@ -75,6 +75,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
+app.register_blueprint(custom_agents_bp)
 
 # Set a secret key for session management (use a secure random key in production)
 app.secret_key = "YOUR_SECRET_KEY"
