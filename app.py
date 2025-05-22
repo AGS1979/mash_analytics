@@ -253,16 +253,12 @@ def add_user(username, password, first_name, company_name):
 #############################
 
 @app.route('/login', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST' and request.form.get("form_type") == "login":
         username = request.form.get('username')
         password = request.form.get('password')
-
-        if username == "admin" and password == "password":
-            session['logged_in'] = True
-            session['username'] = username
-            return redirect(url_for('chat'))
 
         user = users_db.get(username)
         if user and user["password"] == password:
@@ -270,11 +266,12 @@ def login():
             session['username'] = username
             session['first_name'] = user["first_name"]
             session['company_name'] = user["company_name"]
-            return redirect(url_for('chat'))
+            return redirect(url_for('index'))  # ✅ redirect to your index.html
         else:
-            error = "Invalid username or password. Please try again."
+            error = "Invalid username or password."
 
     return render_template('login.html', error=error)
+
 
 
 
@@ -294,20 +291,21 @@ def signup():
     if username in users_db:
         return render_template('login.html', error="User already exists. Please log in.")
 
-    # Save user
+    # ✅ Save user in memory
     users_db[username] = {
         "password": password,
         "first_name": first_name,
         "company_name": company_name
     }
 
-    # Log in user
+    # ✅ Set session and redirect
     session['logged_in'] = True
     session['username'] = username
     session['first_name'] = first_name
     session['company_name'] = company_name
 
-    return redirect(url_for('chat'))
+    return redirect(url_for('chat'))  # or index, depending on your design
+
 
 
 @app.route('/custom-agents-data')
