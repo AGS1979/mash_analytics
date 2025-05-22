@@ -579,15 +579,14 @@ body {
 }
 
 .agent-grid {
-  display: flex;
-  overflow-x: auto;
-  
-
-  gap: 20px;
-  
-  padding: 20px;
-  scroll-snap-type: x mandatory;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 30px;
+  padding: 40px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
+
 .agent-card {
   flex: 0 0 auto;
   scroll-snap-align: start;
@@ -595,19 +594,15 @@ body {
 
 
 .agent-card {
-  width: 32%; /* allows 3 across with space for gap */
-  min-width: 280px;
-  max-width: 340px;
-  height: 320px; /* taller cards */
+  
   background-color: #1f2937;
   border: 1px solid #3b82f6;
   border-radius: 12px;
   padding: 20px;
-
+  
   box-shadow: 0 4px 8px rgba(0,0,0,0.4);
   color: #e5e5e5;
-  font-family: 'Inter', 'Roboto', sans-serif;
-  font-size: 15px; /* slightly smaller */
+  height: 260px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
