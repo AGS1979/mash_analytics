@@ -440,6 +440,14 @@
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
 <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
 
+<script>
+  const currentUser = "{{ username | default('') }}";
+  if (currentUser) {
+    sessionStorage.setItem("username", currentUser);
+  }
+</script>
+
+
 
 </head>
 <body>
@@ -686,6 +694,7 @@ $('.case-carousel').slick({
     }
   ]
 });
+
 
 
 </script>

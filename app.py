@@ -358,16 +358,14 @@ def logout():
 def chat():
     if not session.get('logged_in') or not session.get('username'):
         return redirect(url_for('login'))
-    # ✅ Add print to verify session values
-    print("➡️ Session username:", session.get("username"))
-    print("➡️ Session first_name:", session.get("first_name"))
-    print("➡️ Session company_name:", session.get("company_name"))
+
     return render_template(
-        'index.html',
-        username=session["username"],
+        'login.html',  # ✅ you're rendering login.html after login
+        username=session.get("username"),  # 👈 important
         first_name=session.get("first_name", ""),
         company_name=session.get("company_name", "")
     )
+
 
 
 
