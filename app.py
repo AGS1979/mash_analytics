@@ -357,7 +357,7 @@ def chat():
         return redirect(url_for('login'))
 
     return render_template(
-        'login.html',  # ✅ you're rendering login.html after login
+        'index.html',  # ✅ you're rendering login.html after login
         username=session.get("username"),  # 👈 important
         first_name=session.get("first_name", ""),
         company_name=session.get("company_name", "")
