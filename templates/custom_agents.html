@@ -16,47 +16,47 @@
         }
 
         header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 9999;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 20px;
-            background: rgba(246, 242, 239);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-            overflow-x: hidden; /* Prevents content spill on right */
+          position: fixed;               /* Make header fixed at top */
+          top: 0;
+          left: 0;
+          width: 100%;
+          z-index: 9999;                 /* Stay above all content */
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 14px 20px;
+          background: rgba(246, 242, 239);  /* Already present */
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        header .logo {
+          flex: 1;
         }
 
         header .logo img {
-            max-height: 70px;
-            width: auto;
+          max-height: 85px;
+          width: auto;
         }
 
         header .banner {
-            flex: 1; /* Allow banner to take remaining space */
-            text-align: center;
-            font-weight: bold;
-            font-size: 22px;
-            color: #1f2937;
-            white-space: nowrap;  /* Prevents line wrapping */
-            overflow: hidden;
-            text-overflow: ellipsis;
+          flex: 2;
+          text-align: center;
+          font-weight: bold;
+          font-size: 22px;
+          color: #1f2937;
         }
 
-        
-
-        header .logo {
-            flex: 0;
+        header .title {
+          flex: 1;
+          text-align: right;
+          font-weight: bold;
+          color: #1f2937;
         }
 
         header .logout a {
-            text-decoration: none;
-            color: #307aff;
-            font-weight: bold;
-            
+          text-decoration: none;
+          color: #307aff;
+          font-weight: bold;
         }
 
         main {
