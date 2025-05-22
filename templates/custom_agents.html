@@ -16,48 +16,49 @@
         }
 
         header {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          background: rgba(246, 242, 239);  /* Already present */
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 20px;
-          z-index: 9999;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(246, 242, 239);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            z-index: 9999;
+            overflow-x: hidden; /* Prevent any horizontal spill */
         }
 
         header .logo {
-          flex: 1;
-        }
-
-        header .logo img {
-          max-height: 85px;
-          width: auto;
+            flex-shrink: 0;
         }
 
         header .banner {
-          flex: 2;
-          text-align: center;
-          font-weight: bold;
-          font-size: 22px;
-          color: #1f2937;
+            flex-grow: 1;
+            text-align: center;
+            font-weight: bold;
+            font-size: 22px;
+            color: #1f2937;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        header .title {
-          flex: 1;
-          text-align: right;
-          font-weight: bold;
-          color: #1f2937;
+        header .logout {
+            flex-shrink: 0;
+            min-width: 90px;
+            text-align: right;
+            padding-left: 10px;
         }
 
         header .logout a {
-          text-decoration: none;
-          color: #307aff;
-          font-weight: bold;
+            text-decoration: none;
+            color: #307aff;
+            font-weight: bold;
+            font-size: 16px;
         }
+
 
         main {
             padding: 20px;
