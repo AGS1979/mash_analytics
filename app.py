@@ -313,6 +313,32 @@ def signup():
 
     return redirect(url_for('chat'))
 
+@app.route('/custom-agents-data')
+def get_custom_agents():
+    agents = [
+        {
+            "id": "quant_signal",
+            "name": "Quantitative Signal Generator",
+            "category": "Alpha Generation",
+            "description": "Generates trading signals using machine learning based on historical prices and fundamentals.",
+            "output": "Sample signals file"
+        },
+        {
+            "id": "factor_opt",
+            "name": "Factor Exposure Optimizer",
+            "category": "Portfolio Optimization",
+            "description": "Rebalances portfolio to maintain desired exposure to style factors like value and momentum.",
+            "output": "Optimization result file"
+        },
+        {
+            "id": "macro_classifier",
+            "name": "Macro Regime Classifier",
+            "category": "Risk Management",
+            "description": "Classifies the current macro regime (e.g., inflationary slowdown) and recommends tilts.",
+            "output": "Regime classification file"
+        }
+    ]
+    return jsonify(agents)
 
 
 

@@ -54,6 +54,51 @@ document.getElementById("summary-type").addEventListener("change", function() {
         }
 
 
+function loadCustomAgents() {
+  fetch("/custom-agents-data")
+    .then(response => response.json())
+    .then(agents => {
+      const grid = document.getElementById("agent-grid");
+      const container = document.getElementById("custom-agents-section");
+
+      agents.forEach(agent => {
+        const card = document.createElement("div");
+        card.className = "agent-card";
+        card.innerHTML = `
+          <h2>${agent.name}</h2>
+          <p><strong>Category:</strong> ${agent.category}</p>
+          <p>${agent.description}</p>
+          <button onclick="showAgentModal('${agent.id}')">Learn More</button>
+        `;
+        grid.appendChild(card);
+
+        const modal = document.createElement("div");
+        modal.id = `modal-${agent.id}`;
+        modal.className = "modal";
+        modal.innerHTML = `
+          <div class="modal-content">
+            <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+            <h3>${agent.name}</h3>
+            <p><strong>Category:</strong> ${agent.category}</p>
+            <p><strong>How it Works:</strong> ${agent.description}</p>
+            <p><strong>Sample Output:</strong></p>
+            <pre>${agent.output}</pre>
+          </div>
+        `;
+        document.body.appendChild(modal);
+      });
+
+      container.style.display = "block";
+    });
+}
+
+function showAgentModal(id) {
+  document.getElementById(`modal-${id}`).style.display = "block";
+}
+
+function closeModal(id) {
+  document.getElementById(`modal-${id}`).style.display = "none";
+}
 
 
 document.addEventListener("DOMContentLoaded", function() {
@@ -61,6 +106,8 @@ document.addEventListener("DOMContentLoaded", function() {
     if (typeof currentUser !== "undefined" && currentUser) {
         currentChat = currentUser;  // Use the username as the key for this chat session
         loadUserChat(currentUser);
+        loadCustomAgents();
+
     }
 
 
