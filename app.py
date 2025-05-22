@@ -331,6 +331,48 @@ def get_custom_agents():
             "category": "Risk Management",
             "description": "Classifies the current macro regime (e.g., inflationary slowdown) and recommends tilts.",
             "output": "Regime classification file"
+        },
+        {
+            "id": "new_agent_1",
+            "name": "Sector Heatmap Analyzer",
+            "category": "Sector Insights",
+            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "output": "Sample sector heatmap output..."
+        },
+        {
+            "id": "new_agent_1",
+            "name": "Sector Heatmap Analyzer",
+            "category": "Sector Insights",
+            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "output": "Sample sector heatmap output..."
+        },
+        {
+            "id": "new_agent_1",
+            "name": "Sector Heatmap Analyzer",
+            "category": "Sector Insights",
+            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "output": "Sample sector heatmap output..."
+        },
+        {
+            "id": "new_agent_1",
+            "name": "Sector Heatmap Analyzer",
+            "category": "Sector Insights",
+            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "output": "Sample sector heatmap output..."
+        },
+        {
+            "id": "new_agent_1",
+            "name": "Sector Heatmap Analyzer",
+            "category": "Sector Insights",
+            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "output": "Sample sector heatmap output..."
+        },
+        {
+            "id": "new_agent_1",
+            "name": "Sector Heatmap Analyzer",
+            "category": "Sector Insights",
+            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "output": "Sample sector heatmap output..."
         }
     ]
     return jsonify(agents)

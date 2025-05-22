@@ -580,11 +580,19 @@ body {
 
 .agent-grid {
   display: flex;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  
+
   gap: 20px;
-  justify-content: center;
+  
   padding: 20px;
+  scroll-snap-type: x mandatory;
 }
+.agent-card {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
 
 .agent-card {
   width: 32%; /* allows 3 across with space for gap */
@@ -595,7 +603,7 @@ body {
   border: 1px solid #3b82f6;
   border-radius: 12px;
   padding: 20px;
-  
+
   box-shadow: 0 4px 8px rgba(0,0,0,0.4);
   color: #e5e5e5;
   font-family: 'Inter', 'Roboto', sans-serif;
@@ -614,14 +622,22 @@ body {
 }
 
 .agent-card button {
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
+  background-color: #374151; /* dark grey-blue */
+  color: #d1d5db;
+  border: 1px solid #4b5563;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  margin-top: 10px;
+  transition: background-color 0.2s ease;
 }
+
+.agent-card button:hover {
+  background-color: #4b5563; /* slightly lighter on hover */
+  color: #f9fafb;
+}
+
 
 .agent-card button:hover {
   background-color: #2563eb;
