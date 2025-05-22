@@ -44,39 +44,40 @@ document.getElementById("summary-type").addEventListener("change", function() {
 
     // Handle back button
     window.addEventListener("popstate", function (event) {
-  const landing = document.getElementById("landing-panel");
-  const chat = document.getElementById("chat-ui");
-  const agents = document.getElementById("custom-agents-ui");
-
-  // Hide all views
-  landing.style.display = "none";
-  chat.style.display = "none";
-  agents.style.display = "none";
+  // Default to landing page
+  document.getElementById("landing-panel").style.display = "block";
+  document.getElementById("chat-ui").style.display = "none";
+  document.getElementById("custom-agents-section").style.display = "none";
 
   if (event.state?.page === "chat-ui") {
-    chat.style.display = "block";
-  } else if (event.state?.page === "custom-agents-ui") {
-    agents.style.display = "block";
-  } else {
-    landing.style.display = "block";
+    document.getElementById("landing-panel").style.display = "none";
+    document.getElementById("chat-ui").style.display = "block";
+  } else if (event.state?.page === "custom-agents") {
+    document.getElementById("landing-panel").style.display = "none";
+    document.getElementById("custom-agents-section").style.display = "block";
   }
 });
 
 
-        function useCustomAgents() {
-  // Hide landing and chat views
+
+function useCustomAgents() {
+  // Hide other sections
   document.getElementById("landing-panel").style.display = "none";
   document.getElementById("chat-ui").style.display = "none";
 
-  // Show custom agent view
-  document.getElementById("custom-agents-ui").style.display = "block";
+  // Show the agents panel
+  document.getElementById("custom-agents-section").style.display = "block";
 
-  // Load the agents dynamically
+  // Scroll to top of agents section for clean UX
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // Push to browser history (so back button works)
+  window.history.pushState({ page: "custom-agents" }, "", "#agents");
+
+  // Dynamically load agents if not already loaded
   loadCustomAgents();
-
-  // Update browser state (optional)
-  window.history.pushState({ page: "custom-agents-ui" }, "", "#agents");
 }
+
 
 
 
