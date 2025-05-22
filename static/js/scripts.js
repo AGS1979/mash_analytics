@@ -43,24 +43,39 @@ document.getElementById("summary-type").addEventListener("change", function() {
     }
 
     // Handle back button
-    window.addEventListener("popstate", function (event) {
-  // Default to landing page
+  window.addEventListener("popstate", function (event) {
+    document.getElementById("landing-panel").style.display = "block";
+    document.getElementById("chat-ui").style.display = "none";
+    document.getElementById("custom-agents-ui").style.display = "none"; // ✅ was wrong before
+
+    if (event.state?.page === "chat-ui") {
+        document.getElementById("landing-panel").style.display = "none";
+        document.getElementById("chat-ui").style.display = "block";
+    } else if (event.state?.page === "custom-agents") {
+        document.getElementById("landing-panel").style.display = "none";
+        document.getElementById("custom-agents-ui").style.display = "block"; // ✅ fixed ID
+        }
+    });
+
+
+document.addEventListener("DOMContentLoaded", function () {
+  const hash = window.location.hash;
+
+  // Default state: show landing panel only
   document.getElementById("landing-panel").style.display = "block";
   document.getElementById("chat-ui").style.display = "none";
-  document.getElementById("custom-agents-section").style.display = "none";
+  document.getElementById("custom-agents-ui").style.display = "none";
 
-  if (event.state?.page === "chat-ui") {
-    document.getElementById("landing-panel").style.display = "none";
-    document.getElementById("chat-ui").style.display = "block";
-  } else if (event.state?.page === "custom-agents") {
-    document.getElementById("landing-panel").style.display = "none";
-    document.getElementById("custom-agents-section").style.display = "block";
+  if (hash === "#chat") {
+    activateChat();
+  } else if (hash === "#agents") {
+    useCustomAgents();
   }
 });
 
 
 
-function useCustomAgents() {
+    function useCustomAgents() {
   // Hide other sections
   document.getElementById("landing-panel").style.display = "none";
   document.getElementById("chat-ui").style.display = "none";
@@ -82,12 +97,16 @@ function useCustomAgents() {
 
 
 function loadCustomAgents() {
+  // ✅ Clear previous agent cards
+  const grid = document.getElementById("agent-grid");
+  grid.innerHTML = '';
+
+  // ✅ Remove stale modals
+  document.querySelectorAll(".modal").forEach(el => el.remove());
+
   fetch("/custom-agents-data")
     .then(response => response.json())
     .then(agents => {
-      const grid = document.getElementById("agent-grid");
-      const container = document.getElementById("custom-agents-section");
-
       agents.forEach(agent => {
         const card = document.createElement("div");
         card.className = "agent-card";
@@ -110,14 +129,15 @@ function loadCustomAgents() {
             <p><strong>How it Works:</strong> ${agent.description}</p>
             <p><strong>Sample Output:</strong></p>
             <pre>${agent.output}</pre>
+            <a href="/static/samples/${agent.id}_output.csv" download style="color:#3b82f6;">⬇ Download Sample Output</a>
           </div>
         `;
-        document.body.appendChild(modal);
+        document.getElementById("custom-agents-ui").appendChild(modal);
       });
-
-      container.style.display = "block";
     });
 }
+
+
 
 function showAgentModal(id) {
   document.getElementById(`modal-${id}`).style.display = "block";
@@ -133,7 +153,7 @@ document.addEventListener("DOMContentLoaded", function() {
     if (typeof currentUser !== "undefined" && currentUser) {
         currentChat = currentUser;  // Use the username as the key for this chat session
         loadUserChat(currentUser);
-        loadCustomAgents();
+        
 
     }
 
