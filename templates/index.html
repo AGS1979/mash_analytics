@@ -114,7 +114,28 @@
 
 
 <!-- Custom Agents Section (Rendered After Login) -->
-<div id="custom-agents-section" style="display: none; margin-top: 40px;">
+<div id="custom-agents-ui" style="display: none;">
+  <header>
+    <div class="logo">
+      <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
+    </div>
+    <div class="banner">Custom Research Agents</div>
+    <div class="logout">
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="landing-panel">
+        <h1>Explore Our Research Agents</h1>
+        <p>Discover AI-powered tools tailored for financial research, strategy, and analysis.</p>
+    </section>
+    <section class="agent-grid" id="agent-grid">
+      <!-- Cards will be injected here -->
+    </section>
+  </main>
+</div>
+
   <section class="landing-panel">
       <h1>Explore Our Research Agents</h1>
       <p>Discover AI-powered tools tailored for financial research, strategy, and analysis.</p>

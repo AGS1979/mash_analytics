@@ -44,18 +44,40 @@ document.getElementById("summary-type").addEventListener("change", function() {
 
     // Handle back button
     window.addEventListener("popstate", function (event) {
-      if (!event.state || event.state.page !== "chat-ui") {
-        document.getElementById("chat-ui").style.display = "none";
-        document.getElementById("landing-panel").style.display = "block";
-      }
-    });
+  const landing = document.getElementById("landing-panel");
+  const chat = document.getElementById("chat-ui");
+  const agents = document.getElementById("custom-agents-ui");
+
+  // Hide all views
+  landing.style.display = "none";
+  chat.style.display = "none";
+  agents.style.display = "none";
+
+  if (event.state?.page === "chat-ui") {
+    chat.style.display = "block";
+  } else if (event.state?.page === "custom-agents-ui") {
+    agents.style.display = "block";
+  } else {
+    landing.style.display = "block";
+  }
+});
+
+
         function useCustomAgents() {
-          const section = document.getElementById("custom-agents-section");
-          if (section) {
-            section.style.display = "block";
-            section.scrollIntoView({ behavior: "smooth" });
-          }
-        }
+  // Hide landing and chat views
+  document.getElementById("landing-panel").style.display = "none";
+  document.getElementById("chat-ui").style.display = "none";
+
+  // Show custom agent view
+  document.getElementById("custom-agents-ui").style.display = "block";
+
+  // Load the agents dynamically
+  loadCustomAgents();
+
+  // Update browser state (optional)
+  window.history.pushState({ page: "custom-agents-ui" }, "", "#agents");
+}
+
 
 
 function loadCustomAgents() {
