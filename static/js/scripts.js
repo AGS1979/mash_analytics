@@ -81,7 +81,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("chat-ui").style.display = "none";
 
   // Show the agents panel
-  document.getElementById("custom-agents-section").style.display = "block";
+  document.getElementById("custom-agents-ui").style.display = "block";
 
   // Scroll to top of agents section for clean UX
   window.scrollTo({ top: 0, behavior: "smooth" });
