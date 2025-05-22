@@ -50,7 +50,11 @@ document.getElementById("summary-type").addEventListener("change", function() {
       }
     });
         function useCustomAgents() {
-          window.location.href = "/custom-agents";
+          const section = document.getElementById("custom-agents-section");
+          if (section) {
+            section.style.display = "block";
+            section.scrollIntoView({ behavior: "smooth" });
+          }
         }
 
 
