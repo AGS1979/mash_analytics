@@ -96,46 +96,48 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-function loadCustomAgents() {
-  // ✅ Clear previous agent cards
-  const grid = document.getElementById("agent-grid");
-  grid.innerHTML = '';
+    function loadCustomAgents() {
+        const grid = document.getElementById("agent-grid");
+        grid.innerHTML = ''; // Clear old cards
 
-  // ✅ Remove stale modals
-  document.querySelectorAll(".modal").forEach(el => el.remove());
+  // Remove old modals
+        document.querySelectorAll(".modal").forEach(el => el.remove());
 
-  fetch("/custom-agents-data")
-    .then(response => response.json())
-    .then(agents => {
+        fetch("/custom-agents-data")
+            .then(response => response.json())
+            .then(agents => {
       agents.forEach(agent => {
+        // Create the card
         const card = document.createElement("div");
         card.className = "agent-card";
         card.innerHTML = `
-          <h2>${agent.name}</h2>
+          <h3>${agent.name}</h3>
           <p><strong>Category:</strong> ${agent.category}</p>
           <p>${agent.description}</p>
           <button onclick="showAgentModal('${agent.id}')">Learn More</button>
         `;
         grid.appendChild(card);
 
+        // Create the modal
         const modal = document.createElement("div");
         modal.id = `modal-${agent.id}`;
         modal.className = "modal";
         modal.innerHTML = `
           <div class="modal-content">
             <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
-            <h3>${agent.name}</h3>
+            <h2>${agent.name}</h2>
             <p><strong>Category:</strong> ${agent.category}</p>
             <p><strong>How it Works:</strong> ${agent.description}</p>
             <p><strong>Sample Output:</strong></p>
             <pre>${agent.output}</pre>
-            <a href="/static/samples/${agent.id}_output.csv" download style="color:#3b82f6;">⬇ Download Sample Output</a>
+            <a href="/static/samples/${agent.id}_output.csv" download class="download-link">⬇ Download Sample Output</a>
           </div>
         `;
         document.getElementById("custom-agents-ui").appendChild(modal);
       });
     });
 }
+
 
 
 
