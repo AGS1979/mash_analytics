@@ -264,8 +264,7 @@ def login():
             session['username'] = username
             return redirect(url_for('chat'))
 
-        users = session.get('users', {})
-        user = users.get(username)
+        user = users_db.get(username)
         if user and user["password"] == password:
             session['logged_in'] = True
             session['username'] = username
@@ -279,6 +278,7 @@ def login():
 
 
 
+
 @app.route('/signup', methods=['POST'])
 def signup():
     username = request.form.get('username')
@@ -287,31 +287,28 @@ def signup():
     company_name = request.form.get('company_name')
 
     if not username or not password:
-        return render_template('login.html', error="Please provide both email and password.")
+        return render_template('login.html', error="Please provide both username and password.")
     elif username not in WHITELISTED_EMAILS:
         return render_template('login.html', error="This email is not authorized to sign up.")
 
-    # Use session to store users (persistent for the session)
-    if 'users' not in session:
-        session['users'] = {}
-    
-    if username in session['users']:
+    if username in users_db:
         return render_template('login.html', error="User already exists. Please log in.")
 
-    # Save to session-stored users
-    session['users'][username] = {
+    # Save user
+    users_db[username] = {
         "password": password,
         "first_name": first_name,
         "company_name": company_name
     }
 
-    # Log in
+    # Log in user
     session['logged_in'] = True
     session['username'] = username
     session['first_name'] = first_name
     session['company_name'] = company_name
 
     return redirect(url_for('chat'))
+
 
 @app.route('/custom-agents-data')
 def get_custom_agents():
