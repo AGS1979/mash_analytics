@@ -27,29 +27,32 @@
             padding: 14px 20px;
             background: rgba(246, 242, 239);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            overflow-x: hidden; /* Prevents content spill on right */
         }
 
         header .logo img {
-            max-height: 85px;
+            max-height: 70px;
             width: auto;
         }
 
         header .banner {
-            flex: 2;
+            flex: 1; /* Allow banner to take remaining space */
             text-align: center;
             font-weight: bold;
             font-size: 22px;
             color: #1f2937;
+            white-space: nowrap;  /* Prevents line wrapping */
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         header .logout {
-            flex: 1;
-            text-align: right;
-            padding-right: 10px;
+            flex-shrink: 0;
+            margin-left: auto;  /* Pushes it far right */
         }
 
         header .logo {
-            flex: 1;
+            flex: 0;
         }
 
         header .logout a {
@@ -57,7 +60,7 @@
             color: #307aff;
             font-weight: bold;
             font-size: 16px;
-
+            padding-left: 10px;
         }
 
         main {
