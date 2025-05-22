@@ -8,7 +8,7 @@
 body {
   font-family: 'Roboto', sans-serif;
   color: #e5e5e5;
-  font-size: 18px;
+  font-size: 16px;
   margin: 0;
   padding: 0;
   position: relative;
@@ -587,18 +587,30 @@ body {
 }
 
 .agent-card {
+  width: 32%; /* allows 3 across with space for gap */
+  min-width: 280px;
+  max-width: 340px;
+  height: 320px; /* taller cards */
   background-color: #1f2937;
   border: 1px solid #3b82f6;
   border-radius: 12px;
   padding: 20px;
-  width: 300px;
+  
   box-shadow: 0 4px 8px rgba(0,0,0,0.4);
   color: #e5e5e5;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  font-size: 15px; /* slightly smaller */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
+
 
 .agent-card h3 {
   margin-top: 0;
   color: #93c5fd;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .agent-card button {
@@ -631,18 +643,33 @@ body {
 .modal-content {
   background-color: #1f2937;
   margin: 10% auto;
-  padding: 20px;
+  padding: 24px;
   border: 1px solid #3b82f6;
   width: 90%;
   max-width: 600px;
   color: #e5e5e5;
-  border-radius: 10px;
-  position: relative;
+  border-radius: 12px;
+  font-family: 'Inter', 'Roboto', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .modal-content h3 {
+  font-size: 20px;
+  margin-bottom: 12px;
   color: #93c5fd;
 }
+
+.modal-content pre {
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 
 .close {
   position: absolute;
@@ -654,11 +681,20 @@ body {
   cursor: pointer;
 }
 
-.modal-content pre {
-  background-color: rgba(255, 255, 255, 0.05);
-  padding: 10px;
-  border-radius: 6px;
-  font-family: monospace;
-  white-space: pre-wrap;
-  margin-top: 10px;
+
+@media (max-width: 768px) {
+  .agent-card {
+    width: 90%;
+    max-width: 100%;
+    height: auto;
+  }
+
+  .agent-card h3 {
+    font-size: 17px;
+  }
+
+  .modal-content {
+    font-size: 14px;
+    padding: 16px;
+  }
 }
