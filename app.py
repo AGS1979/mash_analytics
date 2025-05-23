@@ -385,7 +385,7 @@ def generate_preipo_memo():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
         file.save(file_path)
 
-        output_path = run_pipeline_memo(file_path, notes)  # your DRHP processing logic here
+        output_path = run_pipeline(file_path, notes)  # your DRHP processing logic here
 
         if not output_path or not os.path.exists(output_path):
             return jsonify({'error': 'Failed to generate memo.'}), 500
