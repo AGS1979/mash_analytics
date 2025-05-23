@@ -106,12 +106,15 @@ def generate_investment_memo(filtered_text, custom_notes=""):
         "Write in full sentences forming coherent paragraphs. Use ISO currency codes (INR, USD, etc.). "
         "Use proper headings and bullet points only for lists. Figures should be in millions with comma separators.\n\n"
         "Provide rich, data-driven insights with specific references to competitive strategy, financial guidance, and market dynamics. Assume the reader is a sophisticated institutional investor.\n"
-
+        "For each of the sections required in the investment memo, provide as much detail as possible which is relevant and provides a view on the company, industry and the offer."
     )
     if custom_notes:
-        base_prompt += f"Special Instructions: {custom_notes}\n\n"
+        base_prompt += (
+            "\nIn addition to the above structure, incorporate the following focus areas explicitly:\n"
+            f"{custom_notes.strip()}\n"
+        )
 
-    base_prompt += f"DRHP Text:\n{filtered_text[:8000]}"
+    base_prompt += f"DRHP Text:\n{filtered_text[:16000]}"
 
     messages = [
         {"role": "system", "content": "You are an expert financial analyst."},
@@ -141,7 +144,11 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
     font.size = Pt(11)
 
     # Add formatted title
-    doc.add_heading(f"{company_name} Pre-IPO Investment Memo", 0)
+    title_para = doc.add_paragraph()
+    title_run = title_para.add_run(f"{company_name} Pre-IPO Investment Memo")
+    title_run.font.name = 'Aptos Display'
+    title_run.font.size = Pt(20)
+    title_run.bold = True
     doc.add_paragraph()
 
     # Split into sections
@@ -158,9 +165,10 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
         lower_section = clean_section.lower()
 
         if any(lower_section.startswith(h) for h in heading_keywords):
-            para = doc.add_paragraph()
+            para = doc.add_paragraph(style='Normal')
             run = para.add_run(clean_section)
             run.bold = True
+            run.font.name = 'Aptos Display'
             run.font.size = Pt(14)
             doc.add_paragraph()  # extra space after header
 
