@@ -8,6 +8,7 @@ from datetime import datetime
 from docx.shared import Pt
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from docx.shared import Inches
 
 # ========== CONFIG ==========
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
