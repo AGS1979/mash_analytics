@@ -128,23 +128,26 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
         section = section.strip()
 
         # Format headings
-        heading_keywords = ['company overview', 'industry overview', 'business model',
-                    'financial highlights', 'management', 'key risks', 'investment rationale', 'conclusion']
-        for keyword in heading_keywords:
-            if section.lower().startswith(keyword):
-                heading_text = section.replace('#', '').replace('*', '').strip()
-                para = doc.add_paragraph()
-                run = para.add_run(heading_text)
-                run.bold = True
-                run.font.size = Pt(14)
-                break
+            heading_keywords = ['company overview', 'industry overview', 'business model',
+                        'financial highlights', 'management', 'key risks', 'investment rationale', 'conclusion']
 
-        elif re.match(r"^(\*|-|•)\s+", section):
-            doc.add_paragraph(re.sub(r"^(\*|-|•)\s+", "", section), style='List Bullet')
+            for section in sections:
+                section = section.strip().replace('#', '').replace('*', '').strip()
 
-        else:
-            # Standard paragraph
-            doc.add_paragraph(section)
+                if any(section.lower().startswith(h) for h in heading_keywords):
+                    para = doc.add_paragraph()
+                    run = para.add_run(section)
+                    run.bold = True
+                    run.font.size = Pt(14)
+
+                elif re.match(r"^(\*|-|•|\d+\.)\s+", section):
+                    # Handle bullets like *, -, •, or numbered list (1., 2., etc.)
+                    clean_text = re.sub(r"^(\*|-|•|\d+\.)\s+", "", section)
+                    doc.add_paragraph(clean_text, style='List Bullet')
+
+                else:
+                    doc.add_paragraph(section)
+
 
 
     doc.save(full_path)
