@@ -5,6 +5,9 @@ from docx import Document
 import re
 import json
 from datetime import datetime
+from docx.shared import Pt
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 # ========== CONFIG ==========
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -73,7 +76,9 @@ def generate_investment_memo(filtered_text, custom_notes=""):
         "The memo should include:\n"
         "1. Company Overview\n2. Industry Overview\n3. Business Model\n4. Financial Highlights\n"
         "5. Management’s Discussion and Analysis\n6. Key Risks\n7. Investment Rationale\n"
-        "Use clear headers, concise summaries, and bullet points where appropriate.\n\n"
+        "Use clear headers, write in full sentences forming coherent paragraphs, and only use bullet points for lists.\n\n"
+        "Always use ISO standard currency codes (INR, USD, GBP, etc.) instead of local symbols.\n"
+        "Show financial figures (not per-share or percent) in millions using comma separators.\n"
     )
     if custom_notes:
         base_prompt += f"Special Instructions: {custom_notes}\n\n"
@@ -94,17 +99,48 @@ def generate_investment_memo(filtered_text, custom_notes=""):
     return response.json()['choices'][0]['message']['content']
 
 
-def save_memo_to_word(memo_text, output_dir="documents"):
+def save_memo_to_word(memo_text, company_name="Company", output_dir="documents"):
     os.makedirs(output_dir, exist_ok=True)
-    filename = f"PreIPO_Memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+    filename = f"{company_name.replace(' ', '_')}_PreIPO_Memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
     full_path = os.path.join(output_dir, filename)
 
     doc = Document()
-    doc.add_heading("Pre-IPO Investment Memo", 0)
-    for section in memo_text.split('\n\n'):
-        doc.add_paragraph(section.strip())
+
+    # Set default font to Aptos Display (fallback to Calibri)
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Aptos Display'
+    font.size = Pt(11)
+
+    # Add formatted title
+    doc.add_heading(f"{company_name} Pre-IPO Investment Memo", 0)
+    doc.add_paragraph()
+
+    # Split into sections
+    sections = memo_text.split('\n\n')
+    for section in sections:
+        section = section.strip()
+
+        # Format headings
+        heading_keywords = ['company overview', 'industry overview', 'business model',
+                    'financial highlights', 'management', 'key risks', 'investment rationale', 'conclusion']
+        if any(section.lower().startswith(h) for h in heading_keywords):
+            para = doc.add_paragraph()
+            run = para.add_run(section)
+            run.bold = True
+            run.font.size = Pt(14)
+
+        elif re.match(r"^(\*|-|•)\s+", section):
+            doc.add_paragraph(re.sub(r"^(\*|-|•)\s+", "", section), style='List Bullet')
+
+        else:
+            # Standard paragraph
+            doc.add_paragraph(section)
+
+
     doc.save(full_path)
     return full_path
+
 
 
 # ========== FINAL RUN PIPELINE ==========
