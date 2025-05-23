@@ -108,15 +108,98 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(agents => {
       agents.forEach(agent => {
         // Create the card
-        const card = document.createElement("div");
+                const card = document.createElement("div");
         card.className = "agent-card";
-        card.innerHTML = `
-          <h3>${agent.name}</h3>
-          <p><strong>Category:</strong> ${agent.category}</p>
-          <p>${agent.description}</p>
-          <button onclick="showAgentModal('${agent.id}')">Learn More</button>
-        `;
-        grid.appendChild(card);
+
+        // 👇 Special handling for Pre-IPO Memo
+        if (agent.id === "Pre-IPO_Investment_Memo") {
+          card.innerHTML = `
+            <h3>${agent.name}</h3>
+            <p><strong>Category:</strong> ${agent.category}</p>
+            <p>${agent.description}</p>
+            <button onclick="showPreIPOModal()">Run Agent</button>
+          `;
+
+          const modal = document.createElement("div");
+          modal.id = `modal-${agent.id}`;
+          modal.className = "modal";
+          modal.innerHTML = `
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+              <h2>${agent.name}</h2>
+              <p><strong>Category:</strong> ${agent.category}</p>
+              <p><strong>Description:</strong> ${agent.description}</p>
+              <form id="preipo-form">
+                <label>Upload DRHP PDF:</label><br>
+                <input type="file" name="file" accept=".pdf" required /><br><br>
+                <label>Additional Notes / Focus Areas:</label><br>
+                <textarea name="notes" rows="4" placeholder="e.g. Emphasize risk factors, focus on financials"></textarea><br><br>
+                <button type="submit">Generate Memo</button>
+              </form>
+              <div id="preipo-result" style="margin-top: 15px;"></div>
+            </div>
+          `;
+          document.getElementById("custom-agents-ui").appendChild(modal);
+
+          modal.querySelector("form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+
+            fetch("/generate-preipo-memo", {
+              method: "POST",
+              body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+              const resultDiv = modal.querySelector("#preipo-result");
+              if (data.download_url) {
+                resultDiv.innerHTML = `
+                  ✅ Memo ready!<br>
+                  <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
+                    ⬇ Download Memo
+                  </a>`;
+              } else {
+                resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error}</span>`;
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              modal.querySelector("#preipo-result").innerText = `Error: ${err.message}`;
+            });
+          });
+
+        } else {
+          // Default cards for other agents
+          card.innerHTML = `
+            <h3>${agent.name}</h3>
+            <p><strong>Category:</strong> ${agent.category}</p>
+            <p>${agent.description}</p>
+            <button onclick="showAgentModal('${agent.id}')">Learn More</button>
+          `;
+
+          const modal = document.createElement("div");
+          modal.id = `modal-${agent.id}`;
+          modal.className = "modal";
+          modal.innerHTML = `
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+              <h2>${agent.name}</h2>
+              <p><strong>Category:</strong> ${agent.category}</p>
+              <p><strong>How it Works:</strong> ${agent.description}</p>
+              <p><strong>Sample Output:</strong></p>
+              <pre>${agent.output}</pre>
+              <a href="/static/samples/${agent.id}_output.csv" download class="download-link">⬇ Download Sample Output</a>
+            </div>
+          `;
+          document.getElementById("custom-agents-ui").appendChild(modal);
+        }
+
+        grid.appendChild(card);  // Append after card logic
+
+
+
+
 
         // Create the modal
         const modal = document.createElement("div");
@@ -149,6 +232,10 @@ function closeModal(id) {
   document.getElementById(`modal-${id}`).style.display = "none";
 }
 
+
+function showPreIPOModal() {
+  document.getElementById("modal-Pre-IPO_Investment_Memo").style.display = "block";
+}
 
 document.addEventListener("DOMContentLoaded", function() {
     // Immediately set the current chat to the logged-in user if available.

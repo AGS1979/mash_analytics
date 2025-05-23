@@ -51,11 +51,7 @@ from openpyxl import Workbook
 from redflaganalysis import get_red_flag_sentences
 from Guidance import process_guidance_query  # 👈 Import the new module
 from PyPDF2 import PdfReader
-
-
-
-
-
+from InvMemo import run_pipeline  # ← your modularized memo logic
 
 
 # Define your email whitelist here
@@ -333,10 +329,10 @@ def get_custom_agents():
             "output": "Regime classification file"
         },
         {
-            "id": "new_agent_1",
-            "name": "Sector Heatmap Analyzer",
-            "category": "Sector Insights",
-            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
+            "id": "Pre-IPO_Investment_Memo",
+            "name": "Pre-IPO Investment Memo",
+            "category": "IPOs",
+            "description": "Create pre-ipo investment memos using publicly available DRHPs.",
             "output": "Sample sector heatmap output..."
         },
         {
@@ -378,6 +374,31 @@ def get_custom_agents():
     return jsonify(agents)
 
 
+@app.route('/generate-preipo-memo', methods=['POST'])
+def generate_preipo_memo():
+    try:
+        file = request.files.get('file')
+        notes = request.form.get('notes', '')  # optional user input
+        if not file or not file.filename.endswith('.pdf'):
+            return jsonify({'error': 'Please upload a valid PDF file.'}), 400
+
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(file_path)
+
+        output_path = run_pipeline_memo(file_path, notes)  # your DRHP processing logic here
+
+        if not output_path or not os.path.exists(output_path):
+            return jsonify({'error': 'Failed to generate memo.'}), 500
+
+        download_url = url_for('download_doc', filename=os.path.basename(output_path), _external=True)
+        return jsonify({
+            "message": "Memo generated successfully!",
+            "download_url": download_url
+        }), 200
+
+    except Exception as e:
+        print(f"🔥 Error in /generate-preipo-memo: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 
