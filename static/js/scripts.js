@@ -146,6 +146,13 @@ document.addEventListener("DOMContentLoaded", function () {
             const form = e.target;
             const formData = new FormData(form);
 
+            const resultDiv = modal.querySelector("#preipo-result");
+            const submitBtn = form.querySelector("button");
+
+            // Show loading message and disable button
+            resultDiv.innerHTML = `⏳ Generating memo... please wait...`;
+            submitBtn.disabled = true;   
+
             fetch("/generate-preipo-memo", {
               method: "POST",
               body: formData
@@ -166,6 +173,10 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(err => {
               console.error(err);
               modal.querySelector("#preipo-result").innerText = `Error: ${err.message}`;
+            })
+            .finally(() => {
+              submitBtn.disabled = false;
+              resultDiv.scrollIntoView({ behavior: "smooth" });
             });
           });
 
