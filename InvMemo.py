@@ -69,6 +69,25 @@ def extract_selected_pages_text(original_path, pages_to_keep):
         combined_text += doc[p-1].get_text() + "\n"
     return combined_text.strip()
 
+def extract_company_name(text):
+    prompt = (
+        "Extract only the legal name of the company from the following IPO or DRHP text. "
+        "Return only the company name, nothing else.\n\n"
+        f"{text[:3000]}"
+    )
+
+    messages = [
+        {"role": "system", "content": "You are an expert in IPO documents."},
+        {"role": "user", "content": prompt},
+    ]
+
+    response = requests.post(
+        DEEPSEEK_API_URL,
+        headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+        json={"model": "deepseek-chat", "messages": messages}
+    )
+    response.raise_for_status()
+    return response.json()['choices'][0]['message']['content'].strip()
 
 def generate_investment_memo(filtered_text, custom_notes=""):
     base_prompt = (
@@ -85,6 +104,8 @@ def generate_investment_memo(filtered_text, custom_notes=""):
         "9. Investment Highlights\n"
         "Write in full sentences forming coherent paragraphs. Use ISO currency codes (INR, USD, etc.). "
         "Use proper headings and bullet points only for lists. Figures should be in millions with comma separators.\n\n"
+        "Provide rich, data-driven insights with specific references to competitive strategy, financial guidance, and market dynamics. Assume the reader is a sophisticated institutional investor.\n"
+
     )
     if custom_notes:
         base_prompt += f"Special Instructions: {custom_notes}\n\n"
@@ -128,27 +149,38 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
         section = section.strip()
 
         # Format headings
-    heading_keywords = ['company overview', 'industry overview', 'business model',
-                'financial highlights', 'management', 'key risks', 'investment rationale', 'conclusion']
+    heading_keywords = ['ipo offer details', 'company overview', 'industry overview', 'business model',
+                    'financial highlights', 'guidance', 'peer comparison', 'risks', 'investment highlights', 'conclusion']
 
     for section in sections:
-        section = section.strip().replace('#', '').replace('*', '').strip()
+        clean_section = section.strip().replace('#', '').replace('*', '').strip()
+        lower_section = clean_section.lower()
 
-        if any(section.lower().startswith(h) for h in heading_keywords):
+        if any(lower_section.startswith(h) for h in heading_keywords):
             para = doc.add_paragraph()
-            run = para.add_run(section)
+            run = para.add_run(clean_section)
             run.bold = True
             run.font.size = Pt(14)
+            doc.add_paragraph()  # extra space after header
 
-        elif re.match(r"^(\*|-|•|\d+\.)\s+", section):
-            # Handle bullets like *, -, •, or numbered list (1., 2., etc.)
-            clean_text = re.sub(r"^(\*|-|•|\d+\.)\s+", "", section)
-            doc.add_paragraph(clean_text, style='List Bullet')
+        elif re.match(r"^(\*|-|•|\d+\.)\s+", clean_section):
+            text = re.sub(r"^(\*|-|•|\d+\.)\s+", "", clean_section)
+            doc.add_paragraph(text, style='List Bullet')
 
         else:
-            doc.add_paragraph(section)
+            doc.add_paragraph(clean_section)
+            doc.add_paragraph()  # extra space after paragraph
 
 
+
+    sections_doc = doc.sections[0]
+    sections_doc.left_margin = Inches(0.5)
+    sections_doc.right_margin = Inches(0.5)
+    sections_doc.top_margin = Inches(0.5)
+    sections_doc.bottom_margin = Inches(0.5)
+    sections_doc.gutter = Inches(0)
+    sections_doc.gutter_position = 0
+    
 
     doc.save(full_path)
     return full_path
@@ -174,4 +206,6 @@ def run_pipeline(pdf_path, custom_focus="", output_dir="documents"):
         raise ValueError("Filtered text is empty.")
 
     memo_text = generate_investment_memo(filtered_text, custom_focus)
-    return save_memo_to_word(memo_text, output_dir=output_dir)
+    company_name = extract_company_name(filtered_text)
+    return save_memo_to_word(memo_text, company_name=company_name, output_dir=output_dir)
+
