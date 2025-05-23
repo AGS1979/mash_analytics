@@ -84,7 +84,7 @@ def iterative_refine_summary(summaries, target_word_count=250, batch_size=5):
     return iterative_refine_summary(new_summaries, target_word_count=target_word_count, batch_size=batch_size)
 
 # Function to sanitize title and create a Word document from the summary with a dynamic title
-def create_word_document(summary, title):
+def create_word_document(summary, title, docs_folder="documents"):
     
 
     sanitized_title = re.sub(r'[<>:"/\\|?*]', '_', title)
@@ -93,7 +93,6 @@ def create_word_document(summary, title):
     sanitized_title = sanitized_title[:255]  # max filename length
 
     # Use the Flask `DOCS_FOLDER` via env variable or fallback
-    docs_folder = os.getenv("DOCS_FOLDER", "documents")
     os.makedirs(docs_folder, exist_ok=True)
 
     full_path = os.path.join(docs_folder, f"{sanitized_title}.docx")

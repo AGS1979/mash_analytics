@@ -26,6 +26,6 @@ AGENTS = [
     }
 ]
 
-@custom_agents_bp.route('/custom-agents')
-def show_agents():
-    return render_template('custom_agents.html', agents=AGENTS)
+#@custom_agents_bp.route('/custom-agents')
+#def show_agents():
+#    return render_template('custom_agents.html', agents=AGENTS)
