@@ -74,11 +74,17 @@ def generate_investment_memo(filtered_text, custom_notes=""):
     base_prompt = (
         "Using the text below extracted from a company's DRHP, generate a professional pre-IPO investment memo. "
         "The memo should include:\n"
-        "1. Company Overview\n2. Industry Overview\n3. Business Model\n4. Financial Highlights\n"
-        "5. Management’s Discussion and Analysis\n6. Key Risks\n7. Investment Rationale\n"
-        "Use clear headers, write in full sentences forming coherent paragraphs, and only use bullet points for lists.\n\n"
-        "Always use ISO standard currency codes (INR, USD, GBP, etc.) instead of local symbols.\n"
-        "Show financial figures (not per-share or percent) in millions using comma separators.\n"
+        "1. IPO Offer Details\n"
+        "2. Company Overview\n"
+        "3. Industry Overview and Outlook\n"
+        "4. Business Model\n"
+        "5. Financial Highlights\n"
+        "6. Guidance and Outlook on future financial performance\n"
+        "7. Peer Comparison and Competitors\n"
+        "8. Risks\n"
+        "9. Investment Highlights\n"
+        "Write in full sentences forming coherent paragraphs. Use ISO currency codes (INR, USD, etc.). "
+        "Use proper headings and bullet points only for lists. Figures should be in millions with comma separators.\n\n"
     )
     if custom_notes:
         base_prompt += f"Special Instructions: {custom_notes}\n\n"
@@ -124,11 +130,14 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
         # Format headings
         heading_keywords = ['company overview', 'industry overview', 'business model',
                     'financial highlights', 'management', 'key risks', 'investment rationale', 'conclusion']
-        if any(section.lower().startswith(h) for h in heading_keywords):
-            para = doc.add_paragraph()
-            run = para.add_run(section)
-            run.bold = True
-            run.font.size = Pt(14)
+        for keyword in heading_keywords:
+            if section.lower().startswith(keyword):
+                heading_text = section.replace('#', '').replace('*', '').strip()
+                para = doc.add_paragraph()
+                run = para.add_run(heading_text)
+                run.bold = True
+                run.font.size = Pt(14)
+                break
 
         elif re.match(r"^(\*|-|•)\s+", section):
             doc.add_paragraph(re.sub(r"^(\*|-|•)\s+", "", section), style='List Bullet')
