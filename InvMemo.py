@@ -103,10 +103,12 @@ def generate_investment_memo(filtered_text, custom_notes=""):
         "7. Peer Comparison and Competitors\n"
         "8. Risks\n"
         "9. Investment Highlights\n"
-        "Write in full sentences forming coherent paragraphs. Use ISO currency codes (INR, USD, etc.). "
-        "Use proper headings and bullet points only for lists. Figures should be in millions with comma separators.\n\n"
-        "Provide rich, data-driven insights with specific references to competitive strategy, financial guidance, and market dynamics. Assume the reader is a sophisticated institutional investor.\n"
-        "For each of the sections required in the investment memo, provide as much detail as possible which is relevant and provides a view on the company, industry and the offer."
+        "Write in a natural, analytical, and opinionated tone, as an experienced equity research analyst preparing an investment memo. "
+        "Use full sentences and structured paragraphs—not bullet points—unless listing key terms or metrics. "
+        "Include viewpoints, strategy commentary, and if appropriate, qualitative judgments (e.g., valuation attractiveness, execution risk). "
+        "Frame WeRide’s position in the market using comparisons, narratives, and forward-looking statements. "
+        "Use ISO currency codes (USD, INR, etc.), show figures in millions, and keep the analysis readable and engaging for institutional investors.\n\n"
+        "For each of the sections required in the investment memo, provide as much detail as possible which is relevant and provides a view on the company, industry and the offer.\n\n"
     )
     if custom_notes:
         base_prompt += (
@@ -153,18 +155,15 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
 
     # Split into sections
     sections = memo_text.split('\n\n')
-    for section in sections:
-        section = section.strip()
 
-        # Format headings
     heading_keywords = ['ipo offer details', 'company overview', 'industry overview', 'business model',
-                    'financial highlights', 'guidance', 'peer comparison', 'risks', 'investment highlights', 'conclusion']
+                        'financial highlights', 'guidance', 'peer comparison', 'risks', 'investment highlights', 'conclusion']
 
     for section in sections:
         clean_section = section.strip().replace('#', '').replace('*', '').strip()
-        lower_section = clean_section.lower()
+        normalized_section = re.sub(r"^[•\-\*#\d\.]+\s*", "", clean_section.lower())
 
-        if any(lower_section.startswith(h) for h in heading_keywords):
+        if any(normalized_section.startswith(h) for h in heading_keywords):
             para = doc.add_paragraph(style='Normal')
             run = para.add_run(clean_section)
             run.bold = True
@@ -174,11 +173,14 @@ def save_memo_to_word(memo_text, company_name="Company", output_dir="documents")
 
         elif re.match(r"^(\*|-|•|\d+\.)\s+", clean_section):
             text = re.sub(r"^(\*|-|•|\d+\.)\s+", "", clean_section)
-            doc.add_paragraph(text, style='List Bullet')
+            para = doc.add_paragraph(text, style='List Bullet')
+            para.style.font.name = 'Aptos Display'
 
         else:
-            doc.add_paragraph(clean_section)
+            para = doc.add_paragraph(clean_section)
+            para.style.font.name = 'Aptos Display'
             doc.add_paragraph()  # extra space after paragraph
+
 
 
 
