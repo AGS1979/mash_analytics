@@ -30,6 +30,7 @@ def get_stock_returns(tickers, lookback_months=60):
         ret = get_price_history(t)
         if not ret.empty:
             returns[t] = ret
+    print(stock_returns.index.min(), stock_returns.index.max())
     return pd.DataFrame(returns).dropna()
 
 # Load Kenneth French 5-factor monthly data
@@ -49,6 +50,7 @@ def get_factor_returns():
     df.set_index('date', inplace=True)
 
     # Convert from percentages to decimals
+    print(factor_returns.index.min(), factor_returns.index.max())
     return df.astype(float) / 100
 
 # Compute regression-based factor loadings
@@ -57,10 +59,18 @@ def compute_factor_loadings(stock_returns, factor_returns):
     for ticker in stock_returns.columns:
         Y = stock_returns[ticker].dropna()
         X = factor_returns.loc[Y.index]
-        if len(Y) < 30:
+
+        # Align both series and drop any rows with NaN
+        combined = pd.concat([Y, X], axis=1).dropna()
+        Y_clean = combined.iloc[:, 0]
+        X_clean = combined.iloc[:, 1:]
+
+        if len(Y_clean) < 30:
+            print(f"Skipping {ticker} due to insufficient data after dropna.")
             continue
-        X = sm.add_constant(X)
-        model = sm.OLS(Y, X).fit()
+
+        X_clean = sm.add_constant(X_clean)
+        model = sm.OLS(Y_clean, X_clean).fit()
         loadings[ticker] = model.params.drop('const')
     return pd.DataFrame(loadings).T
 
