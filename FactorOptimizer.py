@@ -29,10 +29,13 @@ def get_stock_returns(tickers, lookback_months=60):
     for t in tickers:
         daily_prices = get_price_history(t)
         if not daily_prices.empty:
-            monthly_prices = daily_prices.resample("M").last()
+            # Ensure index is at month end to match Kenneth French format
+            monthly_prices = daily_prices.resample("ME").last()
+            monthly_prices.index = monthly_prices.index.to_period("M").to_timestamp("M")
             monthly_returns = monthly_prices.pct_change().dropna()
             returns[t] = monthly_returns
     return pd.DataFrame(returns).dropna()
+
 
 # Load Kenneth French 5-factor monthly data from local file
 def get_factor_returns():
