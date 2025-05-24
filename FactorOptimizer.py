@@ -30,7 +30,6 @@ def get_stock_returns(tickers, lookback_months=60):
         ret = get_price_history(t)
         if not ret.empty:
             returns[t] = ret
-    print(stock_returns.index.min(), stock_returns.index.max())
     return pd.DataFrame(returns).dropna()
 
 # Load Kenneth French 5-factor monthly data
@@ -50,7 +49,6 @@ def get_factor_returns():
     df.set_index('date', inplace=True)
 
     # Convert from percentages to decimals
-    print(factor_returns.index.min(), factor_returns.index.max())
     return df.astype(float) / 100
 
 # Compute regression-based factor loadings
@@ -136,4 +134,3 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
             (F.T @ optimized_weights).round(6).tolist()
         ))
     }
-
