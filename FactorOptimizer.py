@@ -84,18 +84,31 @@ def load_portfolio_from_csv(file_path):
 # Main optimizer function
 def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=None):
     portfolio = load_portfolio_from_csv(csv_file_path)
-    tickers = [p['ticker'] for p in portfolio]
-    current_weights = np.array([p['weight'] for p in portfolio])
+    all_tickers = [p['ticker'] for p in portfolio]
+    original_weights = np.array([p['weight'] for p in portfolio])
 
-    stock_returns = get_stock_returns(tickers)
+    # Get returns and factor data
+    stock_returns = get_stock_returns(all_tickers)
     factor_returns = get_factor_returns()
-
     factor_matrix = compute_factor_loadings(stock_returns, factor_returns)
-    factor_matrix = factor_matrix.loc[tickers]
-    F = factor_matrix.values
-    target = np.array([target_exposures[f] for f in factor_matrix.columns])
 
-    # Optimization
+    # Keep only tickers that successfully got factor loadings
+    valid_tickers = factor_matrix.index.tolist()
+    if not valid_tickers:
+        return {'status': 'error', 'message': 'No valid tickers with factor loadings.'}
+
+    ticker_indices = [i for i, t in enumerate(all_tickers) if t in valid_tickers]
+    tickers = valid_tickers
+    current_weights = np.array([original_weights[i] for i in ticker_indices])
+
+    # Build optimization matrices
+    F = factor_matrix.loc[tickers].values
+    try:
+        target = np.array([target_exposures[f] for f in factor_matrix.columns])
+    except KeyError as e:
+        return {'status': 'error', 'message': f"Missing target exposure for factor: {e}"}
+
+    # Set up optimization
     w = cp.Variable(len(tickers))
     objective = cp.Minimize(cp.sum_squares(w - current_weights))
     constraints = [cp.sum(w) == 1, w >= 0, F.T @ w == target]
@@ -123,3 +136,4 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
             (F.T @ optimized_weights).round(6).tolist()
         ))
     }
+
