@@ -137,7 +137,7 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     problem = cp.Problem(objective, constraints)
 
     try:
-        problem.solve(solver=cp.ECOS)
+        problem.solve(solver=cp.SCS)
         optimized_weights = w.value
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
