@@ -4,8 +4,10 @@ import cvxpy as cp
 import statsmodels.api as sm
 import requests
 import os
+from io import BytesIO
+from zipfile import ZipFile
 
-FMP_API_KEY      = os.environ["FMP_API_KEY"]
+FMP_API_KEY = os.environ["FMP_API_KEY"]
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
 
 # Fetch historical price data from FMP
@@ -30,15 +32,24 @@ def get_stock_returns(tickers, lookback_months=60):
             returns[t] = ret
     return pd.DataFrame(returns).dropna()
 
-# Simulate factor returns (replace with French library or custom data)
+# Load Kenneth French 5-factor monthly data
 def get_factor_returns():
-    np.random.seed(0)
-    dates = pd.date_range(start='2019-01-01', periods=60, freq='M')
-    return pd.DataFrame({
-        'MKT': np.random.normal(0.01, 0.05, 60),
-        'SMB': np.random.normal(0.005, 0.03, 60),
-        'HML': np.random.normal(0.004, 0.025, 60),
-    }, index=dates)
+    url = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_5_Factors_2x3_CSV.zip"
+    r = requests.get(url)
+    z = ZipFile(BytesIO(r.content))
+    file = [f for f in z.namelist() if f.endswith('.csv')][0]
+    df = pd.read_csv(z.open(file), skiprows=3)
+
+    # Find where the factor data ends
+    end_idx = df[df.iloc[:, 0].str.startswith("Annual")].index[0]
+    df = df.iloc[:end_idx]
+
+    df.columns = ['date', 'MKT', 'SMB', 'HML', 'RMW', 'CMA']
+    df['date'] = pd.to_datetime(df['date'], format='%Y%m')
+    df.set_index('date', inplace=True)
+
+    # Convert from percentages to decimals
+    return df.astype(float) / 100
 
 # Compute regression-based factor loadings
 def compute_factor_loadings(stock_returns, factor_returns):
@@ -68,8 +79,8 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
 
     stock_returns = get_stock_returns(tickers)
     factor_returns = get_factor_returns()
-    factor_matrix = compute_factor_loadings(stock_returns, factor_returns)
 
+    factor_matrix = compute_factor_loadings(stock_returns, factor_returns)
     factor_matrix = factor_matrix.loc[tickers]
     F = factor_matrix.values
     target = np.array([target_exposures[f] for f in factor_matrix.columns])
