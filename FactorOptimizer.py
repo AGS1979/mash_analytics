@@ -3,6 +3,7 @@ import pandas as pd
 import cvxpy as cp
 import statsmodels.api as sm
 import requests
+import os
 
 FMP_API_KEY      = os.environ["FMP_API_KEY"]
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
