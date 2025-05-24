@@ -32,23 +32,22 @@ def get_stock_returns(tickers, lookback_months=60):
             returns[t] = ret
     return pd.DataFrame(returns).dropna()
 
-# Load Kenneth French 5-factor monthly data
+# Load Kenneth French 5-factor monthly data from local file
 def get_factor_returns():
-    url = "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_5_Factors_2x3_CSV.zip"
-    r = requests.get(url)
-    z = ZipFile(BytesIO(r.content))
-    file = [f for f in z.namelist() if f.endswith('.csv')][0]
-    df = pd.read_csv(z.open(file), skiprows=3)
+    local_file = "data/F-F_Research_Data_5_Factors_2x3.csv"
 
-    # Find where the factor data ends
+    df = pd.read_csv(local_file, skiprows=3)
+
+    # Identify where the data ends (before "Annual" row)
     end_idx = df[df.iloc[:, 0].str.startswith("Annual")].index[0]
     df = df.iloc[:end_idx]
 
+    # Rename columns
     df.columns = ['date', 'MKT', 'SMB', 'HML', 'RMW', 'CMA']
     df['date'] = pd.to_datetime(df['date'], format='%Y%m')
     df.set_index('date', inplace=True)
 
-    # Convert from percentages to decimals
+    # Convert percentages to decimals
     return df.astype(float) / 100
 
 # Compute regression-based factor loadings
