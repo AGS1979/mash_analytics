@@ -27,11 +27,11 @@ def get_price_history(ticker, period="3y"):
 def get_stock_returns(tickers, lookback_months=60):
     returns = {}
     for t in tickers:
-        ret = get_price_history(t)
-        if not ret.empty:
-            # Resample to monthly
-            ret_monthly = ret.resample('M').apply(lambda x: (x + 1).prod() - 1)
-            returns[t] = ret_monthly
+        daily_prices = get_price_history(t)
+        if not daily_prices.empty:
+            monthly_prices = daily_prices.resample("M").last()
+            monthly_returns = monthly_prices.pct_change().dropna()
+            returns[t] = monthly_returns
     return pd.DataFrame(returns).dropna()
 
 # Load Kenneth French 5-factor monthly data from local file
