@@ -27,13 +27,11 @@ def get_price_history(ticker, period="3y"):
 def get_stock_returns(tickers, lookback_months=60):
     returns = {}
     for t in tickers:
-        daily_prices = get_price_history(t)
-        if not daily_prices.empty:
-            # Ensure index is at month end to match Kenneth French format
-            monthly_prices = daily_prices.resample("ME").last()
-            monthly_prices.index = monthly_prices.index.to_period("M").to_timestamp("M")
-            monthly_returns = monthly_prices.pct_change().dropna()
-            returns[t] = monthly_returns
+        daily = get_price_history(t)
+        if not daily.empty:
+            monthly = daily.resample('ME').last().pct_change().dropna()
+            print(f"{t} monthly return range: {monthly.index.min()} to {monthly.index.max()}")
+            returns[t] = monthly
     return pd.DataFrame(returns).dropna()
 
 
@@ -71,20 +69,20 @@ def compute_factor_loadings(stock_returns, factor_returns):
         Y = stock_returns[ticker]
         X = factor_returns
 
-        # Align on index and drop any rows with NaNs
-        Y_aligned, X_aligned = Y.align(X, join='inner', axis=0)
+        # Align and clean
+        Y_aligned, X_aligned = Y.align(X, join='inner')
+        print(f"{ticker}: overlapping months = {len(Y_aligned.dropna())}")
+
         combined = pd.concat([Y_aligned, X_aligned], axis=1).dropna()
-        Y_clean = combined.iloc[:, 0]
-        X_clean = combined.iloc[:, 1:]
-
-
-        if len(Y_clean) < 30:
-            print(f"Skipping {ticker} due to insufficient data after dropna.")
+        if len(combined) < 30:
+            print(f"Skipping {ticker} due to insufficient overlap")
             continue
 
-        X_clean = sm.add_constant(X_clean)
+        Y_clean = combined.iloc[:, 0]
+        X_clean = sm.add_constant(combined.iloc[:, 1:])
         model = sm.OLS(Y_clean, X_clean).fit()
         loadings[ticker] = model.params.drop('const')
+
     return pd.DataFrame(loadings).T
 
 # Read and validate portfolio from a CSV file
