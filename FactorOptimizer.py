@@ -29,26 +29,31 @@ def get_stock_returns(tickers, lookback_months=60):
     for t in tickers:
         ret = get_price_history(t)
         if not ret.empty:
-            returns[t] = ret
+            # Resample to monthly
+            ret_monthly = ret.resample('M').apply(lambda x: (x + 1).prod() - 1)
+            returns[t] = ret_monthly
     return pd.DataFrame(returns).dropna()
 
 # Load Kenneth French 5-factor monthly data from local file
 def get_factor_returns():
-    local_file = "data/F-F_Research_Data_5_Factors_2x3.csv"
+    file_path = "data/F-F_Research_Data_5_Factors_2x3.csv"
+    df = pd.read_csv(file_path, skiprows=3)
 
-    df = pd.read_csv(local_file, skiprows=3)
-
-    # Identify where the data ends (before "Annual" row)
-    end_idx = df[df.iloc[:, 0].str.startswith("Annual")].index[0]
+    end_idx = df[df.iloc[:, 0].str.startswith("Annual", na=False)].index[0]
     df = df.iloc[:end_idx]
 
-    # Rename columns
-    df.columns = ['date', 'MKT', 'SMB', 'HML', 'RMW', 'CMA']
+    df.rename(columns={df.columns[0]: "date"}, inplace=True)
     df['date'] = pd.to_datetime(df['date'], format='%Y%m')
     df.set_index('date', inplace=True)
 
-    # Convert percentages to decimals
-    return df.astype(float) / 100
+    # Convert percentage values to decimals
+    df = df.astype(float) / 100
+
+    # Rename Mkt-RF to MKT for consistency, and drop RF
+    df.rename(columns={"Mkt-RF": "MKT"}, inplace=True)
+    df.drop(columns=["RF"], inplace=True)
+
+    return df
 
 # Compute regression-based factor loadings
 def compute_factor_loadings(stock_returns, factor_returns):
