@@ -249,7 +249,7 @@ document.addEventListener("DOMContentLoaded", function () {
               submitBtn.disabled = false;
               resultDiv.scrollIntoView({ behavior: "smooth" });
             });
-        }
+        });
         } else {
           // Default cards for other agents
           card.innerHTML = `
