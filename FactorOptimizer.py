@@ -124,7 +124,12 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     # Set up optimization
     w = cp.Variable(len(tickers))
     objective = cp.Minimize(cp.sum_squares(w - current_weights))
-    constraints = [cp.sum(w) == 1, w >= 0, F.T @ w == target]
+    constraints = [
+        cp.sum(w) == 1,
+        w >= 0,
+        cp.norm(F.T @ w - target, 2) <= 1e-4  # Allow tiny deviation
+    ]
+
 
     if turnover_limit:
         constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
@@ -132,7 +137,7 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     problem = cp.Problem(objective, constraints)
 
     try:
-        problem.solve()
+        problem.solve(solver=cp.ECOS)
         optimized_weights = w.value
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
