@@ -39,21 +39,27 @@ def get_factor_returns():
     file_path = "data/F-F_Research_Data_5_Factors_2x3.csv"
     df = pd.read_csv(file_path, skiprows=3)
 
-    end_idx = df[df.iloc[:, 0].str.startswith("Annual", na=False)].index[0]
-    df = df.iloc[:end_idx]
+    # Defensive: Remove footer rows starting from "Annual" if it exists
+    annual_rows = df[df.iloc[:, 0].astype(str).str.startswith("Annual", na=False)]
+    if not annual_rows.empty:
+        end_idx = annual_rows.index[0]
+        df = df.iloc[:end_idx]
 
     df.rename(columns={df.columns[0]: "date"}, inplace=True)
-    df['date'] = pd.to_datetime(df['date'], format='%Y%m')
+    df['date'] = pd.to_datetime(df['date'], format='%Y%m', errors='coerce')
+    df = df.dropna(subset=["date"])  # remove malformed dates
     df.set_index('date', inplace=True)
 
     # Convert percentage values to decimals
+    df = df.apply(pd.to_numeric, errors='coerce')  # ensure all are numbers
     df = df.astype(float) / 100
 
-    # Rename Mkt-RF to MKT for consistency, and drop RF
+    # Rename Mkt-RF to MKT for consistency, drop RF
     df.rename(columns={"Mkt-RF": "MKT"}, inplace=True)
     df.drop(columns=["RF"], inplace=True)
 
     return df
+
 
 # Compute regression-based factor loadings
 def compute_factor_loadings(stock_returns, factor_returns):
