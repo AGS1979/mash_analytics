@@ -318,6 +318,10 @@ function showPreIPOModal() {
   document.getElementById("modal-Pre-IPO_Investment_Memo").style.display = "block";
 }
 
+function showFactorOptModal() {
+      document.getElementById("modal-factor_opt").style.display = "block";
+    }
+
 document.addEventListener("DOMContentLoaded", function() {
     // Immediately set the current chat to the logged-in user if available.
     if (typeof currentUser !== "undefined" && currentUser) {
@@ -359,9 +363,6 @@ document.addEventListener("DOMContentLoaded", function() {
     // New Helper Functions for 10K Queries
     // -------------------------
 
-    function showFactorOptModal() {
-      document.getElementById("modal-factor_opt").style.display = "block";
-    }
 
     // Detect if the query is about 10K filings
     function is10KQuery(query) {
