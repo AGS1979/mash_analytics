@@ -201,7 +201,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 <label>Upload Portfolio CSV:</label><br>
                 <input type="file" name="file" accept=".csv" required /><br><br>
                 <label>Target Factor Exposures (JSON):</label><br>
-                <input type="text" name="target_exposures" placeholder='{"MKT":0.2,"SMB":0.1,"HML":0.05}' required><br><br>
+                <input type="text" name="target_exposures" placeholder='{"MKT":0.1,"SMB":0.05,"HML":0.02, "RMW": 0.01, "CMA": 0.00}' required><br><br>
                 <label>Turnover Limit (Optional):</label><br>
                 <input type="text" name="turnover_limit" placeholder="0.1"><br><br>
                 <button type="submit">Optimize Portfolio</button>
