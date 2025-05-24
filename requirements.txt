@@ -21,6 +21,7 @@ torch
 datasets
 evaluate
 nltk
+cvxpy
 
 
 
