@@ -1,4 +1,3 @@
-from werkzeug.utils import secure_filename
 from StockReport import get_fmp_json
 from dotenv import load_dotenv
 load_dotenv()   # reads .env into os.environ

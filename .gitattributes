@@ -1,1 +1,2 @@
 *.safetensors filter=lfs diff=lfs merge=lfs -text
+data/F-F_Research_Data_5_Factors_2x3.csv filter=lfs diff=lfs merge=lfs -text
