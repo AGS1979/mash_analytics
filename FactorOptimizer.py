@@ -24,14 +24,16 @@ def get_price_history(ticker, period="3y"):
         return pd.Series()
 
 # Pull historical prices for multiple stocks
-def get_stock_returns(tickers, lookback_months=60):
+def get_stock_returns(tickers, max_date):
     returns = {}
     for t in tickers:
         daily = get_price_history(t)
         if not daily.empty:
-            monthly = daily.resample('ME').last().pct_change().dropna()
-            print(f"{t} monthly return range: {monthly.index.min()} to {monthly.index.max()}")
-            returns[t] = monthly
+            monthly = daily.resample("M").last().pct_change().dropna()
+            monthly = monthly[monthly.index <= max_date]  # ✅ Truncate to FF data range
+            if not monthly.empty:
+                print(f"{t}: monthly return range = {monthly.index.min()} to {monthly.index.max()}")
+                returns[t] = monthly
     return pd.DataFrame(returns).dropna()
 
 
@@ -47,7 +49,7 @@ def get_factor_returns():
         df = df.iloc[:end_idx]
 
     df.rename(columns={df.columns[0]: "date"}, inplace=True)
-    df['date'] = pd.to_datetime(df['date'], format='%Y%m', errors='coerce')
+    df['date'] = pd.to_datetime(df['date'], format='%Y%m', errors='coerce') + pd.offsets.MonthEnd(0)
     df = df.dropna(subset=["date"])  # remove malformed dates
     df.set_index('date', inplace=True)
 
@@ -99,8 +101,8 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     original_weights = np.array([p['weight'] for p in portfolio])
 
     # Get returns and factor data
-    stock_returns = get_stock_returns(all_tickers)
     factor_returns = get_factor_returns()
+    stock_returns = get_stock_returns(all_tickers, factor_returns.index.max())
     factor_matrix = compute_factor_loadings(stock_returns, factor_returns)
 
     # Keep only tickers that successfully got factor loadings
