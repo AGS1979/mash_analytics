@@ -180,6 +180,76 @@ document.addEventListener("DOMContentLoaded", function () {
             });
           });
 
+        } else if (agent.id === "factor_opt") {
+          card.innerHTML = `
+            <h3>${agent.name}</h3>
+            <p><strong>Category:</strong> ${agent.category}</p>
+            <p>${agent.description}</p>
+            <button onclick="showFactorOptModal()">Run Agent</button>
+          `;
+
+          const modal = document.createElement("div");
+          modal.id = `modal-${agent.id}`;
+          modal.className = "modal";
+          modal.innerHTML = `
+            <div class="modal-content">
+              <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+              <h2>${agent.name}</h2>
+              <p><strong>Category:</strong> ${agent.category}</p>
+              <p><strong>Description:</strong> ${agent.description}</p>
+              <form id="factoropt-form">
+                <label>Upload Portfolio CSV:</label><br>
+                <input type="file" name="file" accept=".csv" required /><br><br>
+                <label>Target Factor Exposures (JSON):</label><br>
+                <input type="text" name="target_exposures" placeholder='{"MKT":0.2,"SMB":0.1,"HML":0.05}' required><br><br>
+                <label>Turnover Limit (Optional):</label><br>
+                <input type="text" name="turnover_limit" placeholder="0.1"><br><br>
+                <button type="submit">Optimize Portfolio</button>
+              </form>
+              <div id="factoropt-result" style="margin-top: 15px;"></div>
+            </div>
+          `;
+          document.getElementById("custom-agents-ui").appendChild(modal);
+
+          modal.querySelector("form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const resultDiv = modal.querySelector("#factoropt-result");
+            const submitBtn = form.querySelector("button");
+
+            resultDiv.innerHTML = `⏳ Running optimizer...`;
+            submitBtn.disabled = true;
+
+            fetch("/optimize-factor-portfolio", {
+              method: "POST",
+              body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.status === "optimal") {
+                const weights = data.optimized_weights.map(w => `<li>${w.ticker}: ${w.weight}</li>`).join('');
+                const exposures = Object.entries(data.achieved_exposures).map(
+                  ([k, v]) => `${k}: ${v}`
+                ).join("<br>");
+                resultDiv.innerHTML = `
+                  ✅ Optimization Complete<br>
+                  <strong>New Weights:</strong><br><ul>${weights}</ul>
+                  <strong>Achieved Exposures:</strong><br>${exposures}
+                `;
+              } else {
+                resultDiv.innerHTML = `<span style="color:red;">❌ ${data.message || 'Optimization failed.'}</span>`;
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              resultDiv.innerText = `Error: ${err.message}`;
+            })
+            .finally(() => {
+              submitBtn.disabled = false;
+              resultDiv.scrollIntoView({ behavior: "smooth" });
+            });
+        }
         } else {
           // Default cards for other agents
           card.innerHTML = `
@@ -289,6 +359,9 @@ document.addEventListener("DOMContentLoaded", function() {
     // New Helper Functions for 10K Queries
     // -------------------------
 
+    function showFactorOptModal() {
+      document.getElementById("modal-factor_opt").style.display = "block";
+    }
 
     // Detect if the query is about 10K filings
     function is10KQuery(query) {

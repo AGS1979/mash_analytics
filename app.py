@@ -1,3 +1,4 @@
+from werkzeug.utils import secure_filename
 from StockReport import get_fmp_json
 from dotenv import load_dotenv
 load_dotenv()   # reads .env into os.environ
@@ -52,7 +53,7 @@ from redflaganalysis import get_red_flag_sentences
 from Guidance import process_guidance_query  # 👈 Import the new module
 from PyPDF2 import PdfReader
 from InvMemo import run_pipeline  # ← your modularized memo logic
-
+from FactorOptimizer import run_factor_optimizer_csv
 
 # Define your email whitelist here
 WHITELISTED_EMAILS = {
@@ -533,6 +534,43 @@ def analyze_red_flags():
     except Exception as e:
         print("❌ Error in /analyze-redflags:", e)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/optimize-factor-portfolio', methods=['POST'])
+def optimize_factor_portfolio():
+    try:
+        # Check file upload
+        file = request.files.get('file')
+        if not file or not file.filename.endswith('.csv'):
+            return jsonify({'error': 'Please upload a valid CSV file.'}), 400
+
+        # Save uploaded file to temp location
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(temp_path)
+
+        # Get additional form inputs
+        target_exposures_raw = request.form.get('target_exposures')
+        turnover_raw = request.form.get('turnover_limit')
+
+        if not target_exposures_raw:
+            return jsonify({'error': 'Target exposures are required.'}), 400
+
+        # Parse exposures safely
+        try:
+            target_exposures = json.loads(target_exposures_raw)
+        except json.JSONDecodeError:
+            return jsonify({'error': 'Invalid format for target_exposures. Must be JSON.'}), 400
+
+        turnover_limit = float(turnover_raw) if turnover_raw else None
+
+        # Run optimization
+        result = run_factor_optimizer_csv(temp_path, target_exposures, turnover_limit)
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"🔥 Error in /optimize-factor-portfolio: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 
 # Earnings Call Summary Route - This should ask for keywords if needed
 @app.route('/generate-earnings-report', methods=['POST'])
