@@ -55,13 +55,15 @@ def get_factor_returns():
 def compute_factor_loadings(stock_returns, factor_returns):
     loadings = {}
     for ticker in stock_returns.columns:
-        Y = stock_returns[ticker].dropna()
-        X = factor_returns.loc[Y.index]
+        Y = stock_returns[ticker]
+        X = factor_returns
 
-        # Align both series and drop any rows with NaN
-        combined = pd.concat([Y, X], axis=1).dropna()
+        # Align on index and drop any rows with NaNs
+        Y_aligned, X_aligned = Y.align(X, join='inner', axis=0)
+        combined = pd.concat([Y_aligned, X_aligned], axis=1).dropna()
         Y_clean = combined.iloc[:, 0]
         X_clean = combined.iloc[:, 1:]
+
 
         if len(Y_clean) < 30:
             print(f"Skipping {ticker} due to insufficient data after dropna.")
