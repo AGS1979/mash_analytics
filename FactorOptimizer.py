@@ -168,7 +168,8 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
             x0=current_weights,
             bounds=bounds,
             constraints=constraints,
-            method='SLSQP'
+            method='SLSQP',
+            options={'maxiter': 1000, 'disp': True}
         )
 
 
@@ -182,21 +183,21 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
             print(" - Sum(weights):", np.sum(result.x))
             print(" - Turnover:", np.sum(np.abs(result.x - current_weights)))
 
-        return result
+        return result, constraints
 
     # First attempt: with turnover
-    result = optimize(turnover_limit)
+    result, constraints_used = optimize(turnover_limit)
 
     if not result.success:
         print("⚠️ Turnover constraint caused failure. Retrying without it.")
-        result = optimize(None)
+        result, constraints_used = optimize(None)
         if not result.success:
             return {
                 'status': 'error',
                 'message': f"Optimization failed: {result.message}",
                 'exposure_matrix': F.tolist(),
                 'target_exposures': target.tolist(),
-                'constraints': str(constraints),
+                'constraints': str(constraints_used),
                 'weights': current_weights.tolist()
             }
 
