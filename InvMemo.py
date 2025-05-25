@@ -10,6 +10,7 @@ import faiss
 import numpy as np
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
+import markdown
 
 
 # ========== CONFIG ==========
@@ -252,7 +253,11 @@ class PDFQueryEngine:
 
         response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
+
+        markdown_response = response.json()["choices"][0]["message"]["content"]
+        html_response = markdown.markdown(markdown_response)  # ✅ convert to HTML
+
+        return html_response  # ✅ return the HTML instead of Markdown
 
     def answer_query(self, pdf_path, query, top_k=3):
         chunks = self.extract_text_from_pdf(pdf_path)

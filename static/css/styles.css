@@ -749,3 +749,23 @@ body {
   width: 100%;
   margin-bottom: 12px;
 }
+
+.pdf-answer-box {
+  padding: 10px;
+  border: 1px solid #555;
+  background-color: #111;
+  border-radius: 6px;
+  line-height: 1.6;
+  font-size: 14px;
+  color: #ddd;
+}
+.pdf-answer-box h1, h2, h3 {
+  margin-top: 1em;
+  color: #87cefa;
+}
+.pdf-answer-box ul, ol {
+  padding-left: 20px;
+}
+.pdf-answer-box strong {
+  color: #f8f8f2;
+}

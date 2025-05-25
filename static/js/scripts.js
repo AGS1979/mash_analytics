@@ -216,11 +216,14 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(data => {
               if (data.answer) {
                 resultDiv.innerHTML = `
-                  <div style="margin-top:10px;">
-                    <strong>🧠 Answer:</strong><br>${data.answer}<br>
-                    <small>Cited pages: ${data.pages.join(', ')}</small>
+                  <div style="margin-top:10px;" class="pdf-answer-box">
+                    <div>${data.answer}</div>
+                    <div style="margin-top: 8px;">
+                      <small><em>Cited pages:</em> ${data.pages.join(', ')}</small>
+                    </div>
                   </div>
                 `;
+              }
               } else {
                 resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || 'No response'}</span>`;
               }
