@@ -44,7 +44,7 @@ def get_stock_returns(tickers, max_date):
 
 # Load Kenneth French 5-factor monthly data from local file
 def get_factor_returns():
-    file_path = "F-F_Research_Data_5_Factors_2x3.csv"
+    file_path = "data/F-F_Research_Data_5_Factors_2x3.csv"
     df = pd.read_csv(file_path, skiprows=3)
 
     # Defensive: Remove footer rows starting from "Annual" if it exists
