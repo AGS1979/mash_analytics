@@ -126,7 +126,9 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     exposure_mismatch = cp.sum_squares(F.T @ w - target)
 
     # Objective: balance tracking + exposure penalty
-    objective = cp.Minimize(cp.sum_squares(w - current_weights) + 100 * exposure_mismatch)
+    exposure_penalty_weight = 10  # or 1
+    objective = cp.Minimize(cp.sum_squares(w - current_weights) + exposure_penalty_weight * exposure_mismatch)
+
 
     constraints = [
         cp.sum(w) == 1,
@@ -138,7 +140,7 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     problem = cp.Problem(objective, constraints)
 
     try:
-        problem.solve(solver=cp.SCS)
+        problem.solve(solver=cp.OSQP)
         optimized_weights = w.value
     except Exception as e:
         return {'status': 'error', 'message': str(e)}

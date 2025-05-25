@@ -23,6 +23,7 @@ evaluate
 nltk
 cvxpy
 statsmodels
+osqp
 
 
 
