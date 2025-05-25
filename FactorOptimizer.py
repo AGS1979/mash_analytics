@@ -170,9 +170,10 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     return {
         'status': problem.status,
         'optimized_weights': [
-            {'ticker': t, 'weight': float(round(wi, 6))}
+            {'ticker': t, 'weight': float(round(wi, 6)) if np.isfinite(wi) else None}
             for t, wi in zip(tickers, optimized_weights)
         ],
+
         'target_exposures': target_exposures,
         'achieved_exposures': {
             k: (v if np.isfinite(v) else None)
