@@ -121,13 +121,24 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     except KeyError as e:
         return {'status': 'error', 'message': f"Missing target exposure for factor: {e}"}
 
+
+    print("Factor matrix shape:", F.shape)
+    print("Target:", target)
+    print("Current weights sum:", current_weights.sum())
+
+
     # Optimization variables and setup
     w = cp.Variable(len(tickers))
     exposure_mismatch = cp.sum_squares(F.T @ w - target)
 
     # Objective: balance tracking + exposure penalty
-    exposure_penalty_weight = 10  # or 1
-    objective = cp.Minimize(cp.sum_squares(w - current_weights) + exposure_penalty_weight * exposure_mismatch)
+    exposure_penalty_weight = 1  # or 1
+    objective = cp.Minimize(
+        cp.sum_squares(w - current_weights) +
+        exposure_penalty_weight * cp.sum_squares(F.T @ w - target) +
+        1e-6 * cp.sum_squares(w)  # 🔧 tiny L2 regularization
+    )
+
 
 
     constraints = [
