@@ -133,13 +133,10 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
 
     # Objective: tracking error + soft penalty on exposure mismatch + small L2 regularization
     exposure_penalty_weight = 1
-    objective = cp.Minimize(
-        cp.sum_squares(w - current_weights) +
-        exposure_penalty_weight * cp.sum_squares(F.T @ w - target) +
-        1e-6 * cp.sum_squares(w)
-    )
+    objective = cp.Minimize(cp.sum_squares(w - current_weights) + 1e-6 * cp.sum_squares(w))
 
     constraints = [cp.sum(w) == 1, w >= 0]
+    constraints.append(cp.norm(F.T @ w - target, 2) <= 0.01)  # ⬅️ relaxed exposure match
     if turnover_limit:
         constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
 
@@ -147,17 +144,9 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
 
     try:
         # Try ECOS first
-        problem.solve(solver=cp.ECOS)
+        problem.solve(solver=cp.ECOS_BB)
         if w.value is None:
-            raise cp.SolverError("ECOS failed to return a solution.")
-    except cp.SolverError:
-        print("⚠️ ECOS failed, trying SCS...")
-        try:
-            problem.solve(solver=cp.SCS)
-            if w.value is None:
-                raise ValueError("SCS also failed to solve the problem.")
-        except Exception as e:
-            return {'status': 'error', 'message': f"SCS fallback failed: {str(e)}"}
+            raise cp.SolverError("ECOS_BB failed to return a solution.")
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
 
