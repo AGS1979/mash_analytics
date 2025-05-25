@@ -12,9 +12,12 @@ from dotenv import load_dotenv
 
 # ========== CONFIG ==========
 load_dotenv()
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-if not DEEPSEEK_API_KEY:
-    raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
+def get_deepseek_api_key():
+    key = os.getenv("DEEPSEEK_API_KEY")
+    if not key:
+        raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
+    return key
+
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 CHUNK_SIZE = 50  # Number of pages per API call
 
@@ -51,7 +54,7 @@ def get_relevant_pages_chunked(text_by_page, user_query):
 
         response = requests.post(
             DEEPSEEK_API_URL,
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            headers={"Authorization": f"Bearer {get_deepseek_api_key()}"},
             json=payload
         )
         response.raise_for_status()
@@ -88,7 +91,7 @@ def extract_company_name(text):
 
     response = requests.post(
         DEEPSEEK_API_URL,
-        headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+        headers={"Authorization": f"Bearer {get_deepseek_api_key()}"},
         json={"model": "deepseek-chat", "messages": messages}
     )
     response.raise_for_status()
@@ -126,7 +129,7 @@ def generate_memo_sections(filtered_text, custom_notes=""):
         ]
         response = requests.post(
             DEEPSEEK_API_URL,
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            headers={"Authorization": f"Bearer {get_deepseek_api_key()}"},
             json={"model": "deepseek-chat", "messages": messages}
         )
         response.raise_for_status()
