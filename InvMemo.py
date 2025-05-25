@@ -6,18 +6,14 @@ import re
 import json
 from datetime import datetime
 from docx.shared import Pt, Inches
-from dotenv import load_dotenv
-
+import faiss
+import numpy as np
+from PyPDF2 import PdfReader
+from sentence_transformers import SentenceTransformer
 
 
 # ========== CONFIG ==========
-load_dotenv()
-def get_deepseek_api_key():
-    key = os.getenv("DEEPSEEK_API_KEY")
-    if not key:
-        raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
-    return key
-
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 CHUNK_SIZE = 50  # Number of pages per API call
 
@@ -54,7 +50,7 @@ def get_relevant_pages_chunked(text_by_page, user_query):
 
         response = requests.post(
             DEEPSEEK_API_URL,
-            headers={"Authorization": f"Bearer {get_deepseek_api_key()}"},
+            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
             json=payload
         )
         response.raise_for_status()
@@ -91,7 +87,7 @@ def extract_company_name(text):
 
     response = requests.post(
         DEEPSEEK_API_URL,
-        headers={"Authorization": f"Bearer {get_deepseek_api_key()}"},
+        headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
         json={"model": "deepseek-chat", "messages": messages}
     )
     response.raise_for_status()
@@ -129,7 +125,7 @@ def generate_memo_sections(filtered_text, custom_notes=""):
         ]
         response = requests.post(
             DEEPSEEK_API_URL,
-            headers={"Authorization": f"Bearer {get_deepseek_api_key()}"},
+            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
             json={"model": "deepseek-chat", "messages": messages}
         )
         response.raise_for_status()
@@ -206,16 +202,13 @@ def run_pipeline(pdf_path, custom_focus="", output_dir="documents"):
     sections_dict = generate_memo_sections(filtered_text, custom_focus)
     return save_sections_to_word(sections_dict, company_name=company_name, output_dir=output_dir)
 
-# Add after imports in InvMemo.py
-import faiss
-import numpy as np
-from PyPDF2 import PdfReader
-from sentence_transformers import SentenceTransformer
 
 
 
 class PDFQueryEngine:
-    def __init__(self, api_key, model_name="all-MiniLM-L6-v2"):
+    def __init__(self, api_key=DEEPSEEK_API_KEY, model_name="all-MiniLM-L6-v2"):
+        if not api_key:
+            raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
         self.api_key = api_key
         self.embedder = SentenceTransformer(model_name)
 
@@ -237,9 +230,9 @@ class PDFQueryEngine:
         index.add(embs)
         return index
 
+    
     def query_deepseek(self, context_chunks, query):
-        import requests
-
+        
         url = "https://api.deepseek.com/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",

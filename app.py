@@ -56,6 +56,8 @@ from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 
 
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
 # Define your email whitelist here
 WHITELISTED_EMAILS = {
     "avinashg.singh@aranca.com",
