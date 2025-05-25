@@ -151,8 +151,13 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     problem = cp.Problem(objective, constraints)
 
     try:
-        problem.solve(solver=cp.OSQP)
-        optimized_weights = w.value
+        problem.solve(solver=cp.ECOS)
+    except cp.SolverError:
+        print("⚠️ ECOS failed, falling back to SCS...")
+        problem.solve(solver=cp.SCS)
+
+    optimized_weights = w.value
+
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
 
