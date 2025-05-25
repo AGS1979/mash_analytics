@@ -26,6 +26,8 @@ osqp
 ecos
 scipy
 numpy
+faiss-cpu
+sentence-transformers
 
 
 
