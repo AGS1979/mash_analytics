@@ -203,6 +203,10 @@ import numpy as np
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
 
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
+
 class PDFQueryEngine:
     def __init__(self, api_key, model_name="all-MiniLM-L6-v2"):
         self.api_key = api_key
