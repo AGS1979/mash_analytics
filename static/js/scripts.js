@@ -129,6 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
               <h2>${agent.name}</h2>
               <p><strong>Category:</strong> ${agent.category}</p>
               <p><strong>Description:</strong> ${agent.description}</p>
+
               <form id="preipo-form">
                 <label>Upload DRHP PDF:</label><br>
                 <input type="file" name="file" accept=".pdf" required /><br><br>
@@ -137,6 +138,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 <button type="submit">Generate Memo</button>
               </form>
               <div id="preipo-result" style="margin-top: 15px;"></div>
+
+              <hr style="margin: 30px 0;" />
+              <h3>📄 Ask Questions from the Uploaded DRHP</h3>
+              <form id="pdfquery-form">
+                <label>Ask a Question:</label>
+                <textarea name="query" rows="3" required placeholder="e.g. What are the key business risks?"></textarea>
+                <button type="submit">Get Answer</button>
+              </form>
+              <div id="pdfquery-result" style="margin-top: 15px;"></div>
             </div>
           `;
           document.getElementById("custom-agents-ui").appendChild(modal);
@@ -179,6 +189,49 @@ document.addEventListener("DOMContentLoaded", function () {
               resultDiv.scrollIntoView({ behavior: "smooth" });
             });
           });
+
+
+          modal.querySelector("#pdfquery-form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            const form = e.target;
+            const query = form.query.value.trim();
+            const file = modal.querySelector("input[name='file']").files[0];
+            const resultDiv = modal.querySelector("#pdfquery-result");
+
+            if (!file || !query) {
+              resultDiv.innerHTML = "Please upload a DRHP and enter a query.";
+              return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("query", query);
+
+            resultDiv.innerHTML = "⏳ Querying document...";
+            fetch("/query-pdf", {
+              method: "POST",
+              body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+              if (data.answer) {
+                resultDiv.innerHTML = `
+                  <div style="margin-top:10px;">
+                    <strong>🧠 Answer:</strong><br>${data.answer}<br>
+                    <small>Cited pages: ${data.pages.join(', ')}</small>
+                  </div>
+                `;
+              } else {
+                resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || 'No response'}</span>`;
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              resultDiv.innerText = `Error: ${err.message}`;
+            });
+          });
+
+
 
         } else if (agent.id === "factor_opt") {
           card.innerHTML = `

@@ -196,3 +196,73 @@ def run_pipeline(pdf_path, custom_focus="", output_dir="documents"):
     company_name = extract_company_name(filtered_text)
     sections_dict = generate_memo_sections(filtered_text, custom_focus)
     return save_sections_to_word(sections_dict, company_name=company_name, output_dir=output_dir)
+
+# Add after imports in InvMemo.py
+import faiss
+import numpy as np
+from PyPDF2 import PdfReader
+from sentence_transformers import SentenceTransformer
+
+class PDFQueryEngine:
+    def __init__(self, api_key, model_name="all-MiniLM-L6-v2"):
+        self.api_key = api_key
+        self.embedder = SentenceTransformer(model_name)
+
+    def extract_text_from_pdf(self, path):
+        reader = PdfReader(path)
+        chunks = []
+        for i, page in enumerate(reader.pages):
+            text = page.extract_text()
+            if text:
+                chunks.append((i + 1, text.strip()))
+        return chunks
+
+    def embed_texts(self, texts):
+        return np.array(self.embedder.encode(texts, convert_to_numpy=True))
+
+    def build_faiss_index(self, embs):
+        dim = embs.shape[1]
+        index = faiss.IndexFlatL2(dim)
+        index.add(embs)
+        return index
+
+    def query_deepseek(self, context_chunks, query):
+        import requests
+
+        url = "https://api.deepseek.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        messages = [{"role": "system", "content": "Answer questions based on the context provided."}]
+        for page, text in context_chunks:
+            messages.append({"role": "user", "content": f"[Page {page}] {text}"})
+        messages.append({"role": "user", "content": query})
+
+        payload = {
+            "model": "deepseek-chat",
+            "messages": messages,
+            "temperature": 0.3
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+
+    def answer_query(self, pdf_path, query, top_k=3):
+        chunks = self.extract_text_from_pdf(pdf_path)
+        if not chunks:
+            raise ValueError("No text extracted from PDF.")
+        pages, texts = zip(*chunks)
+
+        embs = self.embed_texts(texts)
+        index = self.build_faiss_index(embs)
+
+        q_emb = self.embed_texts([query])
+        D, I = index.search(q_emb, k=top_k)
+        selected = [(pages[i], texts[i]) for i in I[0]]
+
+        answer = self.query_deepseek(selected, query)
+        cited_pages = [pages[i] for i in I[0]]
+        return answer, cited_pages

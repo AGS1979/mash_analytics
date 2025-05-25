@@ -53,6 +53,8 @@ from Guidance import process_guidance_query  # 👈 Import the new module
 from PyPDF2 import PdfReader
 from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
+from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
+
 
 # Define your email whitelist here
 WHITELISTED_EMAILS = {
@@ -837,6 +839,31 @@ def document_short_summary():
     except Exception as e:
         print(f"Error in document_short_summary: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/query-pdf', methods=['POST'])
+def query_pdf():
+    try:
+        file = request.files.get('file')
+        query = request.form.get('query', '')
+
+        if not file or not query:
+            return jsonify({'error': 'File and query are required'}), 400
+
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(temp_path)
+
+        engine = PDFQueryEngine(api_key=DEEPSEEK_API_KEY)
+        answer, cited_pages = engine.answer_query(temp_path, query)
+
+        return jsonify({
+            "answer": answer,
+            "pages": cited_pages
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/analyze-guidance-change', methods=['POST'])
