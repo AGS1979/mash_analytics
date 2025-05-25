@@ -1,11 +1,13 @@
 import numpy as np
 import pandas as pd
-import cvxpy as cp
+
 import statsmodels.api as sm
 import requests
 import os
 from io import BytesIO
 from zipfile import ZipFile
+from scipy.optimize import minimize
+
 
 FMP_API_KEY = os.environ["FMP_API_KEY"]
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
@@ -29,7 +31,10 @@ def get_stock_returns(tickers, max_date):
     for t in tickers:
         daily = get_price_history(t)
         if not daily.empty:
-            monthly = daily.resample("M").last().pct_change().dropna()
+            monthly = daily.resample("ME").last().pct_change()
+            monthly = monthly.replace([np.inf, -np.inf], np.nan).dropna()
+            monthly = monthly.clip(lower=-0.99, upper=1.0)  # cap extreme returns
+
             monthly = monthly[monthly.index <= max_date]  # ✅ Truncate to FF data range
             if not monthly.empty:
                 print(f"{t}: monthly return range = {monthly.index.min()} to {monthly.index.max()}")
@@ -39,7 +44,7 @@ def get_stock_returns(tickers, max_date):
 
 # Load Kenneth French 5-factor monthly data from local file
 def get_factor_returns():
-    file_path = "data/F-F_Research_Data_5_Factors_2x3.csv"
+    file_path = "F-F_Research_Data_5_Factors_2x3.csv"
     df = pd.read_csv(file_path, skiprows=3)
 
     # Defensive: Remove footer rows starting from "Annual" if it exists
@@ -103,9 +108,18 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     # Get returns and factor data
     factor_returns = get_factor_returns()
     stock_returns = get_stock_returns(all_tickers, factor_returns.index.max())
+    print("\n📊 Preview of stock return data:")
+    print(stock_returns.head(10))
+
+    print("\n📉 Missing values per ticker:")
+    print(stock_returns.isnull().sum())
+
+    print("\n✅ Total valid rows after dropna:")
+    print(len(stock_returns.dropna()))
+
     factor_matrix = compute_factor_loadings(stock_returns, factor_returns)
 
-    # Keep only tickers that successfully got factor loadings
+
     valid_tickers = factor_matrix.index.tolist()
     if not valid_tickers:
         return {'status': 'error', 'message': 'No valid tickers with factor loadings.'}
@@ -114,70 +128,66 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     tickers = valid_tickers
     current_weights = np.array([original_weights[i] for i in ticker_indices])
 
-    # Build optimization matrices
+
     F = factor_matrix.loc[tickers].values
-    try:
-        target = np.array([target_exposures[f] for f in factor_matrix.columns])
-    except KeyError as e:
-        return {'status': 'error', 'message': f"Missing target exposure for factor: {e}"}
+    target = np.array([target_exposures[f] for f in factor_matrix.columns])
+
+    def objective(w):
+        tracking_error = np.sum((w - current_weights) ** 2)
+        exposure_penalty = np.sum((F.T @ w - target) ** 2)
+        return tracking_error + 1 * exposure_penalty  # You can tune this weight
 
 
-    print("Factor matrix shape:", F.shape)
-    print("Target:", target)
-    print("Current weights sum:", current_weights.sum())
+    def optimize(turnover=None):
+        constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1}]
+        if turnover_limit is not None:
+            constraints.append({
+                'type': 'ineq',
+                'fun': lambda w: turnover_limit - np.sum(np.abs(w - current_weights))
+            })
+
+        bounds = [(0, 1) for _ in range(len(tickers))]
+
+        print("🔎 Optimizing with:")
+        print(" - Current weights:", current_weights)
+        print(" - Target exposures:", target)
+        print(" - Exposure matrix shape:", F.shape)
+        print(" - Exposure matrix:\n", F)
+        print(" - Bounds:", bounds)
+        print(" - Constraints:", constraints)
 
 
-    # Optimization variables and setup
-    w = cp.Variable(len(tickers))
+        result = minimize(
+            objective,
+            x0=current_weights,
+            bounds=bounds,
+            constraints=constraints,
+            method='SLSQP'
+        )
+        return result
 
+    # First attempt: with turnover
+    result = optimize(turnover_limit)
 
-    objective = cp.Minimize(cp.sum_squares(w - current_weights) + 1e-6 * cp.sum_squares(w))
+    if not result.success:
+        print("⚠️ Turnover constraint caused failure. Retrying without it.")
+        result = optimize(None)
+        if not result.success:
+            return {'status': 'error', 'message': result.message + " (even without turnover constraint)"}
 
-    # Constraints
-    constraints = [cp.sum(w) == 1, w >= 0]
-    constraints.append(cp.norm(F.T @ w - target, 2) <= 0.1)  # ✅ Very loose exposure constraint
-    if turnover_limit:
-        constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
-
-    problem = cp.Problem(objective, constraints)
-
-    try:
-        problem.solve(solver=cp.ECOS)
-        if w.value is None:
-            raise cp.SolverError("ECOS failed to return a solution.")
-    except cp.SolverError:
-        print("⚠️ ECOS failed, falling back to tracking-only optimization.")
-        # Fallback: pure tracking error without exposure constraint
-        w = cp.Variable(len(tickers))
-        fallback_objective = cp.Minimize(cp.sum_squares(w - current_weights) + 1e-6 * cp.sum_squares(w))
-        fallback_constraints = [cp.sum(w) == 1, w >= 0]
-        if turnover_limit:
-            fallback_constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
-
-        fallback_problem = cp.Problem(fallback_objective, fallback_constraints)
-        try:
-            fallback_problem.solve(solver=cp.ECOS)
-            if w.value is None:
-                return {'status': 'error', 'message': 'All solvers failed to produce a valid solution.'}
-
-            optimized_weights = w.value
-
-        except Exception as e:
-            return {'status': 'error', 'message': f"All solvers failed: {str(e)}"}
-    else:
-        optimized_weights = w.value
+    optimized_weights = result.x
 
     return {
-        'status': problem.status,
+        'status': 'success',
         'optimized_weights': [
-            {'ticker': t, 'weight': float(round(wi, 6)) if np.isfinite(wi) else None}
+            {'ticker': t, 'weight': float(round(wi, 6))}
             for t, wi in zip(tickers, optimized_weights)
         ],
 
         'target_exposures': target_exposures,
-        'achieved_exposures': {
-            k: (v if np.isfinite(v) else None)
-            for k, v in zip(factor_matrix.columns, (F.T @ optimized_weights).round(6))
-        }
-
+        'achieved_exposures': dict(zip(
+            factor_matrix.columns,
+            (F.T @ optimized_weights).round(6).tolist()
+        ))
     }
+

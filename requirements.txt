@@ -21,10 +21,11 @@ torch
 datasets
 evaluate
 nltk
-cvxpy
 statsmodels
 osqp
 ecos
+scipy
+numpy
 
 
 
