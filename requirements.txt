@@ -24,7 +24,7 @@ nltk
 cvxpy
 statsmodels
 osqp
-
+ecos
 
 
 
