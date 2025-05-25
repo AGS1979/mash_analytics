@@ -7,11 +7,14 @@ import json
 from datetime import datetime
 from docx.shared import Pt, Inches
 from dotenv import load_dotenv
-load_dotenv()
+
 
 
 # ========== CONFIG ==========
+load_dotenv()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
 DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
 CHUNK_SIZE = 50  # Number of pages per API call
 
@@ -206,9 +209,7 @@ import numpy as np
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-if not DEEPSEEK_API_KEY:
-    raise ValueError("❌ DEEPSEEK_API_KEY is not set in the environment.")
+
 
 class PDFQueryEngine:
     def __init__(self, api_key, model_name="all-MiniLM-L6-v2"):
