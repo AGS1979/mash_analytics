@@ -28,7 +28,7 @@ scipy
 numpy
 faiss-cpu
 sentence-transformers
-
+markdown
 
 
 
