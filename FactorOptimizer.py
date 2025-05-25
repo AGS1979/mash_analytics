@@ -129,37 +129,39 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
 
     # Optimization variables and setup
     w = cp.Variable(len(tickers))
-    exposure_mismatch = cp.sum_squares(F.T @ w - target)
 
-    # Objective: balance tracking + exposure penalty
-    exposure_penalty_weight = 1  # or 1
+
+    # Objective: tracking error + soft penalty on exposure mismatch + small L2 regularization
+    exposure_penalty_weight = 1
     objective = cp.Minimize(
         cp.sum_squares(w - current_weights) +
         exposure_penalty_weight * cp.sum_squares(F.T @ w - target) +
-        1e-6 * cp.sum_squares(w)  # 🔧 tiny L2 regularization
+        1e-6 * cp.sum_squares(w)
     )
 
-
-
-    constraints = [
-        cp.sum(w) == 1,
-        w >= 0
-    ]
+    constraints = [cp.sum(w) == 1, w >= 0]
     if turnover_limit:
         constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
 
     problem = cp.Problem(objective, constraints)
 
     try:
+        # Try ECOS first
         problem.solve(solver=cp.ECOS)
+        if w.value is None:
+            raise cp.SolverError("ECOS failed to return a solution.")
     except cp.SolverError:
-        print("⚠️ ECOS failed, falling back to SCS...")
-        problem.solve(solver=cp.SCS)
-
-    optimized_weights = w.value
-
+        print("⚠️ ECOS failed, trying SCS...")
+        try:
+            problem.solve(solver=cp.SCS)
+            if w.value is None:
+                raise ValueError("SCS also failed to solve the problem.")
+        except Exception as e:
+            return {'status': 'error', 'message': f"SCS fallback failed: {str(e)}"}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
+
+    optimized_weights = w.value
 
     return {
         'status': problem.status,
