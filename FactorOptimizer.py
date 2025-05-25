@@ -129,13 +129,19 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     current_weights = np.array([original_weights[i] for i in ticker_indices])
 
 
+    # Normalize factor exposures and targets
     F = factor_matrix.loc[tickers].values
+    F = (F - F.mean(axis=0)) / F.std(axis=0)
     target = np.array([target_exposures[f] for f in factor_matrix.columns])
+    target = (target - target.mean()) / target.std()
 
+    # Adjusted objective function with tunable penalty
+    lambda_exposure = 10
     def objective(w):
         tracking_error = np.sum((w - current_weights) ** 2)
         exposure_penalty = np.sum((F.T @ w - target) ** 2)
-        return tracking_error + 1 * exposure_penalty  # You can tune this weight
+        return tracking_error + lambda_exposure * exposure_penalty
+
 
 
     def optimize(turnover=None):
