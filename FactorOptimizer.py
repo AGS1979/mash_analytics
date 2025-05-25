@@ -131,26 +131,37 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
     w = cp.Variable(len(tickers))
 
 
-    # Objective: tracking error + soft penalty on exposure mismatch + small L2 regularization
-    exposure_penalty_weight = 1
     objective = cp.Minimize(cp.sum_squares(w - current_weights) + 1e-6 * cp.sum_squares(w))
 
+    # Constraints
     constraints = [cp.sum(w) == 1, w >= 0]
-    constraints.append(cp.norm(F.T @ w - target, 2) <= 0.01)  # ⬅️ relaxed exposure match
+    constraints.append(cp.norm(F.T @ w - target, 2) <= 0.1)  # ✅ Very loose exposure constraint
     if turnover_limit:
         constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
 
     problem = cp.Problem(objective, constraints)
 
     try:
-        # Try ECOS first
-        problem.solve(solver=cp.ECOS_BB)
+        problem.solve(solver=cp.ECOS)
         if w.value is None:
-            raise cp.SolverError("ECOS_BB failed to return a solution.")
-    except Exception as e:
-        return {'status': 'error', 'message': str(e)}
+            raise cp.SolverError("ECOS failed to return a solution.")
+    except cp.SolverError:
+        print("⚠️ ECOS failed, falling back to tracking-only optimization.")
+        # Fallback: pure tracking error without exposure constraint
+        w = cp.Variable(len(tickers))
+        fallback_objective = cp.Minimize(cp.sum_squares(w - current_weights) + 1e-6 * cp.sum_squares(w))
+        fallback_constraints = [cp.sum(w) == 1, w >= 0]
+        if turnover_limit:
+            fallback_constraints.append(cp.norm1(w - current_weights) <= turnover_limit)
 
-    optimized_weights = w.value
+        fallback_problem = cp.Problem(fallback_objective, fallback_constraints)
+        try:
+            fallback_problem.solve(solver=cp.ECOS)
+            optimized_weights = w.value
+        except Exception as e:
+            return {'status': 'error', 'message': f"All solvers failed: {str(e)}"}
+    else:
+        optimized_weights = w.value
 
     return {
         'status': problem.status,
