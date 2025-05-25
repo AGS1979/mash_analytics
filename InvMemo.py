@@ -6,6 +6,9 @@ import re
 import json
 from datetime import datetime
 from docx.shared import Pt, Inches
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # ========== CONFIG ==========
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
