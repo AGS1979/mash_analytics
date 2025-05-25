@@ -157,7 +157,11 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
         fallback_problem = cp.Problem(fallback_objective, fallback_constraints)
         try:
             fallback_problem.solve(solver=cp.ECOS)
+            if w.value is None:
+                return {'status': 'error', 'message': 'All solvers failed to produce a valid solution.'}
+
             optimized_weights = w.value
+
         except Exception as e:
             return {'status': 'error', 'message': f"All solvers failed: {str(e)}"}
     else:
@@ -170,8 +174,9 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
             for t, wi in zip(tickers, optimized_weights)
         ],
         'target_exposures': target_exposures,
-        'achieved_exposures': dict(zip(
-            factor_matrix.columns,
-            (F.T @ optimized_weights).round(6).tolist()
-        ))
+        'achieved_exposures': {
+            k: (v if np.isfinite(v) else None)
+            for k, v in zip(factor_matrix.columns, (F.T @ optimized_weights).round(6))
+        }
+
     }
