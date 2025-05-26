@@ -223,7 +223,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     </div>
                   </div>
                 `;
-              }
+              
               } else {
                 resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || 'No response'}</span>`;
               }
