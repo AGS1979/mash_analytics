@@ -5,6 +5,8 @@ import openpyxl
 from openpyxl.styles import Font, Alignment
 from openpyxl.utils.dataframe import dataframe_to_rows
 import pandas as pd
+import re
+
 
 # Load API keys from environment
 FMP_API_KEY = os.environ.get("FMP_API_KEY")
@@ -14,6 +16,7 @@ DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ──────────────────────────
+
 def process_query_1(query):
     prompt = f"Extract the stock ticker from this query using FMP tickers: '{query}'. Return ONLY the ticker."
     response = requests.post(
@@ -26,7 +29,14 @@ def process_query_1(query):
         },
     )
     result = response.json()
-    return result["choices"][0]["message"]["content"].strip().upper()
+    full_output = result["choices"][0]["message"]["content"]
+
+    # Extract the first all-uppercase word with 1–5 characters
+    match = re.search(r'\b[A-Z]{1,5}\b', full_output)
+    if match:
+        return match.group(0)
+    else:
+        raise ValueError("Ticker not found in response.")
 
 
 def get_fmp_json(endpoint):
