@@ -29,6 +29,5 @@ numpy
 faiss-cpu
 sentence-transformers
 markdown
-re
 
 
