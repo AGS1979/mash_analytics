@@ -18,9 +18,16 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # ──────────────────────────
 
 def process_query_1(query):
-    prompt = f"Extract the stock ticker from this query using FMP tickers: '{query}'. Return ONLY the ticker."
+    prompt = (
+        f"You are an API backend. Given the following user query:\n"
+        f"'{query}'\n\n"
+        f"Identify the correct stock ticker using Financial Modeling Prep (FMP) tickers.\n"
+        f"Return ONLY the correct ticker in uppercase like this: RTX\n"
+        f"Do NOT return anything else — no explanation, no formatting.\n"
+    )
+
     response = requests.post(
-        "https://api.deepseek.com/chat/completions",
+        "https://api.deepseek.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
         json={
             "model": "deepseek-chat",
@@ -28,15 +35,16 @@ def process_query_1(query):
             "temperature": 0,
         },
     )
-    result = response.json()
-    full_output = result["choices"][0]["message"]["content"]
 
-    # Extract the first all-uppercase word with 1–5 characters
-    match = re.search(r'\b[A-Z]{1,5}\b', full_output)
+    result = response.json()
+    raw_output = result["choices"][0]["message"]["content"].strip()
+
+    # Sanitize: only accept a valid uppercase ticker
+    match = re.match(r'^[A-Z]{1,5}$', raw_output)
     if match:
-        return match.group(0)
+        return raw_output
     else:
-        raise ValueError("Ticker not found in response.")
+        raise ValueError(f"Invalid ticker returned: {raw_output}")
 
 
 def get_fmp_json(endpoint):

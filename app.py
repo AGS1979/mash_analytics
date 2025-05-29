@@ -474,7 +474,7 @@ def generate_report():
         file_name = os.path.basename(file_path)
         file_url = url_for('send_report', filename=file_name, _external=True)
 
-
+        print(f"✅ Using sanitized ticker: {ticker}")
         print(f"✅ Report successfully generated: {file_url}")
 
         return jsonify({
