@@ -38,7 +38,7 @@ document.getElementById("summary-type").addEventListener("change", function() {
 
 
 
-function activateChat() {
+window.activateChat = function () {
     window.history.pushState({ page: "chat-ui" }, "", "#chat");
     document.getElementById("landing-panel").style.display = "none";
     document.getElementById("chat-ui").style.display = "block";
@@ -57,9 +57,9 @@ window.addEventListener("popstate", function (event) {
         document.getElementById("landing-panel").style.display = "none";
         document.getElementById("custom-agents-ui").style.display = "block"; // ✅ fixed ID
     }
-};
+});
 
-function useCustomAgents() {
+window.useCustomAgents = function () {
     // Hide other sections
     document.getElementById("landing-panel").style.display = "none";
     document.getElementById("chat-ui").style.display = "none";
