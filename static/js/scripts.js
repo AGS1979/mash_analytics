@@ -132,7 +132,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
               <form id="preipo-form">
                 <label>Upload DRHP PDF:</label><br>
-                <input type="file" name="file" accept=".pdf" required /><br><br>
+                <input type="file" name="file" accept=".pdf,.docx" required /><br><br>
                 <label>Additional Notes / Focus Areas:</label><br>
                 <textarea name="notes" rows="4" placeholder="e.g. Emphasize risk factors, focus on financials"></textarea><br><br>
                 <button type="submit">Generate Memo</button>
@@ -233,6 +233,82 @@ document.addEventListener("DOMContentLoaded", function () {
               resultDiv.innerText = `Error: ${err.message}`;
             });
           });
+
+} else if (agent.id === "quant_signal") {
+  card.innerHTML = `
+    <h3>${agent.name}</h3>
+    <p><strong>Category:</strong> ${agent.category}</p>
+    <p>${agent.description}</p>
+    <button onclick="showQuantSignalModal()">Run Agent</button>
+  `;
+
+  const modal = document.createElement("div");
+  modal.id = `modal-${agent.id}`;
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+      <h2>${agent.name}</h2>
+      <p><strong>Category:</strong> ${agent.category}</p>
+      <p><strong>Description:</strong> ${agent.description}</p>
+
+      <form id="quant-signal-form">
+        <label>Upload Deal PDF:</label><br>
+        <input type="file" name="file" accept=".pdf" required /><br><br>
+        <label>What do you want to extract (e.g., valuation, SWOT, red flags)?</label><br>
+        <textarea name="query" rows="4" required></textarea><br><br>
+        <button type="submit">Run Analysis</button>
+      </form>
+      <div id="quant-signal-result" style="margin-top: 15px;"></div>
+    </div>
+  `;
+  document.getElementById("custom-agents-ui").appendChild(modal);
+
+  modal.querySelector("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const file = form.querySelector("input[name='file']").files[0];
+    const query = form.querySelector("textarea[name='query']").value.trim();
+    const resultDiv = document.getElementById("quant-signal-result");
+    const submitBtn = form.querySelector("button");
+
+    if (!file || !query) {
+      resultDiv.innerHTML = "Please upload a file and enter a query.";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("query", query);
+
+    resultDiv.innerHTML = "⏳ Analyzing...";
+    submitBtn.disabled = true;
+
+    fetch("/process_report", {
+      method: "POST",
+      body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.download_url) {
+        resultDiv.innerHTML = `
+          ✅ Analysis complete!<br>
+          <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
+            ⬇ Download Report
+          </a>`;
+      } else {
+        resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || 'Unknown error'}</span>`;
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      resultDiv.innerText = `Error: ${err.message}`;
+    })
+    .finally(() => {
+      submitBtn.disabled = false;
+      resultDiv.scrollIntoView({ behavior: "smooth" });
+    });
+}
 
 
 
@@ -338,25 +414,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-        // Create the modal
-        const modal = document.createElement("div");
-        modal.id = `modal-${agent.id}`;
-        modal.className = "modal";
-        modal.innerHTML = `
-          <div class="modal-content">
-            <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
-            <h2>${agent.name}</h2>
-            <p><strong>Category:</strong> ${agent.category}</p>
-            <p><strong>How it Works:</strong> ${agent.description}</p>
-            <p><strong>Sample Output:</strong></p>
-            <pre>${agent.output}</pre>
-            <a href="/static/samples/${agent.id}_output.csv" download class="download-link">⬇ Download Sample Output</a>
-          </div>
-        `;
-        document.getElementById("custom-agents-ui").appendChild(modal);
-      });
-    });
+function showQuantSignalModal() {
+  document.getElementById("modal-quant_signal").style.display = "block";
 }
+
 
 
 

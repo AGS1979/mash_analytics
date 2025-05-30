@@ -54,6 +54,7 @@ from PyPDF2 import PdfReader
 from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
+from PrivateTransactionAnalyzer import analyze_transaction_doc
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -273,7 +274,23 @@ def login():
     return render_template('login.html', error=error)
 
 
+@app.route('/analyze-transaction-agent', methods=['POST'])
+def analyze_transaction_agent():
+    try:
+        file = request.files.get('file')
+        query = request.form.get('query', 'Summarize the investment case, risks, red flags and valuation.')
 
+        if not file:
+            return jsonify({'error': 'No file uploaded.'}), 400
+
+        path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(path)
+
+        result = analyze_transaction_doc(path, query)
+        return jsonify({'message': result}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/signup', methods=['POST'])
@@ -313,9 +330,9 @@ def get_custom_agents():
     agents = [
         {
             "id": "quant_signal",
-            "name": "Quantitative Signal Generator",
-            "category": "Alpha Generation",
-            "description": "Generates trading signals using machine learning based on historical prices and fundamentals.",
+            "name": "Private Transaction Analyzer",
+            "category": "Private Equity",
+            "description": "Analyze CIMs, models, and memos to extract key deal insights..",
             "output": "Sample signals file"
         },
         {
