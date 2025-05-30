@@ -36,6 +36,8 @@ document.getElementById("summary-type").addEventListener("change", function() {
 });
 
 
+
+
 function activateChat() {
     window.history.pushState({ page: "chat-ui" }, "", "#chat");
     document.getElementById("landing-panel").style.display = "none";
@@ -55,31 +57,7 @@ window.addEventListener("popstate", function (event) {
         document.getElementById("landing-panel").style.display = "none";
         document.getElementById("custom-agents-ui").style.display = "block"; // ✅ fixed ID
     }
-});
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    const hash = window.location.hash;
-
-    // Default state: show landing panel only
-    document.getElementById("landing-panel").style.display = "block";
-    document.getElementById("chat-ui").style.display = "none";
-    document.getElementById("custom-agents-ui").style.display = "none";
-
-    if (hash === "#chat") {
-        activateChat();
-    } else if (hash === "#agents") {
-        useCustomAgents();
-    }
-});
-
-document.addEventListener("DOMContentLoaded", function() {
-    // Immediately set the current chat to the logged-in user if available.
-    if (typeof currentUser !== "undefined" && currentUser) {
-        currentChat = currentUser;  // Use the username as the key for this chat session
-        loadUserChat(currentUser);
-    }
-});
+};
 
 function useCustomAgents() {
     // Hide other sections
@@ -98,6 +76,50 @@ function useCustomAgents() {
     // Dynamically load agents if not already loaded
     loadCustomAgents();
 }
+
+            function showQuantSignalModal() {
+                document.getElementById("modal-quant_signal").style.display = "block";
+            }
+
+            function showAgentModal(id) {
+                document.getElementById(`modal-${id}`).style.display = "block";
+            }
+
+            function closeModal(id) {
+                document.getElementById(`modal-${id}`).style.display = "none";
+            }
+
+            function showPreIPOModal() {
+                document.getElementById("modal-Pre-IPO_Investment_Memo").style.display = "block";
+            }
+
+            function showFactorOptModal() {
+                document.getElementById("modal-factor_opt").style.display = "block";
+            }
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    
+// Immediately set the current chat to the logged-in user if available.
+    if (typeof currentUser !== "undefined" && currentUser) {
+        currentChat = currentUser;  // Use the username as the key for this chat session
+        loadUserChat(currentUser);
+    }
+
+    const hash = window.location.hash;
+
+    // Default state: show landing panel only
+    document.getElementById("landing-panel").style.display = "block";
+    document.getElementById("chat-ui").style.display = "none";
+    document.getElementById("custom-agents-ui").style.display = "none";
+
+    if (hash === "#chat") {
+        activateChat();
+    } else if (hash === "#agents") {
+        useCustomAgents();
+    }
+});
+
 
 function loadCustomAgents() {
     const grid = document.getElementById("agent-grid");
@@ -550,27 +572,6 @@ function loadCustomAgents() {
                 });
             }
 
-
-            function showQuantSignalModal() {
-                document.getElementById("modal-quant_signal").style.display = "block";
-            }
-
-            function showAgentModal(id) {
-                document.getElementById(`modal-${id}`).style.display = "block";
-            }
-
-            function closeModal(id) {
-                document.getElementById(`modal-${id}`).style.display = "none";
-            }
-
-            function showPreIPOModal() {
-                document.getElementById("modal-Pre-IPO_Investment_Memo").style.display = "block";
-            }
-
-            function showFactorOptModal() {
-                document.getElementById("modal-factor_opt").style.display = "block";
-            }
-            
             function loadUserChat(username) {
                 fetch(`/load_chat?username=${encodeURIComponent(username)}`)
                     .then(response => response.json())
