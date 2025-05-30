@@ -870,6 +870,7 @@ function loadCustomAgents() {
         endpoint = '/analyze-redflags';
       }
 
+
       fetch(endpoint, { method: 'POST', body: formData })
         .then(r => r.json())
         .then(data => {
@@ -917,6 +918,7 @@ function loadCustomAgents() {
 
       return; // stop here if file upload was handled
     }
+  });
 
     // 2) Text-only branch
     const query = document.getElementById("chat-input").value.trim();
