@@ -73,7 +73,15 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
+document.addEventListener("DOMContentLoaded", function() {
+    // Immediately set the current chat to the logged-in user if available.
+    if (typeof currentUser !== "undefined" && currentUser) {
+        currentChat = currentUser;  // Use the username as the key for this chat session
+        loadUserChat(currentUser);
+        
 
+    }
+});
 
     function useCustomAgents() {
   // Hide other sections
@@ -98,6 +106,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function loadCustomAgents() {
         const grid = document.getElementById("agent-grid");
+        if (!grid) {
+          console.error("❌ 'agent-grid' not found!");
+          return;
+        }
+
         grid.innerHTML = ''; // Clear old cards
 
   // Remove old modals
@@ -118,7 +131,10 @@ document.addEventListener("DOMContentLoaded", function () {
             <p><strong>Category:</strong> ${agent.category}</p>
             <p>${agent.description}</p>
             <button onclick="showPreIPOModal()">Run Agent</button>
+          
           `;
+
+          grid.appendChild(card);  // ✅ ADD THIS
 
           const modal = document.createElement("div");
           modal.id = `modal-${agent.id}`;
@@ -151,7 +167,7 @@ document.addEventListener("DOMContentLoaded", function () {
           `;
           document.getElementById("custom-agents-ui").appendChild(modal);
 
-          modal.querySelector("form").addEventListener("submit", function (e) {
+          modal.querySelector("#preipo-form").addEventListener("submit", function (e) {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
@@ -241,6 +257,7 @@ document.addEventListener("DOMContentLoaded", function () {
     <p>${agent.description}</p>
     <button onclick="showQuantSignalModal()">Run Agent</button>
   `;
+  grid.appendChild(card);  // ✅ ADD THIS
 
   const modal = document.createElement("div");
   modal.id = `modal-${agent.id}`;
@@ -319,6 +336,7 @@ document.addEventListener("DOMContentLoaded", function () {
             <p>${agent.description}</p>
             <button onclick="showFactorOptModal()">Run Agent</button>
           `;
+          grid.appendChild(card);  // ✅ ADD THIS
 
           const modal = document.createElement("div");
           modal.id = `modal-${agent.id}`;
@@ -390,26 +408,22 @@ document.addEventListener("DOMContentLoaded", function () {
             <p>${agent.description}</p>
             <button onclick="showAgentModal('${agent.id}')">Learn More</button>
           `;
-
-          const modal = document.createElement("div");
-          modal.id = `modal-${agent.id}`;
-          modal.className = "modal";
-          modal.innerHTML = `
-            <div class="modal-content">
-              <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
-              <h2>${agent.name}</h2>
-              <p><strong>Category:</strong> ${agent.category}</p>
-              <p><strong>How it Works:</strong> ${agent.description}</p>
-              <p><strong>Sample Output:</strong></p>
-              <pre>${agent.output}</pre>
-              <a href="/static/samples/${agent.id}_output.csv" download class="download-link">⬇ Download Sample Output</a>
-            </div>
-          `;
-          document.getElementById("custom-agents-ui").appendChild(modal);
-        }
-
-        grid.appendChild(card);  // Append after card logic
-
+          grid.appendChild(card);  // ✅ ADD THIS
+const modal = document.createElement("div");
+modal.id = `modal-${agent.id}`;
+modal.className = "modal";
+modal.innerHTML = `
+  <div class="modal-content">
+    <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+    <h2>${agent.name}</h2>
+    <p><strong>Category:</strong> ${agent.category}</p>
+    <p><strong>How it Works:</strong> ${agent.description}</p>
+    <p><strong>Sample Output:</strong></p>
+    <pre>${agent.output || "No sample output available."}</pre>
+    <a href="/static/samples/${agent.id}_output.csv" download class="download-link">⬇ Download Sample Output</a>
+  </div>
+`;
+document.getElementById("custom-agents-ui").appendChild(modal);
 
 
 
@@ -439,14 +453,6 @@ function showFactorOptModal() {
       document.getElementById("modal-factor_opt").style.display = "block";
     }
 
-document.addEventListener("DOMContentLoaded", function() {
-    // Immediately set the current chat to the logged-in user if available.
-    if (typeof currentUser !== "undefined" && currentUser) {
-        currentChat = currentUser;  // Use the username as the key for this chat session
-        loadUserChat(currentUser);
-        
-
-    }
 
 
     const name = sessionStorage.getItem("userFirstName");
