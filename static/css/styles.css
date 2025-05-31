@@ -769,3 +769,16 @@ body {
 .pdf-answer-box strong {
   color: #f8f8f2;
 }
+
+/* ──────────────────────────────────────────────────
+   Align checkboxes + label text in PE modal
+  ────────────────────────────────────────────────── */
+.modal-content form label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px; /* space between rows */
+}
+
+.modal-content form label input[type="checkbox"] {
+  margin-right: 8px; /* gap between the box and its text */
+}
