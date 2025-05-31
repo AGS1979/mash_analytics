@@ -320,38 +320,63 @@ function showFactorOptModal() {
 
   // 3) Handle form submission
   modal.querySelector("#quant-signal-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    const form = e.target;
-    const fileInput = form.querySelector("input[name='file']");
-    const queryText = form.querySelector("textarea[name='query']").value.trim();
-    const resultDiv = document.getElementById("quant-signal-result");
-    const submitBtn = form.querySelector("button");
+  e.preventDefault();
+  const form = e.target;
+  const fileInput = form.querySelector("input[name='file']");
+  const queryText = form.querySelector("textarea[name='query']").value.trim();
+  const resultDiv = document.getElementById("quant-signal-result");
+  const submitBtn = form.querySelector("button");
 
-    if (!fileInput.files[0] || !queryText) {
-      resultDiv.innerHTML = "<p style='color: red;'>Please upload a PDF and enter a query.</p>";
-      return;
+  if (!fileInput.files[0] || !queryText) {
+    resultDiv.innerHTML = "<p style='color: red;'>Please upload a PDF and enter a query.</p>";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+  formData.append("query", queryText);
+
+  // 1) run_deep_dives toggle
+  const runDeepDives = form.querySelector("input[name='run_deep_dives']").checked;
+  formData.append("run_deep_dives", runDeepDives ? "true" : "false");
+
+  // 2) deep_dive_sections (array → JSON string)
+  const selectedSections = Array.from(
+    form.querySelectorAll("input[name='sections']:checked")
+  ).map(el => el.value);
+  formData.append("deep_dive_sections", selectedSections.join(",")); 
+  // ← we now send a simple comma‐separated string (Flask will split on commas)
+
+  // 3) chunk_size (optional input field you might add to the form)
+  //    If you want to let the user set chunk size, you'd put a new
+  //    <input name="chunk_size" …> in the modal and then:
+  const chunkSizeInput = form.querySelector("input[name='chunk_size']");
+  if (chunkSizeInput && chunkSizeInput.value.trim()) {
+    formData.append("chunk_size", chunkSizeInput.value.trim());
+  }
+
+  // 4) custom prompts (if you added textareas like <textarea name="chunk_prompt">…</textarea>)
+  const chunkPromptInput = form.querySelector("textarea[name='chunk_prompt']");
+  if (chunkPromptInput && chunkPromptInput.value.trim()) {
+    formData.append("chunk_prompt", chunkPromptInput.value.trim());
+  }
+  const aggregatePromptInput = form.querySelector("textarea[name='aggregate_prompt']");
+  if (aggregatePromptInput && aggregatePromptInput.value.trim()) {
+    formData.append("aggregate_prompt", aggregatePromptInput.value.trim());
+  }
+
+  // 5) deep‐dive overrides (e.g. a <textarea name="prompt_Market_Analysis">…</textarea>)
+  selectedSections.forEach(sectionName => {
+    const key = sectionName.replace(/ /g, "_"); // e.g. "Market Analysis" → "Market_Analysis"
+    const overrideField = form.querySelector(`textarea[name="prompt_${key}"]`);
+    if (overrideField && overrideField.value.trim()) {
+      formData.append(`prompt_${key}`, overrideField.value.trim());
     }
+  });
 
-    // Build FormData payload
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-    formData.append("query", queryText);
-
-    // Whether to run deep dives at all?
-    const runDeepDives = form.querySelector("input[name='run_deep_dives']").checked;
-    formData.append("run_deep_dives", runDeepDives ? "true" : "false");
-
-    // Which sections to deep dive?
-    // We allow multiple checkboxes with name="sections"
-    const selectedSections = Array.from(
-      form.querySelectorAll("input[name='sections']:checked")
-    ).map((el) => el.value);
-    // Convert the array to JSON‐string so Flask can parse
-    formData.append("sections", JSON.stringify(selectedSections));
-
-    // Show “loading” message
-    resultDiv.innerHTML = "<p>⏳ Running analysis, please wait...</p>";
-    submitBtn.disabled = true;
+  // Show “loading” message
+  resultDiv.innerHTML = "<p>⏳ Running analysis, please wait...</p>";
+  submitBtn.disabled = true;
 
     // 4) POST to /analyze_deal (instead of /process_report)
     fetch("/analyze_deal", {
