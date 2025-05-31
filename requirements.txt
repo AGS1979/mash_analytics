@@ -30,5 +30,7 @@ faiss-cpu
 sentence-transformers
 markdown
 tiktoken
+python-pptx
+xlrd
 
 
