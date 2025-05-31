@@ -350,8 +350,8 @@ def analyze_transaction_doc(
     # 1) Extract raw text
     raw_text = extract_text(filepath)
 
-    # 2) Chunk up to ~chunk_size tokens each
-    chunks = chunk_text(raw_text, max_tokens=chunk_size, model_name="deepseek-chat")
+    # 2) Chunk up to ~chunk_size tokens each (remove the unsupported model_name argument)
+    chunks = chunk_text(raw_text, max_tokens=chunk_size)
     print(f">>> Document split into {len(chunks)} chunks (chunk_size={chunk_size})")
 
     # 3) Summarize each chunk (Layer 1)
@@ -387,7 +387,6 @@ def analyze_transaction_doc(
 
         for section in deep_dive_sections:
             section_key = section.replace(" ", "_")  # e.g. "Market Analysis" → "Market_Analysis"
-            # See if a custom prompt was provided for this section
             custom = None
             if deep_dive_prompts and section_key in deep_dive_prompts:
                 custom = deep_dive_prompts[section_key]
@@ -397,3 +396,4 @@ def analyze_transaction_doc(
             result[f"deep_dive_{section_key}"] = section_md
 
     return result
+
