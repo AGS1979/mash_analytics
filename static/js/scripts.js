@@ -97,29 +97,8 @@ function showFactorOptModal() {
 }
 
 
-document.addEventListener("DOMContentLoaded", function () {
-    
-    // Immediately set the current chat to the logged-in user if available.
-    if (typeof currentUser !== "undefined" && currentUser) {
-        currentChat = currentUser;  // Use the username as the key for this chat session
-        loadUserChat(currentUser);
-    }
 
-    const hash = window.location.hash;
-
-    // Default state: show landing panel only
-    document.getElementById("landing-panel").style.display = "block";
-    document.getElementById("chat-ui").style.display = "none";
-    document.getElementById("custom-agents-ui").style.display = "none";
-
-    if (hash === "#chat") {
-        activateChat();
-    } else if (hash === "#agents") {
-        useCustomAgents();
-    }
-
-
-    // ------------------------------------------------------------
+// ------------------------------------------------------------
     // Definition of loadCustomAgents (this is where two braces were missing)
     // ------------------------------------------------------------
     function loadCustomAgents() {
@@ -447,6 +426,30 @@ document.addEventListener("DOMContentLoaded", function () {
     // ------------------------------------------------------------
     // (End of loadCustomAgents)
     // ------------------------------------------------------------
+
+document.addEventListener("DOMContentLoaded", function () {
+    
+    // Immediately set the current chat to the logged-in user if available.
+    if (typeof currentUser !== "undefined" && currentUser) {
+        currentChat = currentUser;  // Use the username as the key for this chat session
+        loadUserChat(currentUser);
+    }
+
+    const hash = window.location.hash;
+
+    // Default state: show landing panel only
+    document.getElementById("landing-panel").style.display = "block";
+    document.getElementById("chat-ui").style.display = "none";
+    document.getElementById("custom-agents-ui").style.display = "none";
+
+    if (hash === "#chat") {
+        activateChat();
+    } else if (hash === "#agents") {
+        useCustomAgents();
+    }
+
+
+
 
     // After loadCustomAgents, the code continues as before...
     const name = sessionStorage.getItem("userFirstName");
