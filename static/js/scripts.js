@@ -273,18 +273,38 @@ function showFactorOptModal() {
         <label>What do you want to extract (e.g., valuation, SWOT, red flags)?</label><br>
         <textarea name="query" rows="3" required placeholder="e.g. valuation, SWOT analysis, red flags"></textarea><br><br>
 
-        <!-- NEW: Deep‐Dive Master Toggle -->
-        <label>
-          <input type="checkbox" name="run_deep_dives" value="yes" checked />
-          Run Detailed “Deep‐Dive” Analysis?
-        </label><br><br>
+        <div class="deep-dives">
+          <div class="deep-dive-row">
+            <label>
+              <input type="checkbox" name="run_deep_dives" value="yes" checked />
+              Run Detailed “Deep-Dive” Analysis?
+            </label>
+          </div>
 
-        <!-- NEW: Individual Deep‐Dive Sections -->
-        <div style="margin-left: 16px; margin-bottom: 12px;">
-          <label><input type="checkbox" name="sections" value="Market Analysis" checked /> Market Analysis</label><br>
-          <label><input type="checkbox" name="sections" value="Financial Performance" checked /> Financial Performance</label><br>
-          <label><input type="checkbox" name="sections" value="Operational Risks" checked /> Operational Risks</label><br>
-          <label><input type="checkbox" name="sections" value="Exit Strategy" checked /> Exit Strategy</label><br>
+          <div class="deep-dive-row">
+            <label>
+              <input type="checkbox" name="sections" value="Market Analysis" checked />
+              Market Analysis
+            </label>
+          </div>
+          <div class="deep-dive-row">
+            <label>
+              <input type="checkbox" name="sections" value="Financial Performance" checked />
+              Financial Performance
+            </label>
+          </div>
+          <div class="deep-dive-row">
+            <label>
+              <input type="checkbox" name="sections" value="Operational Risks" checked />
+              Operational Risks
+            </label>
+          </div>
+          <div class="deep-dive-row">
+            <label>
+              <input type="checkbox" name="sections" value="Exit Strategy" checked />
+              Exit Strategy
+            </label>
+          </div>
         </div>
 
         <button type="submit">Run Analysis</button>
