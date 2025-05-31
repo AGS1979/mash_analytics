@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", function () {
     } else if (hash === "#agents") {
         useCustomAgents();
     }
-});
+    
 
 
 function loadCustomAgents() {
