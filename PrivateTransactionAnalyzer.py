@@ -23,19 +23,18 @@ if not DEEPSEEK_API_KEY:
     raise RuntimeError("Please set DEEPSEEK_API_KEY in your environment.")
 
 
-# ---------------------------------------------------
-# 1) UTILITIES: token counting & chunking
-# ---------------------------------------------------
 
-def num_tokens_from_string(string: str, model_name: str="deepseek-chat") -> int:
+
+def num_tokens_from_string(string: str) -> int:
     """
-    Returns the number of tokens in `string` when encoded with tiktoken.
+    Returns the number of tokens in `string` using a fixed tiktoken encoding
+    (cl100k_base). We cannot rely on encoding_for_model("deepseek-chat") because
+    that model name is not recognized by tiktoken.
     """
-    encoding = tiktoken.encoding_for_model(model_name)
+    encoding = tiktoken.get_encoding("cl100k_base")
     return len(encoding.encode(string))
 
-
-def chunk_text(text: str, max_tokens: int=1800, model_name: str="deepseek-chat") -> list[str]:
+def chunk_text(text: str, max_tokens: int=1800) -> list[str]:
     """
     Splits `text` into a list of substrings, each containing <= max_tokens tokens.
     Tries to split on paragraph boundaries but guarantees token‐safety by falling back to sentences.
@@ -43,17 +42,19 @@ def chunk_text(text: str, max_tokens: int=1800, model_name: str="deepseek-chat")
     paragraphs = text.split("\n\n")
     chunks: list[str] = []
     current_chunk = ""
-    current_tokens = 0
-
-    for para in paragraphs:
+    
+    
         
-        para_tokens = num_tokens_from_string(para, model_name)
+    current_tokens = 0
+    
+    for para in paragraphs:
+        para_tokens = num_tokens_from_string(para)
 
         if para_tokens > max_tokens:
             # If one paragraph alone is too big, split by sentences
             sentences = para.split(". ")
             for sentence in sentences:
-                sent_tokens = num_tokens_from_string(sentence, model_name)
+                sent_tokens = num_tokens_from_string(sentence)
                 if current_tokens + sent_tokens + 10 > max_tokens:
                     if current_chunk:
                         chunks.append(current_chunk.strip())
