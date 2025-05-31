@@ -274,23 +274,82 @@ def login():
     return render_template('login.html', error=error)
 
 
-@app.route('/analyze-transaction-agent', methods=['POST'])
-def analyze_transaction_agent():
+# ---------------------------------------------------
+# 6) If using Flask, expose an endpoint
+# ---------------------------------------------------
+
+@app.route("/analyze_deal", methods=["POST"])
+def analyze_deal_endpoint():
+    """
+    Expects a multipart‐form POST with:
+      • a PDF file under key "file"
+      • optional form fields:
+          - chunk_size (int)
+          - run_deep_dives ("true" or "false")
+          - deep_dive_sections (comma-separated string of section names)
+
+    Returns a JSON payload with:
+      - aggregate_analysis (JSON)
+      - deep_dive_<SectionName> (Markdown strings)
+    """
+    # 1) Validate file upload
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+
+    # 2) Save the uploaded PDF temporarily
+    save_path = os.path.join("/tmp", secure_filename(file.filename))
+    file.save(save_path)
+
+    # -----------------------------
+    # 3) Read additional form fields
+    # -----------------------------
+
+    # 3a) chunk_size: defaults to 1800 if not provided or invalid
+    raw_chunk_size = request.form.get("chunk_size", "").strip()
     try:
-        file = request.files.get('file')
-        query = request.form.get('query', 'Summarize the investment case, risks, red flags and valuation.')
+        chunk_size = int(raw_chunk_size)
+        # Enforce a sane minimum/maximum if you like; for now, just ensure positive
+        if chunk_size <= 0:
+            chunk_size = 1800
+    except (ValueError, TypeError):
+        chunk_size = 1800
 
-        if not file:
-            return jsonify({'error': 'No file uploaded.'}), 400
+    # 3b) run_deep_dives: expect "true" or "false" (case-insensitive)
+    raw_run_deep = request.form.get("run_deep_dives", "true").strip().lower()
+    run_deep_dives = raw_run_deep == "true"
 
-        path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
-        file.save(path)
+    # 3c) deep_dive_sections: comma-separated string (e.g. "Market Analysis,Financial Performance")
+    raw_sections = request.form.get("deep_dive_sections", "").strip()
+    if raw_sections:
+        # split on comma and strip whitespace
+        deep_dive_sections = [sec.strip() for sec in raw_sections.split(",") if sec.strip()]
+    else:
+        # If none provided, pick a sensible default list
+        deep_dive_sections = [
+            "Market Analysis",
+            "Financial Performance",
+            "Operational Risks",
+            "Exit Strategy"
+        ]
 
-        result = analyze_transaction_doc(path, query)
-        return jsonify({'message': result}), 200
-
+    # 4) Call your analyzer with the new parameters
+    try:
+        analysis = analyze_transaction_doc(
+            filepath=save_path,
+            run_deep_dives=run_deep_dives,
+            chunk_size=chunk_size,
+            deep_dive_sections=deep_dive_sections
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
+    # 5) Return whatever the analyzer produced
+    return jsonify(analysis)
+
 
 
 @app.route('/signup', methods=['POST'])

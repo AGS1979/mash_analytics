@@ -245,83 +245,158 @@ function showFactorOptModal() {
                         });
 
                     } else if (agent.id === "quant_signal") {
-                        card.innerHTML = `
-                            <h3>${agent.name}</h3>
-                            <p><strong>Category:</strong> ${agent.category}</p>
-                            <p>${agent.description}</p>
-                            <button onclick="showQuantSignalModal()">Run Agent</button>
-                        `;
-                        grid.appendChild(card);  // ✅ ADD THIS
+  // 1) Create the card (same as before)
+  card.innerHTML = `
+    <h3>${agent.name}</h3>
+    <p><strong>Category:</strong> ${agent.category}</p>
+    <p>${agent.description}</p>
+    <button onclick="showQuantSignalModal()">Run Agent</button>
+  `;
+  grid.appendChild(card);
 
-                        const modal = document.createElement("div");
-                        modal.id = `modal-${agent.id}`;
-                        modal.className = "modal";
-                        modal.innerHTML = `
-                            <div class="modal-content">
-                                <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
-                                <h2>${agent.name}</h2>
-                                <p><strong>Category:</strong> ${agent.category}</p>
-                                <p><strong>Description:</strong> ${agent.description}</p>
+  // 2) Create the modal container
+  const modal = document.createElement("div");
+  modal.id = `modal-${agent.id}`;
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+      <h2>${agent.name}</h2>
+      <p><strong>Category:</strong> ${agent.category}</p>
+      <p><strong>Description:</strong> ${agent.description}</p>
 
-                                <form id="quant-signal-form">
-                                    <label>Upload Deal PDF:</label><br>
-                                    <input type="file" name="file" accept=".pdf" required /><br><br>
-                                    <label>What do you want to extract (e.g., valuation, SWOT, red flags)?</label><br>
-                                    <textarea name="query" rows="4" required></textarea><br><br>
-                                    <button type="submit">Run Analysis</button>
-                                </form>
-                                <div id="quant-signal-result" style="margin-top: 15px;"></div>
-                            </div>
-                        `;
-                        document.getElementById("custom-agents-ui").appendChild(modal);
+      <!-- FORM STARTS HERE -->
+      <form id="quant-signal-form" enctype="multipart/form-data">
+        <label>Upload Deal PDF:</label><br>
+        <input type="file" name="file" accept=".pdf" required /><br><br>
 
-                        modal.querySelector("form").addEventListener("submit", function (e) {
-                            e.preventDefault();
-                            const form = e.target;
-                            const file = form.querySelector("input[name='file']").files[0];
-                            const query = form.querySelector("textarea[name='query']").value.trim();
-                            const resultDiv = document.getElementById("quant-signal-result");
-                            const submitBtn = form.querySelector("button");
+        <label>What do you want to extract (e.g., valuation, SWOT, red flags)?</label><br>
+        <textarea name="query" rows="3" required placeholder="e.g. valuation, SWOT analysis, red flags"></textarea><br><br>
 
-                            if (!file || !query) {
-                                resultDiv.innerHTML = "Please upload a file and enter a query.";
-                                return;
-                            }
+        <!-- NEW: Deep‐Dive Master Toggle -->
+        <label>
+          <input type="checkbox" name="run_deep_dives" value="yes" checked />
+          Run Detailed “Deep‐Dive” Analysis?
+        </label><br><br>
 
-                            const formData = new FormData();
-                            formData.append("file", file);
-                            formData.append("query", query);
+        <!-- NEW: Individual Deep‐Dive Sections -->
+        <div style="margin-left: 16px; margin-bottom: 12px;">
+          <label><input type="checkbox" name="sections" value="Market Analysis" checked /> Market Analysis</label><br>
+          <label><input type="checkbox" name="sections" value="Financial Performance" checked /> Financial Performance</label><br>
+          <label><input type="checkbox" name="sections" value="Operational Risks" checked /> Operational Risks</label><br>
+          <label><input type="checkbox" name="sections" value="Exit Strategy" checked /> Exit Strategy</label><br>
+        </div>
 
-                            resultDiv.innerHTML = "⏳ Analyzing...";
-                            submitBtn.disabled = true;
+        <button type="submit">Run Analysis</button>
+      </form>
+      <!-- FORM ENDS HERE -->
 
-                            fetch("/process_report", {
-                                method: "POST",
-                                body: formData
-                            })
-                            .then(r => r.json())
-                            .then(data => {
-                                if (data.download_url) {
-                                    resultDiv.innerHTML = `
-                                        ✅ Analysis complete!<br>
-                                        <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
-                                            ⬇ Download Report
-                                        </a>`;
-                                } else {
-                                    resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || 'Unknown error'}</span>`;
-                                }
-                            })
-                            .catch(err => {
-                                console.error(err);
-                                resultDiv.innerText = `Error: ${err.message}`;
-                            })
-                            .finally(() => {
-                                submitBtn.disabled = false;
-                                resultDiv.scrollIntoView({ behavior: "smooth" });
-                            });
-                        });
+      <hr style="margin:24px 0;" />
 
-                    } else if (agent.id === "factor_opt") {
+      <div id="quant-signal-result" style="max-height: 60vh; overflow-y: auto;"></div>
+    </div>
+  `;
+  document.getElementById("custom-agents-ui").appendChild(modal);
+
+  // 3) Handle form submission
+  modal.querySelector("#quant-signal-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const fileInput = form.querySelector("input[name='file']");
+    const queryText = form.querySelector("textarea[name='query']").value.trim();
+    const resultDiv = document.getElementById("quant-signal-result");
+    const submitBtn = form.querySelector("button");
+
+    if (!fileInput.files[0] || !queryText) {
+      resultDiv.innerHTML = "<p style='color: red;'>Please upload a PDF and enter a query.</p>";
+      return;
+    }
+
+    // Build FormData payload
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
+    formData.append("query", queryText);
+
+    // Whether to run deep dives at all?
+    const runDeepDives = form.querySelector("input[name='run_deep_dives']").checked;
+    formData.append("run_deep_dives", runDeepDives ? "true" : "false");
+
+    // Which sections to deep dive?
+    // We allow multiple checkboxes with name="sections"
+    const selectedSections = Array.from(
+      form.querySelectorAll("input[name='sections']:checked")
+    ).map((el) => el.value);
+    // Convert the array to JSON‐string so Flask can parse
+    formData.append("sections", JSON.stringify(selectedSections));
+
+    // Show “loading” message
+    resultDiv.innerHTML = "<p>⏳ Running analysis, please wait...</p>";
+    submitBtn.disabled = true;
+
+    // 4) POST to /analyze_deal (instead of /process_report)
+    fetch("/analyze_deal", {
+      method: "POST",
+      body: formData
+    })
+      .then(async (resp) => {
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+        return resp.json();
+      })
+      .then((data) => {
+        // 5) Render the returned JSON: data.aggregate_analysis + deep dives
+        let html = "";
+
+        // (A) Render the aggregated summary JSON as formatted HTML
+        if (data.aggregate_analysis) {
+          html += "<h3>📦 Aggregate Analysis</h3>";
+          // If the backend returned a JSON object for “aggregate_analysis”:
+          try {
+            const agg = data.aggregate_analysis;
+            // If it’s literally an object with keys, stringify nicely:
+            if (typeof agg === "object") {
+              html += "<pre style='background:#222; padding:12px; border-radius:6px;'>";
+              html += JSON.stringify(agg, null, 2);
+              html += "</pre>";
+            } else {
+              // If it’s just raw text fallback
+              html += `<div>${agg}</div>`;
+            }
+          } catch (err) {
+            html += `<div>Unable to parse aggregate_analysis.</div>`;
+          }
+        }
+
+        // (B) If deep dive sections exist, render each block
+        if (runDeepDives && Array.isArray(selectedSections)) {
+          selectedSections.forEach((sectionName) => {
+            const key = `deep_dive_${sectionName.replace(/ /g, "_")}`;
+            if (data[key]) {
+              html += `<hr style="margin:16px 0;" />`;
+              html += `<h3>🔍 Deep Dive: ${sectionName}</h3>`;
+              // The backend returned Markdown (or raw HTML). We’ll assume it’s text—just wrap in a <pre>.
+              html += `<pre style="background:#222; padding:12px; border-radius:6px;">`;
+              html += data[key];
+              html += "</pre>";
+            }
+          });
+        }
+
+        resultDiv.innerHTML = html || "<p>No analysis returned.</p>";
+      })
+      .catch((err) => {
+        console.error(err);
+        resultDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        resultDiv.scrollIntoView({ behavior: "smooth" });
+      });
+  });
+}
+ else if (agent.id === "factor_opt") {
                         card.innerHTML = `
                             <h3>${agent.name}</h3>
                             <p><strong>Category:</strong> ${agent.category}</p>
