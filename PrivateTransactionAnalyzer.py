@@ -1,7 +1,6 @@
 # deal_analyzer.py
 
 import os
-
 import json
 import fitz                   # PyMuPDF for PDFs
 import tiktoken               # for token counting
@@ -49,7 +48,7 @@ def chunk_text(text: str, max_tokens: int=1800, model_name: str="gpt-4") -> list
     for para in paragraphs:
         
         para_tokens = num_tokens_from_string(para, model_name)
-        
+
         if para_tokens > max_tokens:
             # If one paragraph alone is too big, split by sentences
             sentences = para.split(". ")
@@ -165,12 +164,12 @@ def extract_text(filepath: str) -> str:
 
 def call_deepseek_chat(
     messages: list[dict[str,str]],
-    model: str="gpt-4",
+    model: str="deepseek-chat",
     temperature: float=0.3,
     max_tokens: int=1500
 ) -> str:
     """
-    Calls DeepSeek Chat (compatible with OpenAI-style ChatCompletion).
+    Calls DeepSeek Chat (compatible with OpenAI‐style ChatCompletion).
     Expects:
       - DEEPSEEK_API_KEY  (Bearer)
       - DEEPSEEK_CHAT_URL
@@ -186,10 +185,16 @@ def call_deepseek_chat(
         "temperature": temperature,
         "max_tokens":  max_tokens
     }
-    resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload)
-    resp.raise_for_status()
+    resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=30)
+
+    if resp.status_code != 200:
+        try:
+            detail = resp.json()
+        except ValueError:
+            detail = resp.text
+        raise RuntimeError(f"DeepSeek returned {resp.status_code}: {detail}")
+
     data = resp.json()
-    # Assume DeepSeek returns the same structure as OpenAI:
     return data["choices"][0]["message"]["content"]
 
 
@@ -350,12 +355,12 @@ def analyze_transaction_doc(
     # 3) Summarize each chunk (Layer 1)
     chunk_summaries: list[str] = []
     for idx, chunk in enumerate(chunks):
-        print(f"Summarizing chunk {idx+1}/{len(chunks)}...")
+        print(f"Summarizing chunk {idx+1}/{len(chunks)}…")
         summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
         chunk_summaries.append(summary)
 
     # 4) Aggregate chunk summaries (Layer 2)
-    print("Aggregating summaries into final JSON...")
+    print("Aggregating summaries into final JSON…")
     aggregate_json_str = aggregate_summaries(chunk_summaries, custom_prompt=aggregate_prompt)
     try:
         aggregate_json = json.loads(aggregate_json_str)
@@ -385,7 +390,7 @@ def analyze_transaction_doc(
             if deep_dive_prompts and section_key in deep_dive_prompts:
                 custom = deep_dive_prompts[section_key]
 
-            print(f"Running deep dive on {section} (using custom={bool(custom)})...")
+            print(f"Running deep dive on {section} (using custom={bool(custom)})…")
             section_md = deep_dive_section(section, combined_summaries_text, custom_prompt=custom)
             result[f"deep_dive_{section_key}"] = section_md
 
