@@ -17,7 +17,7 @@ from pptx import Presentation # for .pptx extraction
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_CHAT_URL = os.getenv(
     "DEEPSEEK_CHAT_URL",
-    "https://api.deepseek.ai/v1/chat/completions"
+    "https://api.deepseek.com/v1/chat/completions"
 )
 
 if not DEEPSEEK_API_KEY:
