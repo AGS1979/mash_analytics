@@ -782,3 +782,15 @@ body {
 .modal-content form label input[type="checkbox"] {
   margin-right: 8px; /* gap between the box and its text */
 }
+
+/* Only align checkboxes in the Private Transaction Analyzer modal */
+/* (replace “quant_signal” if you renamed the ID) */
+#modal-quant_signal .modal-content form label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+#modal-quant_signal .modal-content form label input[type="checkbox"] {
+  margin-right: 8px;
+}
