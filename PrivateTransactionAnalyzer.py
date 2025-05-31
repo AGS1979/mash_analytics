@@ -27,7 +27,7 @@ if not DEEPSEEK_API_KEY:
 # 1) UTILITIES: token counting & chunking
 # ---------------------------------------------------
 
-def num_tokens_from_string(string: str, model_name: str="gpt-4") -> int:
+def num_tokens_from_string(string: str, model_name: str="deepseek-chat") -> int:
     """
     Returns the number of tokens in `string` when encoded with tiktoken.
     """
@@ -35,7 +35,7 @@ def num_tokens_from_string(string: str, model_name: str="gpt-4") -> int:
     return len(encoding.encode(string))
 
 
-def chunk_text(text: str, max_tokens: int=1800, model_name: str="gpt-4") -> list[str]:
+def chunk_text(text: str, max_tokens: int=1800, model_name: str="deepseek-chat") -> list[str]:
     """
     Splits `text` into a list of substrings, each containing <= max_tokens tokens.
     Tries to split on paragraph boundaries but guarantees token‐safety by falling back to sentences.
@@ -166,7 +166,8 @@ def call_deepseek_chat(
     messages: list[dict[str,str]],
     model: str="deepseek-chat",
     temperature: float=0.3,
-    max_tokens: int=1500
+    max_tokens: int=1500,
+    timeout_sec: int=60
 ) -> str:
     """
     Calls DeepSeek Chat (compatible with OpenAI‐style ChatCompletion).
@@ -349,7 +350,7 @@ def analyze_transaction_doc(
     raw_text = extract_text(filepath)
 
     # 2) Chunk up to ~chunk_size tokens each
-    chunks = chunk_text(raw_text, max_tokens=chunk_size, model_name="gpt-4")
+    chunks = chunk_text(raw_text, max_tokens=chunk_size, model_name="deepseek-chat")
     print(f">>> Document split into {len(chunks)} chunks (chunk_size={chunk_size})")
 
     # 3) Summarize each chunk (Layer 1)
