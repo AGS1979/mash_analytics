@@ -73,9 +73,6 @@ users_db = {}
 
 ALLOWED_EXTENSIONS = {"pdf", "docx", "pptx", "xlsx", "xlsm"}
 
-def allowed_file(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
 # Add the current directory to the sys.path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -283,29 +280,31 @@ def login():
 # 6) If using Flask, expose an endpoint
 # ---------------------------------------------------
 
+
+def allowed_file(filename: str) -> bool:
+    ext = os.path.splitext(filename)[1].lower().lstrip(".")
+    return ext in ALLOWED_EXTENSIONS
+
 @app.route("/analyze_deal", methods=["POST"])
 def analyze_deal_endpoint():
     """
     Expects a multipart‐form POST with:
-      • file (under key "file", must be one of PDF/DOCX/PPTX/Excel)
-      • query: the user’s free‐form query (e.g. “red flags” or “SWOT analysis”)
+      • file (under key "file", must be PDF/DOCX/PPTX/Excel)
+      • query: user’s free‐form query (e.g. “red flags” or “SWOT analysis”)
       • optional form fields:
-          - chunk_size: integer (e.g. 1500). Defaults to 1800 if omitted/invalid.
-          - run_deep_dives: "true" or "false". Defaults to true.
-          - deep_dive_sections: comma-separated list of section names 
-              (e.g. "Market Analysis,Financial Performance,Exit Strategy").
+          - chunk_size: integer (defaults to 1800)
+          - run_deep_dives: "true" or "false" (defaults to true)
+          - deep_dive_sections: comma‐separated list (e.g. "Market Analysis,Exit Strategy")
           - chunk_prompt: (optional) full‐text prompt containing "{{TEXT}}"
           - aggregate_prompt: (optional) full‐text prompt containing "{{SUMMARIES}}"
-          - prompt_<SectionKey>: for each deep‐dive section, custom prompt containing
-              "{{SECTION_NAME}}" and "{{TEXT}}".
-    Returns JSON:
+          - prompt_<SectionKey>: for each deep‐dive section (e.g. prompt_Market_Analysis)
+    Returns JSON with keys:
       {
         "aggregate_analysis": { … },
         "deep_dive_Market_Analysis": "...",
-        "deep_dive_Financial_Performance": "...",
         ...
         "pages_scanned": 50,
-        "relevant_pages": [2, 5, 7],
+        "relevant_pages": [2,7,10],
         "chunks_used": 3
       }
     """
@@ -331,12 +330,13 @@ def analyze_deal_endpoint():
     # 4) Read the user’s free‐form query
     user_query = request.form.get("query", "").strip()
     if not user_query:
-        # Clean up and complain
         try:
             os.remove(save_path)
         except OSError:
             pass
-        return jsonify({"error": "Please provide a ‘query’ field describing what you want (e.g. 'red flags')."}), 400
+        return jsonify({
+            "error": "Please provide a ‘query’ field describing what you want (e.g. 'red flags')."
+        }), 400
 
     # 5a) chunk_size (default to 1800)
     raw_chunk_size = request.form.get("chunk_size", "").strip()
@@ -351,7 +351,7 @@ def analyze_deal_endpoint():
     raw_run_deep = request.form.get("run_deep_dives", "true").strip().lower()
     run_deep_dives = (raw_run_deep == "true")
 
-    # 5c) deep_dive_sections (comma‐separated list or default)
+    # 5c) deep_dive_sections (comma‐separated or default)
     raw_sections = request.form.get("deep_dive_sections", "").strip()
     if raw_sections:
         deep_dive_sections = [sec.strip() for sec in raw_sections.split(",") if sec.strip()]
@@ -363,7 +363,7 @@ def analyze_deal_endpoint():
             "Exit Strategy"
         ]
 
-    # 5d) custom prompts for chunk‐level/aggregate‐level
+    # 5d) custom prompts for chunk‐level and aggregate‐level
     chunk_prompt = request.form.get("chunk_prompt", None)
     if chunk_prompt is not None and not chunk_prompt.strip():
         chunk_prompt = None
