@@ -2,6 +2,7 @@
 
 import os
 import json
+import math
 import fitz                     # PyMuPDF
 import tiktoken                 # for token counting
 import requests                 # for HTTP calls to DeepSeek Chat
@@ -87,21 +88,39 @@ def chunk_text(text: str, max_tokens: int = 1800) -> List[str]:
     print(f"[DEBUG] chunk_text: split into {len(chunks)} chunks (max_tokens={max_tokens})")
     return chunks
 
-def merge_chunks_pairwise(chunks: List[str]) -> List[str]:
+def reduce_chunks_hierarchically(
+    raw_chunks: List[str],
+    max_chunks: int,
+    chunk_size: int,
+    custom_prompt: Optional[str]
+) -> List[str]:
     """
-    Given a list of chunks, merge them pairwise into roughly half as many chunks.
-    If an odd number remains, the last chunk is carried forward unpaired.
+    If raw_chunks has more than max_chunks, group them into roughly equal-sized buckets,
+    summarize each bucket with summarize_chunk(), and repeat until there are ≤ max_chunks summaries.
     """
-    merged: List[str] = []
-    i = 0
-    while i < len(chunks):
-        if i + 1 < len(chunks):
-            merged.append(chunks[i] + "\n\n" + chunks[i + 1])
-            i += 2
-        else:
-            merged.append(chunks[i])
-            i += 1
-    return merged
+    from math import ceil
+
+    summaries = raw_chunks
+    iteration = 0
+
+    while len(summaries) > max_chunks:
+        iteration += 1
+        total = len(summaries)
+        bucket_size = ceil(total / max_chunks)
+        print(f"[DEBUG] reduce_chunks_hierarchically: iteration {iteration}, {total} chunks → bucket_size={bucket_size}")
+
+        next_round: List[str] = []
+        for i in range(0, total, bucket_size):
+            bucket = summaries[i : i + bucket_size]
+            combined_bucket = "\n\n".join(bucket)
+            print(f"[DEBUG] reduce_chunks_hierarchically: summarizing bucket {i//bucket_size + 1} of size {len(bucket)}")
+            summary = summarize_chunk(combined_bucket, custom_prompt=custom_prompt)
+            next_round.append(summary)
+
+        summaries = next_round
+        print(f"[DEBUG] reduce_chunks_hierarchically: reduced to {len(summaries)} intermediate summaries")
+
+    return summaries
 
 # ---------------------------------------------------
 # 3) TEXT EXTRACTION FOR MULTIPLE FORMATS
@@ -370,7 +389,7 @@ def aggregate_summaries(
     custom_prompt: Optional[str] = None
 ) -> str:
     """
-    Given a list of chunk‐level summaries (plain text paragraphs), produce a final JSON
+    Given a list of chunk-level summaries (plain text paragraphs), produce a final JSON
     with keys:
       - Executive_Summary
       - Key_Investment_Insights
@@ -474,8 +493,8 @@ def analyze_transaction_doc(
     5) Else if `user_query` contains “red flag” or “risk”, run single-shot red-flag prompt.
     6) Otherwise, do layered summarization:
          a) Chunk the selected_text into ≤ chunk_size tokens each.
-         b) If > 20 chunks, merge pairwise until ≤ 20 chunks.
-         c) Summarize each chunk & aggregate into JSON.
+         b) If > 20 chunks, reduce hierarchically until ≤ 20 summaries.
+         c) Summarize each of the ≤ 20 pieces & aggregate into JSON.
     7) Optionally run deep dives on the aggregated summaries.
     """
     print(f"[DEBUG] analyze_transaction_doc: Starting analysis for query='{user_query}' on file '{filepath}'")
@@ -545,20 +564,24 @@ Query: {user_query}
     # 6) Otherwise, layered summarization:
 
     # 6a) Chunk the selected_text
-    chunks = chunk_text(selected_text, max_tokens=chunk_size)
-    print(f"[DEBUG] analyze_transaction_doc: total chunks after chunk_text = {len(chunks)}")
+    raw_chunks = chunk_text(selected_text, max_tokens=chunk_size)
+    print(f"[DEBUG] analyze_transaction_doc: total raw_chunks after chunk_text = {len(raw_chunks)}")
 
-    # 6b) If too many chunks (>20), merge pairwise until ≤ 20
-    if len(chunks) > 20:
-        print(f"[DEBUG] analyze_transaction_doc: {len(chunks)} chunks > 20, merging pairwise")
-        while len(chunks) > 20:
-            chunks = merge_chunks_pairwise(chunks)
-        print(f"[DEBUG] analyze_transaction_doc: merged down to {len(chunks)} chunks")
+    # 6b) If too many raw_chunks (>20), reduce hierarchically until ≤ 20 summaries
+    if len(raw_chunks) > 20:
+        print(f"[DEBUG] analyze_transaction_doc: {len(raw_chunks)} raw_chunks > 20, reducing hierarchically")
+        raw_chunks = reduce_chunks_hierarchically(
+            raw_chunks,
+            max_chunks=20,
+            chunk_size=chunk_size,
+            custom_prompt=chunk_prompt
+        )
+        print(f"[DEBUG] analyze_transaction_doc: reduced to {len(raw_chunks)} summaries")
 
-    # 6c) Summarize each chunk (now guaranteed ≤ 20 chunks)
+    # 6c) Summarize each of the ≤ 20 pieces
     chunk_summaries: List[str] = []
-    for idx, chunk in enumerate(chunks, start=1):
-        print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(chunks)}")
+    for idx, chunk in enumerate(raw_chunks, start=1):
+        print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(raw_chunks)}")
         summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
         chunk_summaries.append(summary)
 
@@ -573,7 +596,7 @@ Query: {user_query}
         "aggregate_analysis": aggregate_json,
         "pages_scanned": pages_scanned,
         "relevant_pages": pages_used,
-        "chunks_used": len(chunks)
+        "chunks_used": len(raw_chunks)
     }
 
     # 7) (Optional) Run deep dives if requested
