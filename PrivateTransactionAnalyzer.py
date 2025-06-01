@@ -8,7 +8,7 @@ import requests                 # for HTTP calls to DeepSeek Chat
 import pandas as pd             # for Excel extraction
 from docx import Document       # for .docx extraction
 from pptx import Presentation   # for .pptx extraction
-
+from typing import List, Dict, Optional, Union, Set
 
 # ---------------------------------------------------
 # 1) LOAD API KEYS / ENDPOINTS FROM ENVIRONMENT
@@ -32,21 +32,19 @@ print(f"[DEBUG] Using DEEPSEEK_CHAT_URL: {DEEPSEEK_CHAT_URL}")
 
 def num_tokens_from_string(string: str) -> int:
     """
-    Returns the number of tokens in `string` using a fixed tiktoken encoding ("cl100k_base").
-    We cannot rely on encoding_for_model("deepseek-chat"), since that model name is not recognized.
+    Returns the number of tokens in `string` using the 'cl100k_base' encoding.
     """
     encoding = tiktoken.get_encoding("cl100k_base")
-    token_count = len(encoding.encode(string))
-    return token_count
+    return len(encoding.encode(string))
 
-def chunk_text(text: str, max_tokens: int = 1800) -> list[str]:
+def chunk_text(text: str, max_tokens: int = 1800) -> List[str]:
     """
-    Splits `text` into substrings, each containing <= max_tokens tokens.
-    Prefers splitting on double-newline (paragraph) boundaries, but
-    will fall back to sentences if a paragraph alone is too large.
+    Splits `text` into substrings, each containing ≤ max_tokens tokens.
+    First tries paragraph (double-newline) splits; if a paragraph is itself too big,
+    it falls back to splitting on sentences.
     """
     paragraphs = text.split("\n\n")
-    chunks: list[str] = []
+    chunks: List[str] = []
     current_chunk = ""
     current_tokens = 0
 
@@ -57,7 +55,7 @@ def chunk_text(text: str, max_tokens: int = 1800) -> list[str]:
         para_tokens = num_tokens_from_string(para)
 
         if para_tokens > max_tokens:
-            # Paragraph itself is too big. Break into sentences.
+            # Paragraph is too large: break into sentences
             sentences = para.split(". ")
             for sentence in sentences:
                 sentence = sentence.strip()
@@ -73,7 +71,7 @@ def chunk_text(text: str, max_tokens: int = 1800) -> list[str]:
                     current_chunk += sentence + ". "
                     current_tokens += sent_tokens
         else:
-            # Try to append this entire paragraph to current_chunk
+            # Try to append the entire paragraph to current_chunk
             if current_tokens + para_tokens + 20 > max_tokens:
                 if current_chunk:
                     chunks.append(current_chunk.strip())
@@ -107,9 +105,9 @@ def extract_text_from_pdf(filepath: str) -> str:
     print(f"[DEBUG] extract_text_from_pdf: extracted {len(all_text)} pages")
     return concatenated
 
-def extract_text_from_pdf_by_page(filepath: str) -> list[str]:
+def extract_text_from_pdf_by_page(filepath: str) -> List[str]:
     """
-    Uses PyMuPDF to extract text **page by page** (list of strings, index 0 = page 1).
+    Uses PyMuPDF to extract text *page by page* as a list of strings (index 0 = page 1).
     """
     print(f"[DEBUG] extract_text_from_pdf_by_page: opening {filepath}")
     doc = fitz.open(filepath)
@@ -123,7 +121,7 @@ def extract_text_from_docx(filepath: str) -> str:
     """
     print(f"[DEBUG] extract_text_from_docx: opening {filepath}")
     doc = Document(filepath)
-    all_paragraphs = [para.text for para in doc.paragraphs if para.text.strip() != ""]
+    all_paragraphs = [para.text for para in doc.paragraphs if para.text.strip()]
     joined = "\n\n".join(all_paragraphs)
     print(f"[DEBUG] extract_text_from_docx: extracted {len(all_paragraphs)} paragraphs")
     return joined
@@ -150,11 +148,11 @@ def extract_text_from_pptx(filepath: str) -> str:
 
 def extract_text_from_excel(filepath: str) -> str:
     """
-    Uses pandas/openpyxl to read each sheet in an Excel file and flatten all cells into one big text blob.
+    Uses pandas/openpyxl to read each sheet in an Excel file and flatten all cells into text.
     """
     print(f"[DEBUG] extract_text_from_excel: opening {filepath}")
     xlsx = pd.ExcelFile(filepath)
-    sheet_texts: list[str] = []
+    sheet_texts: List[str] = []
     for sheet in xlsx.sheet_names:
         df = pd.read_excel(xlsx, sheet_name=sheet, dtype=str)
         rows = df.fillna("").apply(lambda r: " | ".join(r.values), axis=1)
@@ -168,7 +166,7 @@ def extract_text_from_excel(filepath: str) -> str:
 
 def extract_text(filepath: str) -> str:
     """
-    Dispatch by file extension: .pdf, .docx, .pptx, .xls/.xlsx/.xlsm.
+    Dispatches based on file extension: .pdf, .docx, .pptx, .xls/.xlsx/.xlsm.
     Raises ValueError on unsupported extensions.
     """
     ext = os.path.splitext(filepath)[1].lower()
@@ -189,14 +187,14 @@ def extract_text(filepath: str) -> str:
 # ---------------------------------------------------
 
 def call_deepseek_chat(
-    messages: list[dict[str, str]],
+    messages: List[Dict[str, str]],
     model: str = "deepseek-chat",
     temperature: float = 0.3,
     max_tokens: int = 1500,
     timeout_sec: int = 60
 ) -> str:
     """
-    Calls DeepSeek Chat (OpenAI‐compatible chat.completions). Returns the assistant’s reply string.
+    Calls DeepSeek Chat (OpenAI-compatible chat.completions). Returns the assistant’s reply string.
     """
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
@@ -211,7 +209,7 @@ def call_deepseek_chat(
 
     print(f"[DEBUG] call_deepseek_chat: sending request to {DEEPSEEK_CHAT_URL}")
     print(f"[DEBUG] call_deepseek_chat: model={model}, temperature={temperature}, max_tokens={max_tokens}")
-    # *** For extra debugging, you could uncomment the next line to see the entire payload:
+    # For extra debugging, uncomment:
     # print(f"[DEBUG] call_deepseek_chat payload: {json.dumps(payload)[:1000]}…")
 
     resp = requests.post(
@@ -230,8 +228,6 @@ def call_deepseek_chat(
         raise RuntimeError(f"DeepSeek returned HTTP {resp.status_code}: {detail}")
 
     data = resp.json()
-    # *** For extra debugging, you could uncomment the next line to see the raw response keys:
-    # print(f"[DEBUG] call_deepseek_chat response keys: {data.keys()}")
     choice_content = data["choices"][0]["message"]["content"]
     print(f"[DEBUG] call_deepseek_chat: received {len(choice_content)} characters")
     return choice_content
@@ -242,27 +238,32 @@ def call_deepseek_chat(
 
 PAGE_BATCH_SIZE = 20  # ask “which pages matter?” in batches of 20 at a time
 
-def get_relevant_pages_chunked(text_by_page: list[str], user_query: str) -> set[int]:
+def get_relevant_pages_chunked(
+    text_by_page: List[str],
+    user_query: str
+) -> Set[int]:
     """
-    Loop through `text_by_page` in batches of PAGE_BATCH_SIZE, sending a short prompt:
+    Loops through `text_by_page` in batches of PAGE_BATCH_SIZE, sending a prompt:
     “Which page numbers (1-based) are relevant to this query?”
     Returns a set of 0-based page indices.
     """
     total_pages = len(text_by_page)
-    relevant_pages = set()
+    relevant_pages: Set[int] = set()
     print(f"[DEBUG] get_relevant_pages_chunked: total_pages={total_pages}, user_query='{user_query}'")
 
     for start in range(0, total_pages, PAGE_BATCH_SIZE):
         end = min(start + PAGE_BATCH_SIZE, total_pages)
         chunk_pages = text_by_page[start:end]
 
-        prompt = (
-            "Below are text snippets from pages of a PDF. Identify ONLY the page\n"
-            f"numbers (1-based) that are relevant to this query:\n\nQuery: {user_query}\n\n"
-        )
+        prompt_lines = [
+            "Below are text snippets from pages of a PDF. Identify ONLY the page numbers (1-based) that are relevant to this query.",
+            f"Query: {user_query}\n"
+        ]
         for i, page_text in enumerate(chunk_pages):
             snippet = page_text[:800].replace("\n", " ")
-            prompt += f"Page {start + i + 1}: {snippet}\n\n"
+            prompt_lines.append(f"Page {start + i + 1}: {snippet}\n")
+
+        prompt = "\n".join(prompt_lines)
 
         messages = [
             {"role": "system", "content": "You are an expert document analyst."},
@@ -277,7 +278,7 @@ def get_relevant_pages_chunked(text_by_page: list[str], user_query: str) -> set[
 
         print(f"[DEBUG] get_relevant_pages_chunked: batch {start}-{end} got response length {len(resp_text)}")
 
-        # Parse out all integers in the response; treat them as page numbers.
+        # Parse out integers in the response; treat them as page numbers
         for token in resp_text.replace(",", " ").split():
             if token.isdigit():
                 page_num = int(token)
@@ -293,12 +294,11 @@ def get_relevant_pages_chunked(text_by_page: list[str], user_query: str) -> set[
 
 def summarize_chunk(
     chunk_text: str,
-    custom_prompt: str | None = None
+    custom_prompt: Optional[str] = None
 ) -> str:
     """
     Summarize one chunk. By default, extract “Key Insights” and “Potential Risks.”
-    If custom_prompt is provided, use that verbatim (with {{TEXT}}).
-    Output is plain text paragraphs (no markdown).
+    Output is plain text paragraphs (no Markdown).
     """
     if custom_prompt:
         prompt = custom_prompt.replace("{{TEXT}}", chunk_text).strip()
@@ -322,9 +322,36 @@ just write plain English. Keep each paragraph under 80 words.
     print(f"[DEBUG] summarize_chunk: received summary length {len(response)}")
     return response
 
+def summarize_swot(
+    combined_text: str
+) -> str:
+    """
+    If the user specifically wants a SWOT analysis, generate a JSON-formatted SWOT analysis
+    with exactly these four keys: "Strengths", "Weaknesses", "Opportunities", and "Threats".
+    Each key’s value is a list of concise strings. Do NOT return Markdown or backticks.
+    """
+    prompt = f"""
+You are a Private Equity analyst. From the following excerpt, produce a JSON-formatted SWOT analysis with exactly these four keys:
+"Strengths", "Weaknesses", "Opportunities", and "Threats". Each key’s value should be a list of concise strings.
+Do NOT include any Markdown, backticks, or extra keys—just return a pure JSON object.
+
+--- EXCERPT START ---
+{combined_text}
+--- EXCERPT END ---
+""".strip()
+
+    messages = [
+        {"role": "system", "content": "You are a knowledgeable private equity investment analyst."},
+        {"role": "user",   "content": prompt}
+    ]
+    print(f"[DEBUG] summarize_swot: sending combined excerpt (length {len(combined_text)} chars) to DeepSeek for SWOT")
+    response = call_deepseek_chat(messages, temperature=0.3, max_tokens=800)
+    print(f"[DEBUG] summarize_swot: received SWOT JSON length {len(response)}")
+    return response
+
 def aggregate_summaries(
-    summaries: list[str],
-    custom_prompt: str | None = None
+    summaries: List[str],
+    custom_prompt: Optional[str] = None
 ) -> str:
     """
     Given a list of chunk‐level summaries (plain text paragraphs), produce a final JSON
@@ -334,8 +361,7 @@ def aggregate_summaries(
       - Risks_and_Red_Flags
       - High_Level_Valuation_Guidance
 
-    If custom_prompt is provided, use it verbatim (with {{SUMMARIES}}).
-    Otherwise, explicitly ask for a detailed JSON object (no markdown, no backticks).
+    Always return plain JSON (no Markdown, no backticks, no code fences).
     """
     combined_text = "\n\n".join(summaries)
     print(f"[DEBUG] aggregate_summaries: combining {len(summaries)} chunk summaries (combined length {len(combined_text)} chars)")
@@ -344,14 +370,14 @@ def aggregate_summaries(
         prompt = custom_prompt.replace("{{SUMMARIES}}", combined_text).strip()
     else:
         prompt = f"""
-You are a top-tier private equity partner. Below are plain-text paragraph summaries of different
-sections of a deal document. Please do all of the following, and return your answer AS A JSON OBJECT
-ONLY (no markdown, no backticks, no code fences):
+You are a senior private equity partner, extremely concise and factual. Below are plain-text paragraph summaries
+of different sections of a deal document. Please do the following and return your answer AS A JSON OBJECT ONLY
+(no Markdown, no backticks, no code fences):
 
-1) Write a one‐paragraph Executive_Summary (under 100 words).
-2) Provide a JSON array "Key_Investment_Insights" with 5 concise insights (plain text).
-3) Provide a JSON array "Risks_and_Red_Flags" with 5 concise items (plain text).
-4) Provide a JSON array "High_Level_Valuation_Guidance" with 2–3 concise bullet points (plain text).
+1) "Executive_Summary": one paragraph under 100 words summarizing the entire deal.
+2) "Key_Investment_Insights": an array of 6 concise insights (plain strings).
+3) "Risks_and_Red_Flags": an array of 6 concise items (plain strings).
+4) "High_Level_Valuation_Guidance": an array of 3 concise points (plain strings).
 
 Below are the chunk summaries:
 
@@ -371,28 +397,28 @@ Below are the chunk summaries:
 def deep_dive_section(
     section_name: str,
     combined_text: str,
-    custom_prompt: str | None = None
+    custom_prompt: Optional[str] = None
 ) -> str:
     """
-    Perform a detailed deep dive for a given section (e.g. “Market Analysis”).
-    If custom_prompt is provided, replace {{SECTION_NAME}} and {{TEXT}}.
-    Output should be plain English paragraphs (no Markdown).
+    Perform a detailed deep dive for a given section (e.g., “Market Analysis”).
+    Output plain English paragraphs with clear headings (no Markdown).
     """
     if custom_prompt:
-        prompt = (custom_prompt
-                  .replace("{{SECTION_NAME}}", section_name)
-                  .replace("{{TEXT}}", combined_text)
-                  .strip())
+        prompt = (
+            custom_prompt
+            .replace("{{SECTION_NAME}}", section_name)
+            .replace("{{TEXT}}", combined_text)
+            .strip()
+        )
     else:
         prompt = f"""
-You are a private equity sector specialist. Perform a deeply detailed, multi‐paragraph analysis
-for the section: "{section_name}". For each paragraph, do not use bullets or markdown—just plain English
-with clear headings (e.g. "Section: {section_name}") if you like. Structure your response as follows:
+You are a private equity sector specialist. Perform a deeply detailed, multi-paragraph analysis
+for the section: "{section_name}". Do NOT use bullets or Markdown—only plain English with optional headings.
+Structure your response as follows:
 
-1) Write a short overview paragraph (2–3 sentences).
-2) Then write a detailed multi‐paragraph discussion (4–5 paragraphs) touching on domain insights,
-   potential red flags, and implications for deal structure or valuation—whatever is relevant.
-3) Conclude with a final paragraph summarizing “Implications for the Deal”.
+1) A short overview paragraph (2–3 sentences).
+2) A detailed 4–5 paragraph discussion touching on domain insights, potential red flags, and implications for deal structure or valuation.
+3) A concluding paragraph titled "Implications for the Deal".
 
 Below is the combined text (from all chunks). Use it to inform your deep dive.
 
@@ -419,21 +445,22 @@ def analyze_transaction_doc(
     user_query: str,
     run_deep_dives: bool = True,
     chunk_size: int = 1800,
-    deep_dive_sections: list[str] | None = None,
-    chunk_prompt: str | None = None,
-    aggregate_prompt: str | None = None,
-    deep_dive_prompts: dict[str, str] | None = None
-) -> dict:
+    deep_dive_sections: Optional[List[str]] = None,
+    chunk_prompt: Optional[str] = None,
+    aggregate_prompt: Optional[str] = None,
+    deep_dive_prompts: Optional[Dict[str, str]] = None
+) -> Dict[str, Union[str, int, List[int], Dict]]:
     """
     1) Extract the PDF as a list of pages.
-    2) Identify which pages matter for `user_query` (using get_relevant_pages_chunked).
+    2) Identify which pages matter for `user_query`.
     3) Concatenate only those pages (or all if none found).
-    4) If the user_query mentions “red flag” or “risk,” do a single‐shot prompt for red flags.
-    5) Otherwise, do layered summarization:
-         a) Chunk the selected_text into <= chunk_size tokens each.
-         b) If the number of chunks is <= 20, summarize each chunk & aggregate.
-         c) If > 20 chunks, fall back to a single‐shot aggregated‐prompt.
-    6) Optionally, run deep dives on the aggregated summaries.
+    4) If `user_query` contains “SWOT”, run a dedicated SWOT prompt.
+    5) Else if `user_query` contains “red flag” or “risk”, run single-shot red-flag prompt.
+    6) Otherwise, do layered summarization:
+         a) Chunk the selected_text into ≤ chunk_size tokens each.
+         b) If ≤ 20 chunks: summarize each chunk & aggregate into JSON.
+         c) If > 20 chunks: fall back to a single-shot aggregated prompt.
+    7) Optionally run deep dives on the aggregated summaries.
     """
     print(f"[DEBUG] analyze_transaction_doc: Starting analysis for query='{user_query}' on file '{filepath}'")
 
@@ -455,12 +482,28 @@ def analyze_transaction_doc(
 
     print(f"[DEBUG] analyze_transaction_doc: pages_scanned={pages_scanned}, pages_used={pages_used}")
 
-    # 4) Single-shot “red flag/risk” branch
     lower_q = user_query.lower()
+
+    # 4) SWOT-specific path
+    if "swot" in lower_q:
+        print(f"[DEBUG] analyze_transaction_doc: detected 'SWOT' in query; running SWOT path")
+        swot_json_str = summarize_swot(selected_text)
+        try:
+            swot_json = json.loads(swot_json_str)
+        except json.JSONDecodeError:
+            swot_json = {"raw_swot_text": swot_json_str}
+        return {
+            "swot_analysis": swot_json,
+            "pages_scanned": pages_scanned,
+            "relevant_pages": pages_used,
+            "chunks_used": None
+        }
+
+    # 5) Single-shot “red flag/risk” branch
     if "red flag" in lower_q or "risk" in lower_q:
         prompt = f"""
-You are a Private Equity analyst. Identify ALL “Potential Risk” or “Red Flag” statements
-in the following document excerpt. Return each as plain English lines (no bullets, no markdown).
+You are a Private Equity analyst. Identify ALL potential “Risk” or “Red Flag” statements
+in the following document excerpt. Return each as a plain English line (no Markdown, no bullets).
 
 Query: {user_query}
 
@@ -477,19 +520,19 @@ Query: {user_query}
         single_shot_response = call_deepseek_chat(messages, temperature=0.0, max_tokens=1000)
         print(f"[DEBUG] analyze_transaction_doc: single_shot_response length {len(single_shot_response)}")
         return {
-            "answer": single_shot_response,
+            "red_flags": single_shot_response,
             "pages_scanned": pages_scanned,
             "relevant_pages": pages_used,
             "chunks_used": None
         }
 
-    # 5) Otherwise, layered summarization:
+    # 6) Otherwise, layered summarization:
 
-    # 5a) Chunk the selected_text
+    # 6a) Chunk the selected_text
     chunks = chunk_text(selected_text, max_tokens=chunk_size)
     print(f"[DEBUG] analyze_transaction_doc: total chunks after chunk_text = {len(chunks)}")
 
-    # 5b) If too many chunks (>20), single-shot fallback
+    # 6b) If too many chunks (>20), single-shot fallback
     if len(chunks) > 20:
         prompt = f"""
 You are a Private Equity analyst. Answer the following query based on this document excerpt:
@@ -499,7 +542,7 @@ You are a Private Equity analyst. Answer the following query based on this docum
 {selected_text}
 --- DOCUMENT EXCERPT END ---
 
-Give a concise answer as plain text (no markdown).
+Give a concise answer as plain text (no Markdown).
 """.strip()
 
         messages = [
@@ -516,28 +559,28 @@ Give a concise answer as plain text (no markdown).
             "chunks_used": len(chunks)
         }
 
-    # 5c) If ≤ 20 chunks: summarize each chunk
-    chunk_summaries: list[str] = []
+    # 6c) If ≤ 20 chunks: summarize each chunk
+    chunk_summaries: List[str] = []
     for idx, chunk in enumerate(chunks, start=1):
         print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(chunks)}")
         summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
         chunk_summaries.append(summary)
 
-    # 5d) Aggregate those chunk summaries into final JSON
+    # 6d) Aggregate those chunk summaries into final JSON
     aggregate_json_str = aggregate_summaries(chunk_summaries, custom_prompt=aggregate_prompt)
     try:
         aggregate_json = json.loads(aggregate_json_str)
     except json.JSONDecodeError:
         aggregate_json = {"raw_aggregate_text": aggregate_json_str}
 
-    result: dict[str, object] = {
+    result: Dict[str, Union[str, int, List[int], Dict]] = {
         "aggregate_analysis": aggregate_json,
         "pages_scanned": pages_scanned,
         "relevant_pages": pages_used,
         "chunks_used": len(chunks)
     }
 
-    # 6) (Optional) Run deep dives if requested
+    # 7) (Optional) Run deep dives if requested
     if run_deep_dives:
         if not deep_dive_sections:
             deep_dive_sections = [
@@ -555,8 +598,8 @@ Give a concise answer as plain text (no markdown).
             if deep_dive_prompts and section_key in deep_dive_prompts:
                 custom = deep_dive_prompts[section_key]
 
-            section_md = deep_dive_section(section, combined_summaries_text, custom_prompt=custom)
-            result[f"deep_dive_{section_key}"] = section_md
+            section_text = deep_dive_section(section, combined_summaries_text, custom_prompt=custom)
+            result[f"deep_dive_{section_key}"] = section_text
 
     print(f"[DEBUG] analyze_transaction_doc: completed analysis, returning result")
     return result
