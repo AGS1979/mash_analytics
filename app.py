@@ -288,27 +288,28 @@ def analyze_deal_endpoint():
     """
     Expects a multipart‐form POST with:
       • file (under key "file", must be one of PDF/DOCX/PPTX/Excel)
+      • query: the user’s free‐form query (e.g. “red flags” or “SWOT analysis”)
       • optional form fields:
           - chunk_size: integer (e.g. 1500). Defaults to 1800 if omitted/invalid.
-          - run_deep_dives: "true" or "false" (case‐insensitive). Defaults to true.
+          - run_deep_dives: "true" or "false". Defaults to true.
           - deep_dive_sections: comma-separated list of section names 
               (e.g. "Market Analysis,Financial Performance,Exit Strategy").
-          - chunk_prompt: (optional) full text prompt with "{{TEXT}}" placeholder
-          - aggregate_prompt: (optional) full text prompt with "{{SUMMARIES}}" placeholder
-          - For each deep‐dive section, you may pass a textarea named 
-            "prompt_<SectionKey>" (e.g. prompt_Market_Analysis). These should 
-            contain your custom prompt including "{{SECTION_NAME}}" and "{{TEXT}}".
-    
+          - chunk_prompt: (optional) full‐text prompt containing "{{TEXT}}"
+          - aggregate_prompt: (optional) full‐text prompt containing "{{SUMMARIES}}"
+          - prompt_<SectionKey>: for each deep‐dive section, custom prompt containing
+              "{{SECTION_NAME}}" and "{{TEXT}}".
     Returns JSON:
       {
         "aggregate_analysis": { … },
         "deep_dive_Market_Analysis": "...",
         "deep_dive_Financial_Performance": "...",
-        "deep_dive_Operational_Risks": "...",
-        "deep_dive_Exit_Strategy": "..."
+        ...
+        "pages_scanned": 50,
+        "relevant_pages": [2, 5, 7],
+        "chunks_used": 3
       }
     """
-    # 1) Validate file
+    # 1) Validate that a file was uploaded
     if "file" not in request.files:
         return jsonify({"error": "No file part"}), 400
 
@@ -316,35 +317,45 @@ def analyze_deal_endpoint():
     if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
 
+    # 2) Check extension
     if not allowed_file(file.filename):
         return jsonify({"error": "Unsupported file type"}), 400
 
-    # 2) Save the uploaded file temporarily
+    # 3) Save the file temporarily
     filename = secure_filename(file.filename)
     save_dir = "/tmp"
     os.makedirs(save_dir, exist_ok=True)
     save_path = os.path.join(save_dir, filename)
     file.save(save_path)
 
-    # 3a) chunk_size
+    # 4) Read the user’s free‐form query
+    user_query = request.form.get("query", "").strip()
+    if not user_query:
+        # Clean up and complain
+        try:
+            os.remove(save_path)
+        except OSError:
+            pass
+        return jsonify({"error": "Please provide a ‘query’ field describing what you want (e.g. 'red flags')."}), 400
+
+    # 5a) chunk_size (default to 1800)
     raw_chunk_size = request.form.get("chunk_size", "").strip()
     try:
-        chunk_size = int(raw_chunk_size)
+        chunk_size = int(raw_chunk_size) if raw_chunk_size else 1800
         if chunk_size <= 0:
             chunk_size = 1800
     except (ValueError, TypeError):
         chunk_size = 1800
 
-    # 3b) run_deep_dives
+    # 5b) run_deep_dives (“true”/“false” → bool)
     raw_run_deep = request.form.get("run_deep_dives", "true").strip().lower()
     run_deep_dives = (raw_run_deep == "true")
 
-    # 3c) deep_dive_sections
+    # 5c) deep_dive_sections (comma‐separated list or default)
     raw_sections = request.form.get("deep_dive_sections", "").strip()
     if raw_sections:
         deep_dive_sections = [sec.strip() for sec in raw_sections.split(",") if sec.strip()]
     else:
-        # Default list if none provided
         deep_dive_sections = [
             "Market Analysis",
             "Financial Performance",
@@ -352,7 +363,7 @@ def analyze_deal_endpoint():
             "Exit Strategy"
         ]
 
-    # 3d) Read optional custom prompts
+    # 5d) custom prompts for chunk‐level/aggregate‐level
     chunk_prompt = request.form.get("chunk_prompt", None)
     if chunk_prompt is not None and not chunk_prompt.strip():
         chunk_prompt = None
@@ -361,11 +372,10 @@ def analyze_deal_endpoint():
     if aggregate_prompt is not None and not aggregate_prompt.strip():
         aggregate_prompt = None
 
-    # 3e) For each deep‐dive section, look for a param like "prompt_<SectionKey>"
-    #     where SectionKey is the underscore‐version of the name
-    deep_dive_prompts: dict[str,str] = {}
+    # 5e) for each deep‐dive section, look for “prompt_<SectionKey>”
+    deep_dive_prompts: dict[str, str] = {}
     for section in deep_dive_sections:
-        key = section.replace(" ", "_")  # e.g. "Market Analysis" → "Market_Analysis"
+        key = section.replace(" ", "_")
         form_name = f"prompt_{key}"
         custom = request.form.get(form_name, None)
         if custom and custom.strip():
@@ -374,10 +384,11 @@ def analyze_deal_endpoint():
     if not deep_dive_prompts:
         deep_dive_prompts = None
 
-    # 4) Call the analyzer
+    # 6) Call the analyzer
     try:
         analysis = analyze_transaction_doc(
             filepath=save_path,
+            user_query=user_query,
             run_deep_dives=run_deep_dives,
             chunk_size=chunk_size,
             deep_dive_sections=deep_dive_sections,
@@ -386,19 +397,20 @@ def analyze_deal_endpoint():
             deep_dive_prompts=deep_dive_prompts
         )
     except Exception as e:
-        # Clean up temp file
+        # Cleanup then return error
         try:
             os.remove(save_path)
         except OSError:
             pass
         return jsonify({"error": str(e)}), 500
 
-    # 5) Clean up & return
+    # 7) Cleanup temp file
     try:
         os.remove(save_path)
     except OSError:
         pass
 
+    # 8) Return whatever the analyzer produced
     return jsonify(analysis)
 
 
