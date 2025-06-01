@@ -113,7 +113,7 @@ def reduce_chunks_hierarchically(
         for i in range(0, total, bucket_size):
             bucket = summaries[i : i + bucket_size]
             combined_bucket = "\n\n".join(bucket)
-            print(f"[DEBUG] reduce_chunks_hierarchically: summarizing bucket {i//bucket_size + 1} of size {len(bucket)}")
+            print(f"[DEBUG] reduce_chunks_hierarchically: summarizing bucket {i // bucket_size + 1} of size {len(bucket)}")
             summary = summarize_chunk(combined_bucket, custom_prompt=custom_prompt)
             next_round.append(summary)
 
@@ -587,9 +587,24 @@ Query: {user_query}
 
     # 6d) Aggregate those chunk summaries into final JSON
     aggregate_json_str = aggregate_summaries(chunk_summaries, custom_prompt=aggregate_prompt)
+
+    # —— NEW: strip out triple-backtick fences if present —— #
+    cleaned = aggregate_json_str.strip()
+    if cleaned.startswith("```"):
+        # Remove leading ``` (possibly with "json") and trailing ```
+        lines = cleaned.splitlines()
+        # If first line is ```json or ```, drop it
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        # If last line is ```, drop it
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+
     try:
-        aggregate_json = json.loads(aggregate_json_str)
+        aggregate_json = json.loads(cleaned)
     except json.JSONDecodeError:
+        # Fallback: return the raw text under "raw_aggregate_text"
         aggregate_json = {"raw_aggregate_text": aggregate_json_str}
 
     result: Dict[str, Union[str, int, List[int], Dict]] = {
