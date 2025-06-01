@@ -87,6 +87,22 @@ def chunk_text(text: str, max_tokens: int = 1800) -> List[str]:
     print(f"[DEBUG] chunk_text: split into {len(chunks)} chunks (max_tokens={max_tokens})")
     return chunks
 
+def merge_chunks_pairwise(chunks: List[str]) -> List[str]:
+    """
+    Given a list of chunks, merge them pairwise into roughly half as many chunks.
+    If an odd number remains, the last chunk is carried forward unpaired.
+    """
+    merged: List[str] = []
+    i = 0
+    while i < len(chunks):
+        if i + 1 < len(chunks):
+            merged.append(chunks[i] + "\n\n" + chunks[i + 1])
+            i += 2
+        else:
+            merged.append(chunks[i])
+            i += 1
+    return merged
+
 # ---------------------------------------------------
 # 3) TEXT EXTRACTION FOR MULTIPLE FORMATS
 # ---------------------------------------------------
@@ -458,8 +474,8 @@ def analyze_transaction_doc(
     5) Else if `user_query` contains “red flag” or “risk”, run single-shot red-flag prompt.
     6) Otherwise, do layered summarization:
          a) Chunk the selected_text into ≤ chunk_size tokens each.
-         b) If ≤ 20 chunks: summarize each chunk & aggregate into JSON.
-         c) If > 20 chunks: fall back to a single-shot aggregated prompt.
+         b) If > 20 chunks, merge pairwise until ≤ 20 chunks.
+         c) Summarize each chunk & aggregate into JSON.
     7) Optionally run deep dives on the aggregated summaries.
     """
     print(f"[DEBUG] analyze_transaction_doc: Starting analysis for query='{user_query}' on file '{filepath}'")
@@ -532,34 +548,14 @@ Query: {user_query}
     chunks = chunk_text(selected_text, max_tokens=chunk_size)
     print(f"[DEBUG] analyze_transaction_doc: total chunks after chunk_text = {len(chunks)}")
 
-    # 6b) If too many chunks (>20), single-shot fallback
+    # 6b) If too many chunks (>20), merge pairwise until ≤ 20
     if len(chunks) > 20:
-        prompt = f"""
-You are a Private Equity analyst. Answer the following query based on this document excerpt:
-“{user_query}”
+        print(f"[DEBUG] analyze_transaction_doc: {len(chunks)} chunks > 20, merging pairwise")
+        while len(chunks) > 20:
+            chunks = merge_chunks_pairwise(chunks)
+        print(f"[DEBUG] analyze_transaction_doc: merged down to {len(chunks)} chunks")
 
---- DOCUMENT EXCERPT START ---
-{selected_text}
---- DOCUMENT EXCERPT END ---
-
-Give a concise answer as plain text (no Markdown).
-""".strip()
-
-        messages = [
-            {"role": "system", "content": "You are a knowledgeable private equity investment analyst."},
-            {"role": "user",   "content": prompt}
-        ]
-        print(f"[DEBUG] analyze_transaction_doc: too many chunks ({len(chunks)}), entering single-shot fallback")
-        single_shot_response = call_deepseek_chat(messages, temperature=0.3, max_tokens=1000)
-        print(f"[DEBUG] analyze_transaction_doc: single_shot_fallback_response length {len(single_shot_response)}")
-        return {
-            "answer": single_shot_response,
-            "pages_scanned": pages_scanned,
-            "relevant_pages": pages_used,
-            "chunks_used": len(chunks)
-        }
-
-    # 6c) If ≤ 20 chunks: summarize each chunk
+    # 6c) Summarize each chunk (now guaranteed ≤ 20 chunks)
     chunk_summaries: List[str] = []
     for idx, chunk in enumerate(chunks, start=1):
         print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(chunks)}")
