@@ -14,6 +14,7 @@ from pptx import Presentation # for .pptx extraction
 # ---------------------------------------------------
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+# Defaulting back to the “.com” endpoint, since that is the correct one for your setup:
 DEEPSEEK_CHAT_URL = os.getenv(
     "DEEPSEEK_CHAT_URL",
     "https://api.deepseek.com/v1/chat/completions"
@@ -22,19 +23,21 @@ DEEPSEEK_CHAT_URL = os.getenv(
 if not DEEPSEEK_API_KEY:
     raise RuntimeError("Please set DEEPSEEK_API_KEY in your environment.")
 
-
-
+# ---------------------------------------------------
+# 1) UTILITIES: token counting & chunking
+# ---------------------------------------------------
 
 def num_tokens_from_string(string: str) -> int:
     """
     Returns the number of tokens in `string` using a fixed tiktoken encoding
-    (cl100k_base). We cannot rely on encoding_for_model("deepseek-chat") because
+    ("cl100k_base"). We cannot rely on encoding_for_model("deepseek-chat") because
     that model name is not recognized by tiktoken.
     """
     encoding = tiktoken.get_encoding("cl100k_base")
     return len(encoding.encode(string))
 
-def chunk_text(text: str, max_tokens: int=1800) -> list[str]:
+
+def chunk_text(text: str, max_tokens: int = 1800) -> list[str]:
     """
     Splits `text` into a list of substrings, each containing <= max_tokens tokens.
     Tries to split on paragraph boundaries but guarantees token‐safety by falling back to sentences.
@@ -42,11 +45,8 @@ def chunk_text(text: str, max_tokens: int=1800) -> list[str]:
     paragraphs = text.split("\n\n")
     chunks: list[str] = []
     current_chunk = ""
-    
-    
-        
     current_tokens = 0
-    
+
     for para in paragraphs:
         para_tokens = num_tokens_from_string(para)
 
@@ -164,11 +164,11 @@ def extract_text(filepath: str) -> str:
 # ---------------------------------------------------
 
 def call_deepseek_chat(
-    messages: list[dict[str,str]],
-    model: str="deepseek-chat",
-    temperature: float=0.3,
-    max_tokens: int=1500,
-    timeout_sec: int=60
+    messages: list[dict[str, str]],
+    model: str = "deepseek-chat",
+    temperature: float = 0.3,
+    max_tokens: int = 1500,
+    timeout_sec: int = 60
 ) -> str:
     """
     Calls DeepSeek Chat (compatible with OpenAI‐style ChatCompletion).
@@ -187,16 +187,28 @@ def call_deepseek_chat(
         "temperature": temperature,
         "max_tokens":  max_tokens
     }
-    resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=30)
+
+    try:
+        resp = requests.post(
+            DEEPSEEK_CHAT_URL,
+            headers=headers,
+            json=payload,
+            timeout=timeout_sec
+        )
+    except requests.RequestException as e:
+        # If the request fails entirely (network, DNS, etc.), we raise a clear error
+        raise RuntimeError(f"Failed to connect to DeepSeek: {e}")
 
     if resp.status_code != 200:
+        # If DeepSeek returns a 4xx or 5xx, surface the JSON (if any)
         try:
             detail = resp.json()
         except ValueError:
             detail = resp.text
-        raise RuntimeError(f"DeepSeek returned {resp.status_code}: {detail}")
+        raise RuntimeError(f"DeepSeek returned HTTP {resp.status_code}: {detail}")
 
     data = resp.json()
+    # We assume DeepSeek returns the same shape as OpenAI: data["choices"][0]["message"]["content"]
     return data["choices"][0]["message"]["content"]
 
 
@@ -217,10 +229,8 @@ def summarize_chunk(
     inserting the chunk text under a marker. Otherwise use the built-in default.
     """
     if custom_prompt:
-        # Insert the chunk text in place of a placeholder token like {{TEXT}}
         prompt = custom_prompt.replace("{{TEXT}}", chunk_text)
     else:
-        # Default prompt
         prompt = f"""
 You are a Private Equity analyst. Summarize the following excerpt from a deal document in 2–3 bullet points,
 highlighting any “Key Insights” and “Potential Risks” in each bullet. Keep each bullet to under 70 words.
@@ -335,13 +345,13 @@ def analyze_transaction_doc(
     deep_dive_sections: list[str] | None = None,
     chunk_prompt: str | None = None,
     aggregate_prompt: str | None = None,
-    deep_dive_prompts: dict[str,str] | None = None
+    deep_dive_prompts: dict[str, str] | None = None
 ) -> dict:
     """
     1) Extract & chunk the document (PDF, DOCX, PPTX, or Excel)
     2) Summarize each chunk (Layer 1) using `chunk_prompt` or default
     3) Aggregate chunk summaries (Layer 2) using `aggregate_prompt` or default
-    4) (Optional) Run deep dives on `deep_dive_sections` (Layer 3) using per-section prompts if provided
+    4) (Optional) Run deep dives on `deep_dive_sections` (Layer 3) using per‐section prompts if provided
     5) Return a dict containing:
          - "aggregate_analysis": parsed JSON
          - "deep_dive_<SectionKey>" (Markdown) for each requested section
@@ -350,7 +360,7 @@ def analyze_transaction_doc(
     # 1) Extract raw text
     raw_text = extract_text(filepath)
 
-    # 2) Chunk up to ~chunk_size tokens each (remove the unsupported model_name argument)
+    # 2) Chunk up to ~chunk_size tokens each
     chunks = chunk_text(raw_text, max_tokens=chunk_size)
     print(f">>> Document split into {len(chunks)} chunks (chunk_size={chunk_size})")
 
@@ -373,7 +383,6 @@ def analyze_transaction_doc(
 
     # 5) Deep dives (Layer 3), if requested
     if run_deep_dives:
-        # If no specific deep_dive_sections passed, default back to the four sections
         if not deep_dive_sections:
             deep_dive_sections = [
                 "Market Analysis",
@@ -382,11 +391,10 @@ def analyze_transaction_doc(
                 "Exit Strategy"
             ]
 
-        # Combine all chunk summaries for passing to each deep dive
         combined_summaries_text = "\n\n".join(chunk_summaries)
 
         for section in deep_dive_sections:
-            section_key = section.replace(" ", "_")  # e.g. "Market Analysis" → "Market_Analysis"
+            section_key = section.replace(" ", "_")
             custom = None
             if deep_dive_prompts and section_key in deep_dive_prompts:
                 custom = deep_dive_prompts[section_key]
@@ -396,4 +404,3 @@ def analyze_transaction_doc(
             result[f"deep_dive_{section_key}"] = section_md
 
     return result
-
