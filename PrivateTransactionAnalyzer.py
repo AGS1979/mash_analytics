@@ -9,20 +9,6 @@ import pandas as pd             # for Excel extraction
 from docx import Document       # for .docx extraction
 from pptx import Presentation   # for .pptx extraction
 
-# ---------------------------------------------------
-# 0) FLASK APP + CONFIGURATION
-# ---------------------------------------------------
-
-app = Flask(__name__)
-
-# Allowed file extensions (used by allowed_file())
-ALLOWED_EXTENSIONS = {"pdf", "docx", "pptx", "xls", "xlsx", "xlsm"}
-
-def allowed_file(filename: str) -> bool:
-    """
-    Check if the file extension is one of the allowed types.
-    """
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # ---------------------------------------------------
 # 1) LOAD API KEYS / ENDPOINTS FROM ENVIRONMENT
