@@ -1,6 +1,10 @@
-/* ------------------------
-   Reset & Base Styles
-   ------------------------ */
+/* =========================================
+   styles.css – Complete Consolidated Styles
+   ========================================= */
+
+/* =========================
+   1) RESET & BASE STYLES
+   ========================= */
 * {
   margin: 0;
   padding: 0;
@@ -10,14 +14,14 @@
 body {
   font-family: 'Roboto', sans-serif;
   color: #ffffff;
-  background-color: #111111;   /* solid black/dark‐gray */
+  background-color: #111111;   /* Solid black/dark‐gray background */
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* ------------------------
-   Header / Navigation
-   ------------------------ */
+/* =========================
+   2) HEADER / NAVIGATION
+   ========================= */
 header {
   position: fixed;
   top: 0;
@@ -28,13 +32,13 @@ header {
   flex-direction: column;
 }
 
-/* Top Navigation Row (if present) */
+/* Top Navigation Row */
 .top-nav {
   display: flex;
   align-items: center;
   height: 40px;
   padding: 0 20px;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e;  /* Dark gray */
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -55,8 +59,9 @@ header {
 .top-nav a {
   color: #e5e5e5;
   font-size: 14px;
-  text-decoration: none;
   font-weight: bold;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .top-nav a:hover {
@@ -69,13 +74,14 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e;  /* Dark gray */
   padding: 10px 20px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 
 .header-main .logo img {
   height: 60px;
+  width: auto;
 }
 
 .header-main .title a {
@@ -83,10 +89,15 @@ header {
   font-size: 18px;
   font-weight: bold;
   text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .header-main .title a:hover {
-  text-decoration: underline;
+  background-color: #333333;
+  color: #ffffff;
 }
 
 header .logout a {
@@ -99,7 +110,7 @@ header .logout a:hover {
   text-decoration: underline;
 }
 
-/* Ensure page content does not go under header */
+/* Prevent content from sliding under fixed header */
 main {
   margin-top: 100px;  /* equal or slightly larger than header height */
   padding: 20px;
@@ -108,13 +119,13 @@ main {
   align-items: center;
 }
 
-/* ------------------------
-   Landing Panel (Index)
-   ------------------------ */
+/* =========================
+   3) LANDING PANEL (INDEX)
+   ========================= */
 .landing-panel {
   text-align: center;
   padding: 60px 20px;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e;  /* Dark gray */
   color: #ffffff;
   border-radius: 12px;
   max-width: 600px;
@@ -134,9 +145,9 @@ main {
   color: #cccccc;
 }
 
-/* ------------------------
-   Button Options
-   ------------------------ */
+/* =========================
+   4) BUTTON OPTIONS (INDEX)
+   ========================= */
 .button-options {
   margin: 30px 0;
 }
@@ -145,7 +156,7 @@ main {
   margin: 10px;
   padding: 12px 26px;
   font-size: 16px;
-  background-color: #444444;
+  background-color: #444444;  /* Dark gray button */
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -157,9 +168,9 @@ main {
   background-color: #555555;
 }
 
-/* ------------------------
-   Info Section (Index)
-   ------------------------ */
+/* =========================
+   5) INFO SECTION (INDEX)
+   ========================= */
 .info-section h3 {
   font-size: 20px;
   margin-top: 30px;
@@ -173,9 +184,9 @@ main {
   color: #cccccc;
 }
 
-/* ------------------------
-   Steps Cards (Login page)
-   ------------------------ */
+/* =========================
+   6) STEPS CARDS (LOGIN PAGE)
+   ========================= */
 .steps {
   display: flex;
   flex-wrap: wrap;
@@ -184,12 +195,15 @@ main {
   margin-bottom: 40px;
 }
 
+/* Force each card to occupy roughly the same width */
 .step-card {
-  background-color: #2b2b2b;
+  background-color: #2b2b2b;  /* Dark gray */
   color: #ffffff;
   border-radius: 10px;
   padding: 20px;
-  max-width: 220px;
+  flex: 1 1 calc(20% - 16px);
+  max-width: calc(20% - 16px);
+  min-width: 160px; /* Don’t shrink below 160px */
   text-align: center;
   border: 1px solid #3a3a3a;
   transition: background-color 0.2s, transform 0.2s;
@@ -200,15 +214,20 @@ main {
   transform: translateY(-4px);
 }
 
-/* ------------------------
-   Login Container
-   ------------------------ */
+/* =========================
+   7) LOGIN CONTAINER
+   ========================= */
+/* Scroll‐margin so header does not cover the login form when linking to #login-form */
+#login-form {
+  scroll-margin-top: 120px;
+}
+
 .login-halo {
   position: relative;
   margin-top: 30px;
   width: 100%;
   max-width: 420px;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e;  /* Dark gray */
   border-radius: 16px;
   padding: 30px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
@@ -216,11 +235,12 @@ main {
 
 .login-container {
   width: 100%;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e;  /* Dark gray */
   padding: 24px;
   border-radius: 16px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
   color: #ffffff;
+  margin: 0 auto;
 }
 
 .login-container h2 {
@@ -241,7 +261,7 @@ main {
 }
 
 .login-container input::placeholder {
-  color: #cccccc;
+  color: #888888;
 }
 
 .login-container button {
@@ -254,6 +274,7 @@ main {
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  margin-top: 10px;
 }
 
 .login-container button:hover {
@@ -272,12 +293,22 @@ main {
   color: #cccccc;
 }
 
-/* ------------------------
-   Carousel Cards
-   ------------------------ */
+/* =========================
+   8) CAROUSEL CARDS
+   ========================= */
+.carousel-container {
+  margin-top: 40px;
+  max-width: 1200px;
+  width: 90%;
+  display: flex;            /* Force horizontal layout */
+  overflow-x: auto;         /* Enable horizontal scrolling if needed */
+  gap: 16px;
+  padding: 20px 0;
+}
+
 .carousel-card {
-  text-align: center;
-  background-color: #2b2b2b;
+  flex: 0 0 300px;            /* Fixed width per card */
+  background-color: #2b2b2b;  /* Dark gray */
   border: 1px solid #3a3a3a;
   border-radius: 12px;
   padding: 20px;
@@ -299,17 +330,31 @@ main {
 
 .carousel-img {
   width: 100%;
-  max-width: 300px;
   height: auto;
   border-radius: 8px;
-  margin: 10px auto;
+  margin: 10px 0;
+  object-fit: cover;
 }
 
-/* ------------------------
-   Case Study Cards
-   ------------------------ */
+/* =========================
+   9) CASE STUDY CARDS
+   ========================= */
+.case-carousel-wrapper {
+  margin: 40px auto 20px auto;
+  width: 92%;
+  max-width: 1200px;
+}
+
+.case-carousel {
+  display: flex;
+  overflow-x: auto;
+  gap: 16px;
+  padding: 10px 0;
+}
+
 .case-card {
-  background-color: #2b2b2b;
+  flex: 0 0 280px;            /* Fixed width per card */
+  background-color: #2b2b2b;  /* Dark gray */
   border: 1px solid #3a3a3a;
   border-radius: 12px;
   padding: 20px;
@@ -350,15 +395,15 @@ main {
   margin-top: 4px;
 }
 
-/* ------------------------
-   Chat & Chat History
-   ------------------------ */
+/* =========================
+   10) CHAT & CHAT HISTORY
+   ========================= */
 .chat-container {
   display: flex;
   width: 100vw;
   height: calc(100vh - 140px);
   margin: 70px auto 0 auto;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e; /* Dark gray */
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7);
   overflow: hidden;
@@ -368,7 +413,7 @@ main {
 .chat-history {
   width: 350px;
   padding: 20px;
-  background-color: #2b2b2b;
+  background-color: #2b2b2b; /* Dark gray */
   border-top-left-radius: 15px;
   border-bottom-left-radius: 15px;
   border-right: 2px solid #3a3a3a;
@@ -376,7 +421,7 @@ main {
   flex-direction: column;
   justify-content: space-between;
   position: sticky;
-  top: 100px;
+  top: 100px; /* below header */
   height: calc(100vh - 170px);
   padding-bottom: 100px;
   overflow-y: auto;
@@ -422,13 +467,13 @@ main {
   padding-left: 1.25rem;
 }
 
-/* Chat Main (right side) */
+/* Chat main (right side) */
 .chat-main {
   flex: 1;
   display: flex;
   flex-direction: column;
   padding: 20px;
-  background-color: #2b2b2b;
+  background-color: #2b2b2b; /* Dark gray */
   border-left: 2px solid #3a3a3a;
   overflow: hidden;
 }
@@ -438,7 +483,7 @@ main {
   flex: 1;
   overflow-y: auto;
   padding: 15px;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e; /* Dark gray */
   border-radius: 8px;
   margin-bottom: 15px;
   display: flex;
@@ -448,7 +493,7 @@ main {
 /* User‐sent message bubble */
 .user-message {
   align-self: flex-end;
-  background-color: #444444;
+  background-color: #444444; /* Medium gray */
   color: #ffffff;
   padding: 10px 15px;
   border-radius: 15px;
@@ -459,7 +504,7 @@ main {
 /* Bot/AI message bubble */
 .bot-message {
   align-self: flex-start;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e; /* Dark gray */
   color: #e5e5e5;
   padding: 10px 15px;
   border-radius: 15px;
@@ -467,14 +512,14 @@ main {
   max-width: 80%;
 }
 
-/* ↓ Bottom input area ↓ */
+/* Bottom input area */
 .text-input {
   width: 100%;
   margin-top: auto;
   padding: 15px;
   display: flex;
   justify-content: center;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e; /* Dark gray */
   border-top: 1px solid #3a3a3a;
 }
 
@@ -484,7 +529,7 @@ main {
   padding: 10px;
   border: none;
   border-radius: 8px;
-  background-color: #2b2b2b;
+  background-color: #2b2b2b; /* Dark gray */
   color: #ffffff;
   font-size: 18px;
   resize: none;
@@ -494,7 +539,7 @@ main {
   padding: 10px 20px;
   margin-left: 20px;
   border-radius: 8px;
-  background-color: #444444;
+  background-color: #444444; /* Medium gray */
   color: #ffffff;
   border: none;
   font-size: 18px;
@@ -531,12 +576,12 @@ main {
   scrollbar-color: #444444 #2b2b2b;
 }
 
-/* Make sure tables inside bot‐message wrap nicely */
+/* Tables inside bot messages */
 .bot-message table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
-  background-color: #1e1e1e;
+  background-color: #1e1e1e; /* Dark gray */
   color: #e5e5e5;
   font-size: 16px;
   table-layout: fixed;
@@ -560,75 +605,9 @@ main {
   background-color: #222222;
 }
 
-@media (max-width: 768px) {
-  .chat-container {
-    flex-direction: column;
-    width: 95%;
-    height: auto;
-    margin-top: 80px;
-    border-radius: 10px;
-    padding: 0;
-  }
-
-  .chat-history {
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 2px solid #3a3a3a;
-    border-radius: 10px 10px 0 0;
-    padding-bottom: 10px;
-    position: relative;
-    top: 0;
-  }
-
-  .chat-main {
-    width: 100%;
-    height: auto;
-    padding: 15px;
-    border-radius: 0 0 10px 10px;
-  }
-
-  header {
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: center;
-  }
-
-  header .logo img {
-    max-height: 60px;
-  }
-
-  main {
-    margin-top: 130px;
-  }
-
-  #chat-box {
-    height: calc(100vh - 240px);
-    font-size: 14px;
-  }
-
-  .text-input {
-    flex-direction: column;
-    align-items: stretch;
-    width: 95%;
-  }
-
-  .text-input textarea {
-    width: 100%;
-    font-size: 16px;
-    margin-bottom: 10px;
-  }
-
-  .text-input button {
-    width: 100%;
-    font-size: 16px;
-    padding: 12px;
-  }
-}
-
-/* ------------------------
-   Agent Grid (Custom Agents)
-   ------------------------ */
+/* =========================
+   11) AGENT GRID (CUSTOM AGENTS)
+   ========================= */
 .agent-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -639,7 +618,7 @@ main {
 }
 
 .agent-card {
-  background-color: #2b2b2b;
+  background-color: #2b2b2b; /* Dark gray */
   border: 1px solid #3a3a3a;
   border-radius: 12px;
   padding: 20px;
@@ -680,9 +659,9 @@ main {
   background-color: #555555;
 }
 
-/* ------------------------
-   Modal Styles
-   ------------------------ */
+/* =========================
+   12) MODAL STYLES
+   ========================= */
 .modal {
   display: none;
   position: fixed;
@@ -696,7 +675,7 @@ main {
 }
 
 .modal-content {
-  background-color: #1e1e1e;
+  background-color: #1e1e1e;  /* Dark gray */
   margin: 10% auto;
   padding: 24px;
   border: 1px solid #3a3a3a;
@@ -720,8 +699,8 @@ main {
   cursor: pointer;
 }
 
-.modal-content h3,
-.modal-content h2 {
+.modal-content h2,
+.modal-content h3 {
   color: #ffffff;
 }
 
@@ -759,7 +738,7 @@ main {
   background-color: #555555;
 }
 
-/* Ensuring PDF Answer Box inside modal looks good */
+/* PDF Answer Box in Modal */
 .pdf-answer-box {
   padding: 10px;
   border: 1px solid #3a3a3a;
@@ -787,14 +766,14 @@ main {
   color: #ffffff;
 }
 
-/* ------------------------
-   Miscellaneous
-   ------------------------ */
+/* =========================
+   13) FOOTER
+   ========================= */
 .footer {
   margin-top: 50px;
   padding: 30px;
   text-align: center;
-  background-color: #111111;
+  background-color: #111111; /* Slightly darker black */
   color: #cccccc;
   font-size: 14px;
 }
@@ -809,27 +788,117 @@ main {
   text-decoration: underline;
 }
 
-/* Animate fade‐in for intro sections (optional) */
+/* Fade‐in animation (for intro sections) */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Responsiveness tweaks for smaller screens */
-@media (max-width: 768px) {
+/* =========================
+   14) RESPONSIVE MEDIA QUERIES
+   ========================= */
+@media (max-width: 1024px) {
+  /* Steps shrink gracefully */
   .step-card {
-    max-width: 90%;
+    flex: 1 1 calc(45% - 16px);
+    max-width: calc(45% - 16px);
   }
   .carousel-card,
   .case-card {
+    flex: 0 0 80%;
+    max-width: 80%;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Steps become full‐width */
+  .step-card {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+  /* Shrink mascot further */
+  .mascot-halo img {
+    height: 200px;
+  }
+  /* Carousel & Case cards narrower */
+  .carousel-card,
+  .case-card {
+    flex: 0 0 90%;
     max-width: 90%;
   }
-  .agent-card {
-    width: 90%;
-    height: auto;
+  /* Tweak login margins a bit smaller */
+  .login-halo {
+    margin-top: 20px;
   }
-  .modal-content {
+  /* Stack header logo / nav on mobile */
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  header .logo img {
+    max-height: 60px;
+  }
+  main {
+    margin-top: 130px;
+  }
+  /* Chat UI adjustments (if needed) */
+  .chat-container {
+    flex-direction: column;
+    width: 95%;
+    height: auto;
+    margin-top: 80px;
+    border-radius: 10px;
+    padding: 0;
+  }
+  .chat-history {
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 2px solid #3a3a3a;
+    border-radius: 10px 10px 0 0;
+    padding-bottom: 10px;
+    position: relative;
+    top: 0;
+  }
+  .chat-main {
+    width: 100%;
+    height: auto;
+    padding: 15px;
+    border-radius: 0 0 10px 10px;
+  }
+  #chat-box {
+    height: calc(100vh - 240px);
     font-size: 14px;
-    padding: 16px;
+  }
+  .text-input {
+    flex-direction: column;
+    align-items: stretch;
+    width: 95%;
+  }
+  .text-input textarea {
+    width: 100%;
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+  .text-input button {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px;
+  }
+  .static-info li::after {
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  /* Login container on small screens */
+  .login-container {
+    width: 90%;
+    padding: 20px;
+    font-size: 16px;
+    margin-top: 120px; /* push below header */
+  }
+  .login-container input,
+  .login-container button {
+    font-size: 16px;
+    padding: 12px;
   }
 }
