@@ -490,12 +490,11 @@ def analyze_transaction_doc(
     2) Identify which pages matter for `user_query`.
     3) Concatenate only those pages (or all if none found).
     4) Detect if the user wants BOTH valuation and SWOT (split on “ and ”).
-       - If “SWOT” is present alongside something else (e.g. “Valuation”),
-         treat them as two separate intents.
-    5) If only “SWOT” is requested, do the dedicated SWOT prompt.
-    6) If only “red flag” or “risk” is requested, do the single‐shot red‐flag prompt.
-    7) Otherwise run a **query‐focused** summarization based on `user_query`.
-    8) Optionally run all requested deep‐dives.
+       - If “SWOT” is present alongside something else, treat them separately.
+    5) If only “SWOT” is requested → run SWOT path.
+    6) If only “red flag” or “risk” → run single‐shot red‐flag path.
+    7) Otherwise run a **query‐focused summarization** and place it in `"aggregate_analysis"`.
+    8) Optionally run all requested deep dives.
     """
     print(f"[DEBUG] analyze_transaction_doc: Starting analysis for query='{user_query}' on file '{filepath}'")
 
@@ -522,27 +521,16 @@ def analyze_transaction_doc(
     # ---------------------------------------------------
     # 4) “SWOT + Something Else” DETECTION
     # ---------------------------------------------------
-    # If the user typed “Valuation and SWOT Analysis” (or used a comma, etc.),
-    # we want to run TWO passes: one for “SWOT” and one for “Valuation”.
-    #
-    # We’ll split on “ and ” first, then fall back to commas if needed.
-
     faces: List[str] = []
     if "swot" in lower_q and (" and " in lower_q or "," in lower_q):
-        # split on " and " first
         if " and " in lower_q:
             faces = [p.strip() for p in lower_q.split(" and ")]
         else:
             faces = [p.strip() for p in lower_q.split(",")]
 
-        # Now faces might be something like ['valuation', 'swot analysis'] or similar
-        # Normalize each piece
         faces = [f for f in faces if f]
-
-        # If one of them is 'swot...' and another is something else, keep both
         swot_requested = any("swot" in f for f in faces)
         other_requested = [f for f in faces if "swot" not in f]
-        # We’ll handle each in turn below
     else:
         faces = []
         swot_requested = ("swot" in lower_q)
@@ -551,8 +539,18 @@ def analyze_transaction_doc(
     do_valuation_first = bool(other_requested)
     do_swot = swot_requested
 
-    # The final payload we’ll return under “answer”
-    answer_payload: Dict[str, Union[Dict, str]] = {}
+    # Prepare the return dict
+    result: Dict[str, Union[str, int, List[int], Dict]] = {
+        "pages_scanned": pages_scanned,
+        "relevant_pages": pages_used,
+        "chunks_used": None,         # to be set later
+        # We'll populate one or more of these keys:
+        #   "aggregate_analysis" (for generic or query‐focused summarization)
+        #   "swot_analysis" (if SWOT requested)
+        #   "red_flags" (if risk/red-flag requested)
+        #   plus deep_dive_... keys if run_deep_dives=True
+    }
+
     valuation_chunks_used: Optional[int] = None
     generic_chunks_used: Optional[int] = None
 
@@ -560,13 +558,10 @@ def analyze_transaction_doc(
     # 5) HANDLE ANY NON‐SWOT INTENT (e.g. “valuation” or “Provide key investment highlights”)
     # ---------------------------------------------------
     if do_valuation_first:
-        # We assume other_requested might be something like ['valuation', 'swot analysis']
-        # Pick everything that DOESN’T contain “swot”
         non_swot_intents = [f for f in other_requested if "swot" not in f]
-        # We’ll join them back into one string (e.g. “valuation” or “valuation analysis”)
         combined_non_swot_query = " and ".join(non_swot_intents).strip()
 
-        # If they asked “risk” or “red flag”
+        # If they explicitly asked for risk/red-flag
         if "red flag" in combined_non_swot_query or "risk" in combined_non_swot_query:
             prompt = f"""
 You are a Private Equity analyst. Identify ALL potential “Risk” or “Red Flag” statements
@@ -586,15 +581,13 @@ Query: {combined_non_swot_query}
             print(f"[DEBUG] analyze_transaction_doc: entering single-shot RED FLAG path for '{combined_non_swot_query}'")
             single_shot_response = call_deepseek_chat(messages, temperature=0.0, max_tokens=1000)
             print(f"[DEBUG] analyze_transaction_doc: single_shot_response length {len(single_shot_response)}")
-            answer_payload["valuation_analysis"] = single_shot_response
+            result["red_flags"] = single_shot_response
 
         else:
-            # Otherwise, run a **query‐focused** summarization based on user_query
-            # 6) CHUNK the selected_text
+            # Otherwise run a **query‐focused** summarization
             raw_chunks = chunk_text(selected_text, max_tokens=chunk_size)
             print(f"[DEBUG] analyze_transaction_doc: total raw_chunks after chunk_text = {len(raw_chunks)}")
 
-            # 6b) If too many raw_chunks (>20), reduce hierarchically until ≤ 20 summaries
             if len(raw_chunks) > 20:
                 print(f"[DEBUG] analyze_transaction_doc: {len(raw_chunks)} raw_chunks > 20, reducing hierarchically")
                 raw_chunks = reduce_chunks_hierarchically(
@@ -605,14 +598,12 @@ Query: {combined_non_swot_query}
                 )
                 print(f"[DEBUG] analyze_transaction_doc: reduced to {len(raw_chunks)} summaries")
 
-            # 6c) Summarize each of the ≤ 20 pieces
             chunk_summaries: List[str] = []
             for idx, chunk in enumerate(raw_chunks, start=1):
                 print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(raw_chunks)}")
                 summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
                 chunk_summaries.append(summary)
 
-            # 6d) Now send a **query‐focused** prompt to DeepSeek Chat
             combined_chunks = "\n\n".join(chunk_summaries)
             query_prompt = f"""
 You are a seasoned private equity investment analyst. From the following excerpts,
@@ -631,9 +622,9 @@ Use plain English (no Markdown code fences). Focus ONLY on providing the request
             print(f"[DEBUG] analyze_transaction_doc: sending query‐focused summarization for '{combined_non_swot_query}'")
             query_response = call_deepseek_chat(messages, temperature=0.3, max_tokens=800)
             print(f"[DEBUG] analyze_transaction_doc: query_response length {len(query_response)}")
-            answer_payload["query_summary"] = query_response
 
-            # Record how many chunks we used in this “valuation” pass
+            # Place the bullet‐style output under "aggregate_analysis"
+            result["aggregate_analysis"] = query_response
             valuation_chunks_used = len(raw_chunks)
 
     # ---------------------------------------------------
@@ -656,19 +647,17 @@ Use plain English (no Markdown code fences). Focus ONLY on providing the request
         try:
             swot_json = json.loads(cleaned)
         except json.JSONDecodeError:
-            # If JSON fails, fall back to raw text
             swot_json = {"raw_swot_text": swot_json_str}
 
-        answer_payload["swot_analysis"] = swot_json
+        result["swot_analysis"] = swot_json
 
     # ---------------------------------------------------
     # 8) IF NEITHER “SWOT” NOR ANY “RISK/RED FLAG” NOR ANY OTHER PASS:
-    #     run the same **query‐focused** summarization but for the full user_query
+    #     run the same **query‐focused** summarization, but for the full user_query
     # ---------------------------------------------------
     if not do_valuation_first and not do_swot:
         print(f"[DEBUG] analyze_transaction_doc: No SWOT or red-flag detected; running query‐focused summarization for '{lower_q}'")
 
-        # Chunk everything
         raw_chunks = chunk_text(selected_text, max_tokens=chunk_size)
         print(f"[DEBUG] analyze_transaction_doc: total raw_chunks after chunk_text = {len(raw_chunks)}")
 
@@ -706,20 +695,18 @@ Use plain English (no Markdown code fences). Focus ONLY on providing the request
         print(f"[DEBUG] analyze_transaction_doc: sending query‐focused summarization for '{user_query}'")
         query_response = call_deepseek_chat(messages, temperature=0.3, max_tokens=800)
         print(f"[DEBUG] analyze_transaction_doc: query_response length {len(query_response)}")
-        answer_payload["query_summary"] = query_response
 
+        # Place the bullet‐style output under "aggregate_analysis"
+        result["aggregate_analysis"] = query_response
         generic_chunks_used = len(raw_chunks)
 
     # ---------------------------------------------------
-    # 9) BUILD THE RESULT DICT
+    # 9) SET THE FINAL chunks_used
     # ---------------------------------------------------
-
-    result: Dict[str, Union[str, int, List[int], Dict]] = {
-        "answer": answer_payload,
-        "pages_scanned": pages_scanned,
-        "relevant_pages": pages_used,
-        "chunks_used": valuation_chunks_used if do_valuation_first else generic_chunks_used
-    }
+    if do_valuation_first:
+        result["chunks_used"] = valuation_chunks_used
+    else:
+        result["chunks_used"] = generic_chunks_used
 
     # ---------------------------------------------------
     # 10) (Optional) RUN DEEP DIVES
@@ -733,9 +720,13 @@ Use plain English (no Markdown code fences). Focus ONLY on providing the request
                 "Exit Strategy"
             ]
 
-        # We need combined summaries for deep dives; reuse whichever chunk_summaries was built
-        # (Note: we kept chunk_summaries in each branch above.)
-        # If do_valuation_first, chunk_summaries already exists; if do_swot only, use chunk_summaries from last pass; otherwise same.
+        # Whichever branch built `chunk_summaries`, combine them now
+        # (We know we always built chunk_summaries above if we did any summarization.)
+        try:
+            combined_for_deep = "\n\n".join(chunk_summaries)
+        except UnboundLocalError:
+            combined_for_deep = selected_text
+
         print(f"[DEBUG] analyze_transaction_doc: running deep dives on sections {deep_dive_sections}")
         for section in deep_dive_sections:
             section_key = section.replace(" ", "_")
@@ -743,8 +734,6 @@ Use plain English (no Markdown code fences). Focus ONLY on providing the request
             if deep_dive_prompts and section_key in deep_dive_prompts:
                 custom = deep_dive_prompts[section_key]
 
-            # Reassemble combined_chunks accordingly
-            combined_for_deep = "\n\n".join(chunk_summaries)
             section_text = deep_dive_section(section, combined_for_deep, custom_prompt=custom)
             result[f"deep_dive_{section_key}"] = section_text
 
