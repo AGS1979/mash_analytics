@@ -7,7 +7,7 @@
 
 body {
   font-family: 'Roboto', sans-serif;
-  color: #e5e5e5;
+  color: #787878;
   font-size: 16px;
   margin: 0;
   padding: 0;
@@ -41,7 +41,7 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 14px 20px;
-  background: rgba(246, 242, 239);  /* Already present */
+  background-color: #787878;  /* Already present */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
@@ -84,6 +84,8 @@ main {
   align-items: center;
   margin-top: 100px;  /* ← Add this to avoid content going under header */
 }
+
+
 
 
 
@@ -209,7 +211,7 @@ main {
 
 #chat-box::-webkit-scrollbar-thumb,
 .chat-history::-webkit-scrollbar-thumb {
-  background: #3b82f6;
+  background: #ffffff;
   border-radius: 10px;
 }
 
@@ -217,7 +219,7 @@ main {
 #chat-box,
 .chat-history {
   scrollbar-width: thin;
-  scrollbar-color: #3b82f6 rgba(31, 41, 55, 0.9);
+  scrollbar-color: #ffffff;
 }
 
 .chat-container {
@@ -225,7 +227,7 @@ main {
   width: 100vw;                /* Full width of the viewport */
   height: calc(100vh - 140px); /* Adjust for header */
   margin: 70px auto 0 auto;
-  background-color: rgba(37, 49, 65, 0.95);
+  background-color: #6b6b6b;
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   overflow: hidden;
@@ -235,10 +237,10 @@ main {
 
 /* static “bottom” info section */
 .chat-history-bottom {
-  background: rgba(31, 41, 55, 0.9);
-  border-top: 1px solid #3b82f6;
+  background-color: #444444;
+  border-top: 1px solid #ffffff;
   padding: 1rem;
-  color: #eaebf7;
+  color: #ffffff;
   font-size: 0.9rem;
 }
 
@@ -552,7 +554,7 @@ body {
   margin: 10px;
   padding: 12px 26px;
   font-size: 16px;
-  background-color: #3b82f6;
+  background-color: #1e1e1e;
   color: white;
   border: none;
   border-radius: 8px;
@@ -568,12 +570,13 @@ body {
   font-size: 20px;
   margin-top: 30px;
   font-weight: 600;
+  color: #ffffff;
 }
 
 .info-section p {
   font-size: 16px;
   margin-top: 10px;
-  color: #d1d5db;
+  color: #ffffff;
 }
 
 .agent-grid {
