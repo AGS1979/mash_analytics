@@ -489,17 +489,32 @@ function showFactorOptModal() {
                             })
                             .then(r => r.json())
                             .then(data => {
-                                if (data.status === "optimal") {
-                                    const weights = data.optimized_weights.map(w => `<li>${w.ticker}: ${w.weight}</li>`).join('');
-                                    const exposures = Object.entries(data.achieved_exposures).map(
-                                        ([k, v]) => `${k}: ${v}`
-                                    ).join("<br>");
+                                // 1) Check for "status" === "success" (not "optimal")
+                                if (data.status === "success") {
+                                    // 2) Build the weights list
+                                    const weightsHtml = data.optimized_weights
+                                        .map(w => `<li>${w.ticker}: ${(w.weight * 100).toFixed(2)}%</li>`)
+                                        .join("");
+
+                                    // 3) Read whichever exposures key the backend provided:
+                                    //    Here I'm assuming your Python returns "achieved_exposures_standardized"
+                                    let exposuresObj = data.achieved_exposures_standardized || data.achieved_exposures;
+                                    //    (In case you kept a different field name, use that.)
+
+                                    const exposuresHtml = Object.entries(exposuresObj || {})
+                                        .map(([factor, val]) => `${factor}: ${val}`)
+                                        .join("<br>");
+
                                     resultDiv.innerHTML = `
                                         ✅ Optimization Complete<br>
-                                        <strong>New Weights:</strong><br><ul>${weights}</ul>
-                                        <strong>Achieved Exposures:</strong><br>${exposures}
+                                        <strong>New Weights:</strong><br>
+                                        <ul>${weightsHtml}</ul>
+                                        <strong>Achieved Exposures (std):</strong><br>
+                                        ${exposuresHtml}
                                     `;
-                                } else {
+                                }
+                                else {
+                                    // Fall back to whatever error message the server provided
                                     resultDiv.innerHTML = `<span style="color:red;">❌ ${data.message || 'Optimization failed.'}</span>`;
                                 }
                             })
@@ -512,6 +527,7 @@ function showFactorOptModal() {
                                 resultDiv.scrollIntoView({ behavior: "smooth" });
                             });
                         });
+
                     } else {
                         // Default cards for other agents
                         card.innerHTML = `

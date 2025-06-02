@@ -721,11 +721,23 @@ def optimize_factor_portfolio():
 
         # Run optimization
         result = run_factor_optimizer_csv(temp_path, target_exposures, turnover_limit)
-        return jsonify(result)
+        return jsonify({
+            "status": "success",
+            "optimized_weights": [ { "ticker": t, "weight": ... }, … ],
+            "target_exposures_raw": [ … ],
+            "target_exposures_standardized": [ … ],
+            "achieved_exposures_standardized": {
+                "MKT": …,
+                "SMB": …,
+                "HML": …,
+                "RMW": …,
+                "CMA": …
+            }
+        })
 
     except Exception as e:
         print(f"🔥 Error in /optimize-factor-portfolio: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"status": "error", "message": "<explanation>"}), 400
 
 
 # Earnings Call Summary Route - This should ask for keywords if needed
