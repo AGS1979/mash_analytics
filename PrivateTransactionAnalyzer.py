@@ -554,6 +554,7 @@ def analyze_transaction_doc(
 
     # The final payload we’ll return under “answer”
     answer_payload: Dict[str, Union[Dict, str]] = {}
+    valuation_chunks_used: Optional[int] = None
 
     # ---------------------------------------------------
     # 5) HANDLE ANY NON‐SWOT INTENT (e.g. “valuation”)
@@ -730,10 +731,8 @@ Query: {combined_non_swot_query}
 
         # Combine all chunk_summaries from whichever pass was done (use a fallback if needed)
         if do_valuation_first:
-            # We already generated chunk_summaries in the “valuation” branch above
-            combined_summaries_text = "\n\n".join(chunk_summaries)  # re-use that
+            combined_summaries_text = "\n\n".join(chunk_summaries)
         else:
-            # If “swot” only or “generic_summary,” we’d have chunk_summaries built above as well
             combined_summaries_text = "\n\n".join(chunk_summaries)
 
         print(f"[DEBUG] analyze_transaction_doc: running deep dives on sections {deep_dive_sections}")
