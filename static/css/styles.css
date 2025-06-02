@@ -26,9 +26,7 @@ body::before {
     Combine the linear-gradient with your image for a darker overlay.
     Increase or decrease the RGBA alpha (0.6 -> 0.7, 0.8, etc.) to fade more.
   */
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)),
-    url("../images/AI.png") no-repeat center center / cover;
+  
   z-index: -1; 
 }
 
