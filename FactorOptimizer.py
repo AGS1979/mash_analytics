@@ -233,11 +233,13 @@ def run_factor_optimizer_csv(csv_file_path, target_exposures, turnover_limit=Non
 
     # 4.9) First solve: include turnover constraint if provided
     result = optimize(turnover_limit)
+    print(">>> First solve returned success =", result.success)
 
     # 4.10) If that fails, retry without the turnover constraint
     if not result.success:
         print("⚠️ Turnover constraint caused failure. Retrying *without* turnover constraint.")
         result = optimize(None)
+        print(">>> Retry (no turnover) returned success =", result.success)
         if not result.success:
             return {
                 'status': 'error',
