@@ -3,106 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login – MaSh Analytics</title>
-  <!-- Link to your external stylesheet (make sure it contains the black/grey/dark‐grey palette) -->
+  <title>Login - MaSh Analytics</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
-
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   <style>
-    /* ------------------------------
-       Base body styles (no background image)
-       ------------------------------ */
     body {
       margin: 0;
       font-family: 'Roboto', sans-serif;
-      background-color: #111111;       /* Solid black/dark background */
-      color: #ffffff;                 /* White text */
+      background: linear-gradient(to bottom right, #0f172a, #1e293b);
+      color: #e5e5e5;
       overflow-x: hidden;
     }
 
-    /* ------------------------------
-       Header: logo + nav links + login
-       ------------------------------ */
     header {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
-      background-color: #1e1e1e;      /* Dark grey header */
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+      background: rgba(246, 242, 239);  /* Already present */
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
       z-index: 9999;
     }
 
-    .header-content {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 10px 20px;
+    header .logo img {
+      height: 60px;
     }
 
-    /* Logo */
-    .header-content .logo img {
-      height: 50px;
-      width: auto;
-    }
-
-    /* Navigation links */
-    .header-content .header-menu {
-      list-style: none;
-      display: flex;
-      gap: 24px;
-      margin-left: 40px;
-      flex: 1;
-    }
-
-    .header-content .header-menu li {
-      margin: 0;
-    }
-
-    .header-content .header-menu a {
-      color: #ffffff;
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 14px;
-      padding: 4px 8px;
-      transition: color 0.2s ease;
-    }
-
-    .header-content .header-menu a:hover {
-      color: #dddddd;
-      text-decoration: underline;
-    }
-
-    /* "Login" link on far right */
-    .header-content .title a {
-      color: #ffffff;
-      text-decoration: none;
+    header .banner, header .title {
       font-weight: bold;
-      font-size: 16px;
-      padding: 6px 12px;
-      transition: color 0.2s ease;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
+      color: #1f2937;
     }
 
-    .header-content .title a:hover {
-      color: #dddddd;
-      border-color: #555555;
+    header .banner {
+      font-size: 20px;
     }
 
-    /* Ensure page content begins below header */
+    header .title {
+      font-size: 18px;
+    }
+
     main {
-      margin-top: 80px;  /* height of header (≈60px) + some spacing */
+      margin-top: 100px;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 20px;
     }
 
-    /* ------------------------------
-       Intro section
-       ------------------------------ */
     .intro-section {
       max-width: 800px;
       text-align: center;
@@ -111,19 +62,41 @@
     }
 
     .intro-section h1 {
-      font-size: 32px;
+      font-size: 36px;
       margin-bottom: 10px;
       color: #ffffff;
     }
 
     .intro-section p {
-      font-size: 16px;
-      color: #cccccc;
+      font-size: 18px;
+      color: #cbd5e1;
     }
 
-    /* ------------------------------
-       Steps cards
-       ------------------------------ */
+    .lottie-wrapper {
+      width: 350px;
+      height: auto;
+      margin: 40px auto 20px auto;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); /* subtle blue glow */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.3s ease;
+    }
+
+    .lottie-wrapper:hover {
+      transform: scale(1.03);
+    }
+
+    .lottie-wrapper img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+    }
+
+
     .steps {
       display: flex;
       flex-wrap: wrap;
@@ -133,303 +106,381 @@
     }
 
     .step-card {
-      background-color: #2b2b2b;      /* Dark‐grey card */
-      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
       border-radius: 10px;
       padding: 20px;
-      max-width: 200px;
+      max-width: 220px;
       text-align: center;
-      border: 1px solid #3a3a3a;
-      transition: background-color 0.2s, transform 0.2s;
-      font-size: 14px;
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.2s;
     }
 
     .step-card:hover {
-      background-color: #3a3a3a;
       transform: translateY(-4px);
-    }
-
-    /* ------------------------------
-       Login container
-       ------------------------------ */
-    .login-halo {
-      position: relative;
-      margin-top: 30px;
-      width: 100%;
-      max-width: 400px;
-      background-color: #1e1e1e;      /* Solid dark‐grey */
-      border-radius: 16px;
-      padding: 30px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
     }
 
     .login-container {
       width: 100%;
-      background-color: #2b2b2b;      /* Slightly lighter dark‐grey */
+      max-width: 400px;
+      background: rgba(15, 23, 42, 0.85); /* deep navy translucent */
       padding: 24px;
       border-radius: 16px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-      color: #ffffff;
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.3); /* subtle blue glow */
+      color: #e5e5e5;
+      backdrop-filter: blur(10px);
     }
+
 
     .login-container h2 {
       text-align: center;
       margin-bottom: 20px;
-      color: #ffffff;
-      font-size: 24px;
     }
+
+
+    .login-halo {
+      position: relative;
+      margin-top: 30px;
+      width: 420px;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.2), transparent 70%);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+    }
+
+
 
     .login-container input[type="text"],
     .login-container input[type="password"] {
       width: 100%;
       padding: 12px;
       margin: 10px 0;
-      border: 1px solid #3a3a3a;
+      border: 1px solid #ccc;
       border-radius: 6px;
-      background-color: #1f1f1f;
-      color: #ffffff;
-      font-size: 14px;
     }
 
-    .login-container input::placeholder {
-      color: #888888;
-    }
+
+.carousel-container {
+  margin-top: 40px;
+  max-width: 1200px;
+  width: 90%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(6px);
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+  padding: 20px;
+}
+
+
+.case-carousel-wrapper {
+  margin: 40px auto 20px auto;
+  width: 92%;
+  max-width: 1200px;
+}
+
+.case-carousel .case-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 20px;
+  color: #e5e5e5;
+  text-align: left;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+  transition: transform 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+.case-carousel .case-card:hover {
+  transform: translateY(-6px);
+}
+
+.case-carousel .case-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.case-carousel .case-card h3 {
+  font-size: 18px;
+  margin: 10px 0;
+  color: #ffffff;
+}
+
+.case-carousel .stat {
+  font-size: 28px;
+  font-weight: bold;
+  color: #93c5fd;
+  margin: 8px 0 0 0;
+}
+
+.case-carousel .label {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-top: 4px;
+}
+
+
+
+.carousel-card {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  color: #e5e5e5;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.carousel-card:hover {
+  transform: scale(1.02);
+}
+
+.carousel-card p {
+  font-size: 16px;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+.carousel-card lottie-player {
+  width: 160px !important;
+  height: 160px !important;
+  margin: 0 auto 20px auto;
+  display: block;
+  transform: scale(1.2);
+}
+
+
+
+.carousel-img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: 8px;
+  margin: 10px auto;
+}
+
+
+.carousel-slide {
+  text-align: center;
+  font-size: 18px;
+  color: #cbd5e1;
+  padding: 20px;
+}
 
     .login-container button {
       width: 100%;
       padding: 12px;
-      background-color: #444444;      /* Mid‐grey button */
+      background-color: #307aff;
       border: none;
-      color: #ffffff;
+      color: #fff;
       font-size: 16px;
       border-radius: 6px;
       cursor: pointer;
-      transition: background-color 0.2s ease;
-      margin-top: 10px;
     }
 
     .login-container button:hover {
-      background-color: #555555;
+      background-color: #1d6ef5;
     }
 
     .toggle-link {
       text-align: center;
-      margin-top: 12px;
-      cursor: pointer;
-      color: #ffffff;
-      text-decoration: underline;
-      font-size: 14px;
-    }
-
-    .toggle-link:hover {
-      color: #dddddd;
-    }
-
-    /* ------------------------------
-       Carousel container (if still needed)
-       ------------------------------ */
-    .carousel-container {
-      margin-top: 40px;
-      max-width: 1200px;
-      width: 90%;
-      background-color: #2b2b2b;
-      border: 1px solid #3a3a3a;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-      padding: 20px;
-      color: #ffffff;
-    }
-
-    .carousel-card {
-      text-align: center;
-      background-color: #2b2b2b;
-      border: 1px solid #3a3a3a;
-      border-radius: 12px;
-      padding: 20px;
-      color: #ffffff;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-      transition: background-color 0.3s ease, transform 0.3s ease;
-      font-size: 14px;
-    }
-
-    .carousel-card:hover {
-      background-color: #3a3a3a;
-      transform: translateY(-6px);
-    }
-
-    .carousel-card p {
-      font-size: 14px;
-      color: #cccccc;
-      line-height: 1.4;
       margin-top: 10px;
+      cursor: pointer;
+      color: #307aff;
+      text-decoration: underline;
     }
 
-    .carousel-img {
-      width: 100%;
-      max-width: 300px;
-      height: auto;
-      border-radius: 8px;
-      margin: 10px auto;
-    }
 
-    /* ------------------------------
-       Case study cards (if still needed)
-       ------------------------------ */
-    .case-carousel-wrapper {
-      margin: 40px auto 20px auto;
-      width: 92%;
-      max-width: 1200px;
-    }
 
-    .case-carousel .case-card {
-      background-color: #2b2b2b;
-      border-radius: 12px;
-      padding: 20px;
-      color: #ffffff;
-      text-align: left;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.7);
-      transition: background-color 0.3s ease, transform 0.3s ease;
-      font-size: 14px;
-    }
-
-    .case-carousel .case-card:hover {
-      background-color: #3a3a3a;
-      transform: translateY(-6px);
-    }
-
-    .case-carousel .case-card img {
-      width: 100%;
-      height: 160px;
-      object-fit: cover;
-      border-radius: 8px;
-      margin-bottom: 15px;
-    }
-
-    .case-carousel .case-card h3 {
-      font-size: 16px;
-      margin: 10px 0;
-      color: #ffffff;
-    }
-
-    .case-carousel .stat {
-      font-size: 24px;
-      font-weight: bold;
-      color: #ffffff;
-      margin: 8px 0 0 0;
-    }
-
-    .case-carousel .label {
-      font-size: 12px;
-      color: #cccccc;
-      margin-top: 4px;
-    }
-
-    /* ------------------------------
-       Footer
-       ------------------------------ */
     .footer {
       margin-top: 50px;
       padding: 30px;
       text-align: center;
-      background-color: #111111;
-      color: #cccccc;
+      background: #0f172a;
+      color: #cbd5e1;
       font-size: 14px;
     }
 
     .footer a {
-      color: #ffffff;
+      color: #60a5fa;
       text-decoration: none;
       margin: 0 10px;
     }
 
-    .footer a:hover {
-      text-decoration: underline;
+    .agent-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
     }
 
-    /* ------------------------------
-       Keyframes
-       ------------------------------ */
+    .agent-card {
+        background-color: rgba(31, 41, 55, 0.95);
+        border: 1px solid #3b82f6;
+        border-radius: 12px;
+        padding: 20px;
+        color: #e5e5e5;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+        transition: transform 0.2s ease-in-out;
+    }
+    .agent-card:hover {
+        transform: translateY(-5px);
+        border-color: #60a5fa;
+    }
+    .agent-card button {
+        background-color: #3b82f6;
+        color: white;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .agent-card button:hover {
+        background-color: #2563eb;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.8);
+    }
+    .modal-content {
+        background-color: #1f2937;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #3b82f6;
+        width: 90%;
+        max-width: 600px;
+        color: #e5e5e5;
+        border-radius: 10px;
+        position: relative;
+    }
+    .modal-content .close {
+        position: absolute;
+        top: 12px;
+        right: 20px;
+        color: #aaa;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    .modal-content pre {
+        background-color: rgba(255, 255, 255, 0.05);
+        padding: 10px;
+        border-radius: 6px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        margin-top: 10px;
+    }
+
+
+
+
+    @media (max-width: 768px) {
+      .steps {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .intro-section h1 {
+        font-size: 28px;
+      }
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+  </style>
 
-    /* ------------------------------
-       Responsive tweaks
-       ------------------------------ */
-    @media (max-width: 768px) {
-      .header-content {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .header-content .header-menu {
-        margin: 10px 0;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-      .header-content .title {
-        margin-top: 8px;
-      }
-      main {
-        margin-top: 140px; /* increase on mobile if needed */
-      }
-      .step-card {
-        max-width: 90%;
-      }
-      .carousel-card,
-      .case-carousel .case-card {
-        max-width: 90%;
-      }
-      .login-halo {
-        margin-top: 20px;
-        width: 90%;
-      }
+
+  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+  <style>
+    #particles-js {
+      position: absolute;
+      top: -40px;
+      left: -40px;
+      width: 440px;
+      height: 440px;
+      z-index: 0;
+    }
+
+    .mascot-halo {
+      position: relative;
+      width: 360px;
+      margin: 60px auto 30px auto;
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+      z-index: 1;
+    }
+
+    .mascot-halo img {
+      width: 100%;
+      border-radius: 16px;
+      position: relative;
+      z-index: 2;
     }
   </style>
 
-</head>
+<!-- Slick Carousel CSS & JS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css"/>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.css"/>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
 
+<script>
+  const currentUser = "{{ username | default('') }}";
+  if (currentUser) {
+    sessionStorage.setItem("username", currentUser);
+  }
+</script>
+
+
+
+</head>
 <body>
 
-  <!-- Header: Logo + Solutions / Company / Blogs + Login -->
+  <!-- Header -->
   <header>
-    <div class="header-content">
-      <!-- Logo -->
-      <div class="logo">
-        <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
-      </div>
-
-      <!-- Navigation Links -->
-      <ul class="header-menu">
-        <li><a href="#solutions">Solutions</a></li>
-        <li><a href="#company">Company</a></li>
-        <li><a href="#blogs">Blogs</a></li>
-      </ul>
-
-      <!-- Login Link -->
-      <div class="title">
-        <a href="#login-form">Login</a>
-      </div>
+    <div class="logo">
+      <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
     </div>
+    <div class="banner">Banner</div>
+    <div class="title">Research Blitz</div>
   </header>
-
 
   <!-- Main Content -->
   <main>
-    <!-- Mascot / Intro Animation (optional) -->
+    <!-- Lottie AI animation -->
     <div class="mascot-halo">
-      <img src="{{ url_for('static', filename='images/mascot.gif') }}" alt="AI Mascot" />
-    </div>
+  <div id="particles-js"></div>
+  <img src="{{ url_for('static', filename='images/mascot.gif') }}" alt="AI Mascot" />
+</div>
+
+
+
 
     <!-- Intro Message -->
     <div class="intro-section">
       <h1>Meet MaSh — Your Intelligent Research Engine</h1>
-      <p>Get Ahead – Generate analytics and insights on US publicly listed companies in seconds and at scale.</p>
+      <p>Get Ahead - Generate analytics and insights on US publicly listed companies in seconds and at scale.</p>
     </div>
 
     <!-- How-To Steps -->
     <div class="steps">
-      <div class="step-card">1. Sign Up to MaSh</div>
+      <div class="step-card">1. Sign-Up to MaSh</div>
       <div class="step-card">2. Choose a research activity</div>
       <div class="step-card">3. Ask a question in natural language</div>
       <div class="step-card">4. Review and download results</div>
@@ -438,93 +489,138 @@
 
     <!-- Login Box -->
     <div class="login-halo">
-      <div class="login-container">
-        <!-- Login Form -->
-        <div id="login-form">
-          <h2>Login to Research Blitz</h2>
-          {% if error %}
-            <div class="error" style="color: #ff6666; text-align: center; margin-bottom: 12px;">{{ error }}</div>
-          {% endif %}
-          <form action="{{ url_for('login') }}" method="POST">
-            <input type="hidden" name="form_type" value="login" />
-            <input type="text" name="username" placeholder="Username" required />
-            <input type="password" name="password" placeholder="Password" required />
-            <button type="submit">Login</button>
-          </form>
-          <div class="toggle-link" onclick="toggleForms()">Don't have an account? Sign Up</div>
-        </div>
+    <div class="login-container">
+      <!-- Login Form -->
+      <div id="login-form">
+        <h2>Login to Research Blitz</h2>
+        {% if error %}
+          <div class="error">{{ error }}</div>
+        {% endif %}
+        <form action="{{ url_for('login') }}" method="POST">
+          <input type="hidden" name="form_type" value="login" />
+          <input type="text" name="username" placeholder="Username" required />
+          <input type="password" name="password" placeholder="Password" required />
+          <!-- NEW FIELDS -->
+        
+          <button type="submit">Login</button>
+        </form>
+        <div class="toggle-link" onclick="toggleForms()">Don't have an account? Sign Up</div>
+      </div>
 
-        <!-- Signup Form -->
-        <div id="signup-form" style="display: none;">
-          <h2>Sign Up for Research Blitz</h2>
-          <form action="{{ url_for('signup') }}" method="POST" onsubmit="return storeUserDetails();">
-            <div class="user-info-form">
-              <input type="text" id="first-name" name="first_name" placeholder="Enter your first name" required />
-              <input type="text" id="company-name" name="company_name" placeholder="Enter your company name" required />
-            </div>
-            <input type="text" name="username" placeholder="Choose a Username" required />
-            <input type="password" name="password" placeholder="Choose a Password" required />
-            <button type="submit">Sign Up</button>
-          </form>
-          <div class="toggle-link" onclick="toggleForms()">Already have an account? Log In</div>
+
+      <!-- Signup Form -->
+      <div id="signup-form" style="display: none;">
+        <h2>Sign Up for Research Blitz</h2>
+        <form action="{{ url_for('signup') }}" method="POST" onsubmit="return storeUserDetails();">
+          <div class="user-info-form">
+          <input type="text" id="first-name" name="first_name" placeholder="Enter your first name" required />
+          <input type="text" id="company-name" name="company_name" placeholder="Enter your company name" required />
+
         </div>
+          <input type="text" name="username" placeholder="Choose a Username" required />
+          <input type="password" name="password" placeholder="Choose a Password" required />
+          <button type="submit">Sign Up</button>
+        </form>
+        <div class="toggle-link" onclick="toggleForms()">Already have an account? Log In</div>
       </div>
     </div>
-
-    <!-- Carousel (optional) -->
-    <div class="carousel-container">
-      <div class="carousel">
-        <div class="carousel-card">
-          <img src="{{ url_for('static', filename='images/report_chart.png') }}" alt="Report Example" class="carousel-img" />
-          <p>Getting started with an investment opportunity evaluation…</p>
-        </div>
-        <div class="carousel-card">
-          <img src="{{ url_for('static', filename='images/esg_preview.png') }}" alt="ESG Insight" class="carousel-img" />
-          <p>Don't spend hours reading sustainability reports.…</p>
-        </div>
-        <div class="carousel-card">
-          <img src="{{ url_for('static', filename='images/download_excel.png') }}" alt="Download Excel" class="carousel-img" />
-          <p>The output is easy to use in the form of downloadable Excel reports…</p>
-        </div>
-        <div class="carousel-card">
-          <img src="{{ url_for('static', filename='images/red_flag.png') }}" alt="Red Flag Analysis" class="carousel-img" />
-          <p>MaSh's in-house trained model lets you examine any document…</p>
-        </div>
-      </div>
     </div>
 
-    <!-- Case Studies Carousel (optional) -->
-    <div class="case-carousel-wrapper">
-      <div class="case-carousel">
-        <div class="case-card">
-          <img src="{{ url_for('static', filename='images/case1.png') }}" alt="Case 1" />
-          <h3>Global MegaFund transforms screening process</h3>
-          <p class="stat">137%</p>
-          <p class="label">INCREASE IN OPPORTUNITIES</p>
-        </div>
-        <div class="case-card">
-          <img src="{{ url_for('static', filename='images/case2.png') }}" alt="Case 2" />
-          <h3>Hedge Fund augments decision making</h3>
-          <p class="stat">3x</p>
-          <p class="label">DATA LEVERAGED</p>
-        </div>
-        <div class="case-card">
-          <img src="{{ url_for('static', filename='images/case3.png') }}" alt="Case 3" />
-          <h3>Litigation team surfaces key evidence</h3>
-          <p class="stat">3x</p>
-          <p class="label">KEY POINTS IDENTIFIED</p>
-        </div>
-        <!-- Add more case cards as needed… -->
-      </div>
+<div class="carousel-container">
+  <div class="carousel">
+    <div class="carousel-card">
+      <lottie-player src="https://lottie.host/66f58ec0-ff9b-4d33-91b0-62e64db1f9a7/AEVv97LoZq.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <img src="{{ url_for('static', filename='images/report_chart.png') }}" alt="Report Example" class="carousel-img">
+      <p>Getting started with an investment opportunity evaluation. MaSh's got you covered. Get a head start on US publicly listed companies byt generating company reports, earnings call summaries, understanding management evasiveness during earnings call, extracting key data points from earnings calls, reviewing company guidance, understanding debt covenants and much more.</p>
     </div>
+    <div class="carousel-card">
+      <lottie-player src="https://lottie.host/738d3ab1-e9c8-499e-a325-49ad94ac1b37/fGpBzLUwwK.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <img src="{{ url_for('static', filename='images/esg_preview.png') }}" alt="ESG Insight" class="carousel-img">
+      <p>Don't spend hours reading sustainability reports. MaSh's ESG insights tool does that for you and presents the 10 most interesting insights across E, S and G. CHeck out some key management comments made around climate change, social impact, and governance.</p>
+    </div>
+    <div class="carousel-card">
+      <lottie-player src="https://lottie.host/5997b9a9-0a13-4aa3-8610-6c2c40bc1a1a/NeiEVO0HPW.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <img src="{{ url_for('static', filename='images/download_excel.png') }}" alt="Download Excel" class="carousel-img">
+      <p>The output is easy to use in the form of downloadable excel reports or html outputs that can review on your own time and use for internal team discussions.</p>
+    </div>
+    <div class="carousel-card">
+      <lottie-player src="https://lottie.host/5997b9a9-0a13-4aa3-8610-6c2c40bc1a1a/NeiEVO0HPW.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <img src="{{ url_for('static', filename='images/red_flag.png') }}" alt="Red Flag Analysis" class="carousel-img">
+      <p>MaSh's in-house trained model lets you examine any document related to publicly listed companies for any red flag analysis.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Case Studies Carousel (AFTER login-halo) -->
+<div class="case-carousel-wrapper">
+  <div class="case-carousel">
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case1.png') }}" alt="Case 1" />
+      <h3>Global MegaFund transforms screening process</h3>
+      <p class="stat">137%</p>
+      <p class="label">INCREASE IN OPPORTUNITIES</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case2.png') }}" alt="Case 2" />
+      <h3>Hedge Fund augments decision making</h3>
+      <p class="stat">3x</p>
+      <p class="label">DATA LEVERAGED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case3.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case4.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case5.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case6.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case7.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+    <div class="case-card">
+      <img src="{{ url_for('static', filename='images/case8.png') }}" alt="Case 3" />
+      <h3>Litigation team surfaces key evidence</h3>
+      <p class="stat">3x</p>
+      <p class="label">KEY POINTS IDENTIFIED</p>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
   </main>
+
+
+
+
 
   <!-- Footer -->
   <div class="footer">
     <p>
-      <strong>About Us:</strong> MaSh Analytics builds AI-driven tools for financial research, analysis, and automation.<br />
-      <strong>Contact:</strong> 
-      <a href="mailto:info@mash-analytics.net">info@mash-analytics.net</a> |
+      <strong>About Us:</strong> MaSh Analytics builds AI-driven tools for financial research, analysis, and automation.<br>
+      <strong>Contact:</strong> <a href="mailto:info@mash-analytics.net">info@mash-analytics.net</a> |
       <a href="https://linkedin.com/company/mash-analytics" target="_blank">LinkedIn</a>
     </p>
     <p>© 2025 MaSh Analytics. All rights reserved.</p>
@@ -534,56 +630,83 @@
     function toggleForms() {
       var loginForm = document.getElementById("login-form");
       var signupForm = document.getElementById("signup-form");
-      if (loginForm.style.display === "none") {
-        loginForm.style.display = "block";
-        signupForm.style.display = "none";
-      } else {
-        loginForm.style.display = "none";
-        signupForm.style.display = "block";
-      }
-    }
-
-    function storeUserDetails() {
-      const first = document.getElementById("first-name").value.trim();
-      const company = document.getElementById("company-name").value.trim();
-      if (!first || !company) {
-        alert("Please enter your first name and company name.");
-        return false;
-      }
-      sessionStorage.setItem("userFirstName", first);
-      sessionStorage.setItem("userCompany", company);
-      return true;
+      loginForm.style.display = (loginForm.style.display === "none") ? "block" : "none";
+      signupForm.style.display = (signupForm.style.display === "none") ? "block" : "none";
     }
   </script>
 
-  <!-- Include jQuery & Slick Carousel (if needed for the carousel) -->
-  <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"></script>
   <script>
-    $(document).ready(function(){
-      $('.carousel').slick({
-        autoplay: true,
-        autoplaySpeed: 8000,
-        arrows: false,
-        dots: true,
-        infinite: true,
-        speed: 600,
-        fade: false,
-        cssEase: 'ease-in-out'
-      });
-      $('.case-carousel').slick({
-        slidesToShow: 3,
-        slidesToScroll: 1,
-        arrows: true,
-        dots: false,
-        autoplay: false,
-        infinite: true,
-        responsive: [
-          { breakpoint: 1024, settings: { slidesToShow: 2 } },
-          { breakpoint: 600,  settings: { slidesToShow: 1 } }
-        ]
-      });
+tsParticles.load("particles-js", {
+  fullScreen: false,
+  background: { color: "transparent" },
+  particles: {
+    number: { value: 30 },
+    color: { value: "#60a5fa" },
+    shape: { type: "circle" },
+    opacity: { value: 0.6 },
+    size: { value: 3 },
+    move: { enable: true, speed: 1.5 }
+  },
+  interactivity: {
+    events: { onhover: { enable: false }, onclick: { enable: false } }
+  }
+});
+</script>
+
+<script>
+  $(document).ready(function(){
+    $('.carousel').slick({
+      autoplay: true,
+      autoplaySpeed: 8000,
+      arrows: false,
+      dots: true,
+      infinite: true,
+      speed: 600,
+      fade: false,
+      cssEase: 'ease-in-out'
     });
-  </script>
+  });
+
+$('.case-carousel').slick({
+  slidesToShow: 3,
+  slidesToScroll: 1,
+  arrows: true,
+  dots: false,
+  autoplay: false,
+  infinite: true,
+  responsive: [
+    {
+      breakpoint: 1024,
+      settings: { slidesToShow: 2 }
+    },
+    {
+      breakpoint: 600,
+      settings: { slidesToShow: 1 }
+    }
+  ]
+});
+
+
+
+</script>
+
+<script>
+  function storeUserDetails() {
+    const first = document.getElementById("first-name").value.trim();
+    const company = document.getElementById("company-name").value.trim();
+
+    if (!first || !company) {
+      alert("Please enter your first name and company name.");
+      return false;
+    }
+
+    sessionStorage.setItem("userFirstName", first);
+    sessionStorage.setItem("userCompany", company);
+    return true;
+  }
+</script>
+
 </body>
 </html>
+
+

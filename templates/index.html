@@ -5,627 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MaSh AI</title>
   <link rel="icon" href="{{ url_for('static', filename='images/AI.png') }}" type="image/png" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <link rel="stylesheet" href="static/css/styles.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-  <style>
-    /* ==============================
-       Global & Body Styles
-       ============================== */
-    body {
-      margin: 0;
-      font-family: 'Inter', sans-serif;
-      background-color: #111111;     /* Solid black background */
-      color: #ffffff;                /* White text */
-      overflow-x: hidden;
-    }
-
-    /* ==============================
-       Header
-       ============================== */
-    header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background-color: #1e1e1e;     /* Dark grey */
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 20px;
-    }
-
-    header .logo img {
-      height: 50px;
-      width: auto;
-    }
-
-    header .logout a {
-      color: #ffffff;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 6px 12px;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    header .logout a:hover {
-      background-color: #333333;
-      color: #dddddd;
-    }
-
-    /* Ensure content sits below the fixed header */
-    main {
-      margin-top: 70px; /* Approximate header height plus spacing */
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    /* ==============================
-       Landing Panel
-       ============================== */
-    .landing-panel {
-      text-align: center;
-      padding: 60px 20px;
-      background-color: #1f1f1f;   /* Very dark grey */
-      border-radius: 12px;
-      max-width: 600px;
-      width: 90%;
-      margin: 40px auto;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-      color: #ffffff;
-    }
-
-    .welcome-bar {
-      font-size: 18px;
-      margin-bottom: 24px;
-      color: #ffffff;
-    }
-
-    .welcome-bar span {
-      color: #cccccc; /* Light grey for emphasis */
-    }
-
-    .button-options {
-      margin: 30px 0;
-      display: flex;
-      gap: 20px;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .button-options button {
-      padding: 12px 24px;
-      font-size: 16px;
-      background-color: #2b2b2b;   /* Dark grey button */
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    .button-options button:hover {
-      background-color: #3a3a3a;
-    }
-
-    .info-section {
-      margin-top: 20px;
-      max-width: 500px;
-      color: #dddddd;
-    }
-
-    .info-section h3 {
-      font-size: 20px;
-      margin-bottom: 12px;
-      color: #ffffff;
-    }
-
-    .info-section p {
-      font-size: 16px;
-      line-height: 1.5;
-    }
-
-    /* ==============================
-       Chat UI Container
-       ============================== */
-    .chat-container {
-      display: flex;
-      width: 100%;
-      max-width: 1200px;
-      height: calc(100vh - 120px); /* Adjust for header + landing spacing */
-      background-color: #1f1f1f;   /* Very dark grey */
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
-      overflow: hidden;
-      margin: 20px auto;
-    }
-
-    /* ------------------------------
-       Chat History (Left Panel)
-       ------------------------------ */
-    .chat-history {
-      width: 300px;
-      background-color: #2b2b2b;    /* Dark grey */
-      padding: 20px;
-      border-right: 2px solid #3a3a3a;
-      color: #ffffff;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      overflow-y: auto;
-    }
-
-    .chat-history-top {
-      flex: 1;
-    }
-
-    #new-query-btn {
-      width: 100%;
-      padding: 8px;
-      font-size: 14px;
-      background-color: #444444;   /* Mid grey */
-      border: none;
-      border-radius: 4px;
-      color: #ffffff;
-      cursor: pointer;
-      margin-bottom: 16px;
-      transition: background-color 0.2s ease;
-    }
-
-    #new-query-btn:hover {
-      background-color: #555555;
-    }
-
-    #prev-chat-title {
-      margin-bottom: 12px;
-      color: #ffffff;
-      font-size: 16px;
-    }
-
-    #chat-history-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    #chat-history-list li {
-      padding: 8px 12px;
-      margin-bottom: 8px;
-      background-color: #3a3a3a;
-      border-radius: 6px;
-      cursor: pointer;
-      color: #ffffff;
-      transition: background-color 0.2s ease;
-      font-size: 14px;
-    }
-
-    #chat-history-list li:hover {
-      background-color: #555555;
-    }
-
-    .chat-history-bottom {
-      margin-top: 20px;
-      border-top: 1px solid #3a3a3a;
-      padding-top: 16px;
-      color: #cccccc;
-      font-size: 14px;
-    }
-
-    .chat-history-bottom h4 {
-      margin-bottom: 8px;
-      color: #ffffff;
-      font-size: 16px;
-    }
-
-    .chat-history-bottom ol {
-      margin: 0;
-      padding-left: 20px;
-    }
-
-    .chat-history-bottom li {
-      margin-bottom: 6px;
-      position: relative;
-    }
-
-    .chat-history-bottom li::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      transform: translateY(-8px);
-      background: #ffffff;
-      color: #000000;
-      padding: 6px 10px;
-      border-radius: 4px;
-      white-space: pre-wrap;
-      font-size: 12px;
-      line-height: 1.4;
-      max-width: 200px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s ease-in-out;
-      z-index: 999;
-    }
-
-    .chat-history-bottom li:hover::after {
-      opacity: 1;
-    }
-
-    /* ------------------------------
-       Chat Main (Right Panel)
-       ------------------------------ */
-    .chat-main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background-color: #1f1f1f;  /* Very dark grey */
-      padding: 20px;
-      overflow: hidden;
-    }
-
-    #chat-box {
-      flex: 1;
-      overflow-y: auto;
-      padding: 15px;
-      background-color: #2b2b2b;   /* Dark grey */
-      border-radius: 8px;
-      margin-bottom: 15px;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .user-message {
-      align-self: flex-end;
-      background-color: #444444;  /* Mid grey */
-      color: #ffffff;
-      padding: 10px 15px;
-      border-radius: 15px;
-      margin-bottom: 10px;
-      max-width: 80%;
-      font-size: 14px;
-    }
-
-    .bot-message {
-      align-self: flex-start;
-      background-color: #3a3a3a;  /* Darker grey */
-      color: #ffffff;
-      padding: 10px 15px;
-      border-radius: 15px;
-      margin-bottom: 10px;
-      max-width: 80%;
-      font-size: 14px;
-    }
-
-    .bot-message table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      background-color: #2b2b2b;
-      color: #ffffff;
-      font-size: 14px;
-    }
-
-    .bot-message th,
-    .bot-message td {
-      border: 1px solid #3a3a3a;
-      padding: 8px 12px;
-      text-align: left;
-    }
-
-    .bot-message th {
-      background-color: #3a3a3a;
-      font-weight: 600;
-    }
-
-    .bot-message tr:nth-child(even) {
-      background-color: #232323;
-    }
-
-    .text-input {
-      display: flex;
-      align-items: center;
-      background-color: #2b2b2b;   /* Dark grey */
-      padding: 12px;
-      border-top: 1px solid #3a3a3a;
-      border-radius: 0 0 8px 8px;
-    }
-
-    #attach-btn {
-      background-color: #444444;   /* Mid grey */
-      color: #ffffff;
-      border: none;
-      border-radius: 4px;
-      font-size: 20px;
-      width: 36px;
-      height: 36px;
-      cursor: pointer;
-      margin-right: 12px;
-      transition: background-color 0.2s ease;
-    }
-
-    #attach-btn:hover {
-      background-color: #555555;
-    }
-
-    #file-info {
-      margin-right: 12px;
-      font-size: 14px;
-      color: #cccccc;
-    }
-
-    #summary-type {
-      margin-right: 12px;
-      padding: 6px;
-      background-color: #2b2b2b;
-      color: #ffffff;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    #chat-input {
-      flex: 1;
-      height: 50px;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background-color: #1f1f1f;
-      color: #ffffff;
-      font-size: 14px;
-      resize: none;
-    }
-
-    #chat-input::placeholder {
-      color: #888888;
-    }
-
-    #send-btn {
-      margin-left: 12px;
-      padding: 10px 20px;
-      background-color: #444444;
-      color: #ffffff;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    #send-btn:hover {
-      background-color: #555555;
-    }
-
-    /* ==============================
-       Custom Agents UI
-       ============================== */
-    #custom-agents-ui {
-      margin-top: 80px; /* So header doesn’t overlap */
-    }
-
-    #custom-agents-ui header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background-color: #1e1e1e;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 20px;
-    }
-
-    #custom-agents-ui header .logo img {
-      height: 50px;
-    }
-
-    #custom-agents-ui header .logout a {
-      color: #ffffff;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      padding: 6px 12px;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }
-
-    #custom-agents-ui header .logout a:hover {
-      background-color: #333333;
-      color: #dddddd;
-    }
-
-    #custom-agents-ui main {
-      margin-top: 70px; /* Below fixed header */
-      padding: 20px;
-      background-color: #111111;
-      min-height: calc(100vh - 70px);
-    }
-
-    #custom-agents-ui .landing-panel {
-      text-align: center;
-      padding: 60px 20px;
-      background-color: #1f1f1f;
-      border-radius: 12px;
-      max-width: 600px;
-      margin: 40px auto;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
-      color: #ffffff;
-    }
-
-    #custom-agents-ui .landing-panel h1 {
-      font-size: 28px;
-      margin-bottom: 12px;
-      color: #ffffff;
-    }
-
-    #custom-agents-ui .landing-panel p {
-      font-size: 16px;
-      color: #cccccc;
-    }
-
-    #custom-agents-ui .agent-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 30px;
-      padding: 40px 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .agent-card {
-      background-color: #2b2b2b;
-      border: 1px solid #3a3a3a;
-      border-radius: 12px;
-      padding: 20px;
-      color: #ffffff;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: background-color 0.2s ease, transform 0.2s ease;
-      font-size: 14px;
-      height: 260px;
-    }
-
-    .agent-card:hover {
-      background-color: #3a3a3a;
-      transform: translateY(-5px);
-    }
-
-    .agent-card h3 {
-      margin-top: 0;
-      color: #ffffff;
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    .agent-card p {
-      color: #cccccc;
-      font-size: 14px;
-      margin: 8px 0;
-    }
-
-    .agent-card button {
-      background-color: #444444;
-      color: #ffffff;
-      border: none;
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    .agent-card button:hover {
-      background-color: #555555;
-    }
-
-    /* ==============================
-       Scrollbars (WebKit & Firefox)
-       ============================== */
-    /* WebKit */
-    #chat-box::-webkit-scrollbar,
-    .chat-history::-webkit-scrollbar {
-      width: 8px;
-      background: #2b2b2b;
-    }
-
-    #chat-box::-webkit-scrollbar-thumb,
-    .chat-history::-webkit-scrollbar-thumb {
-      background-color: #444444;
-      border-radius: 4px;
-    }
-
-    /* Firefox */
-    #chat-box,
-    .chat-history {
-      scrollbar-width: thin;
-      scrollbar-color: #444444 #2b2b2b;
-    }
-
-    /* ==============================
-       Responsive
-       ============================== */
-    @media (max-width: 1024px) {
-      .chat-container {
-        flex-direction: column;
-        height: auto;
-        margin: 20px;
-      }
-      .chat-history {
-        width: 100%;
-        border-right: none;
-        border-bottom: 2px solid #3a3a3a;
-        border-radius: 8px 8px 0 0;
-        padding-bottom: 12px;
-        height: auto;
-        max-height: 200px;
-      }
-      .chat-main {
-        width: 100%;
-        padding: 15px;
-        height: auto;
-        border-radius: 0 0 8px 8px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      header .logo img {
-        height: 40px;
-      }
-      header .logout {
-        margin-top: 8px;
-      }
-      main {
-        margin-top: 100px;
-        padding: 15px;
-      }
-      .landing-panel {
-        margin: 20px auto;
-        padding: 40px 15px;
-      }
-      .button-options {
-        flex-direction: column;
-      }
-      .button-options button {
-        width: 100%;
-        margin-bottom: 12px;
-      }
-      .chat-container {
-        margin: 20px auto;
-      }
-      .chat-history {
-        max-height: 180px;
-      }
-      #chat-box {
-        max-height: 300px;
-      }
-      .agent-card {
-        height: auto;
-      }
-    }
-  </style>
 </head>
-
 <body>
-  <!-- Header -->
   <header>
     <div class="logo">
-      <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
+      <img src="static/images/Picture1.png" alt="Company Logo" />
     </div>
     <div class="logout">
       <a href="{{ url_for('logout') }}">Logout</a>
@@ -633,185 +19,150 @@
   </header>
 
   <main>
-    <!-- Landing Panel -->
-    <div id="landing-panel" class="landing-panel">
-      <div id="user-welcome" class="welcome-bar">
-        Welcome, <span id="user-name-span"></span> from <span id="user-company-span"></span>!
-      </div>
 
-      <div class="button-options">
-        <button onclick="activateChat()">Activate Chat</button>
-        <button onclick="useCustomAgents()">Use Custom Agents</button>
-      </div>
+<!-- 👇 PLACE THE LANDING PANEL HERE -->
+  <div id="landing-panel" class="landing-panel">
+    <div id="user-welcome" class="welcome-bar">
+  Welcome, <span id="user-name-span"></span> from <span id="user-company-span"></span>!
+</div>
 
-      <div class="info-section">
-        <h3>About MaSh</h3>
-        <p>MaSh is your intelligent financial research assistant. Choose an option to explore its capabilities.</p>
-      </div>
+
+    <div class="button-options">
+      <button onclick="activateChat()">Activate Chat</button>
+      <button onclick="useCustomAgents()">Use Custom Agents</button>
     </div>
 
-    <!-- Chat UI -->
-    <div id="chat-ui" style="display: none; width: 100%;">
+    <div class="info-section">
+      <h3>About MaSh</h3>
+      <p>MaSh is your intelligent financial research assistant. Choose an option to explore its capabilities.</p>
+      <!-- You can add more info here: support links, how-to guides, etc. -->
+    </div>
+  </div>
+
+    <div id="chat-ui" style="display: none;">
       <div class="chat-container">
-        <!-- Chat History (Left) -->
-        <div class="chat-history">
-          <div class="chat-history-top">
-            <button id="new-query-btn">New Query</button>
-            <h3 id="prev-chat-title">Prev Chat:</h3>
-            <ul id="chat-history-list"></ul>
-          </div>
-          <div class="chat-history-bottom">
-            <h4>MaSh – Your Virtual Investment Analyst</h4>
-            <ol class="static-info">
-              <li data-tooltip="Type ‘Latest news on &lt;topic&gt;’ and hit Send.">
-                Search for News on any Topic
-              </li>
-              <li data-tooltip="Type ‘Stock report on Tesla’ or ‘Generate company report on Albemarle’ and hit Send.">
-                Generate Stock Reports
-              </li>
-              <li data-tooltip="Type ‘Summarize earnings call for AAPL Q1 2025’ and hit Send.">
-                Get Earnings Calls Summarized
-              </li>
-              <li data-tooltip="Upload a sustainability‐report PDF, choose ESG, then click Send.">
-                Get Insights from Sustainability Reports
-              </li>
-              <li data-tooltip="Just ask the agent how evasive a company was for a particular quarter. Ideal to use full company name and period as 'Qx 20xx'">
-                Management Evasiveness Scores
-              </li>
-              <li data-tooltip="Get key figures from earnings calls. Just ask the agent to extract data or figures from a company's earnings call transcript for a particular quarter.">
-                Earnings Call Data Extraction
-              </li>
-              <li data-tooltip="Extract debt covenants from 10-Ks. Ask the agent to share debt covenants for a particular company.">
-                Debt Covenant Analysis
-              </li>
-              <li data-tooltip="Analyze documents, texts and management comments for red flags. Use queries such as 'Highlight red flag statements in this passage: [paste text]' or 'Which of these are red flag statements' or 'Red flag analysis: [paste]'">
-                Red Flag Analysis
-              </li>
-              <li data-tooltip="Find out if full year guidances have undergone a change.">
-                Company Guidance Review
-              </li>
-              <li data-tooltip="Evaluate how direct management responses have been.">
-                Management Evasiveness
-              </li>
-              <li data-tooltip="(Add more instructions here…)">5) …</li>
-              <li data-tooltip="(Add more instructions here…)">6) …</li>
-            </ol>
-          </div>
-        </div>
+          <div class="chat-history">
+            <!-- top section: existing chat history -->
+            <div class="chat-history-top">
+              <button id="new-query-btn">New Query</button>
+              <h3 id="prev-chat-title">Prev Chat:</h3>
+              <ul id="chat-history-list"></ul>
+            </div>
 
-        <!-- Chat Main (Right) -->
+                      <!-- bottom section: static info -->
+            <div class="chat-history-bottom">
+              <h4>MaSh – Your Virtual Investment Analyst</h4>
+              <ol class="static-info">
+                <li data-tooltip="Type ‘Latest news on <topic>’ and hit Send.">
+                  Search for News on any Topic
+                </li>
+                <li data-tooltip="Type ‘Stock report on Tesla’ or ‘Generate company report on Albemarle’ and hit Send.">
+                  Generate Stock Reports
+                </li>
+                <li data-tooltip="Type ‘Summarize earnings call for AAPL Q1 2025’ and hit Send.">
+                  Get Earnings Calls Summarized
+                </li>
+                <li data-tooltip="Upload a sustainability‐report PDF, choose ESG, then click Send.">
+                  Get Insights from Sustainability Reports
+                </li>
+                <li data-tooltip="Just ask the agent how evasive a company was for a particular quarter. Ideal to use full company name and period as 'Qx 20xx'">
+                  Management Evasiveness Scores
+                </li>
+                <li data-tooltip="Get key figures from earnings calls. Just ask the agent to extract data or figures from a company's earnings call transcript for a particular quarter.">
+                  Earnings Call Data Extraction
+                </li>
+                <li data-tooltip="Extract debt covenants from 10-Ks. Ask the agent to share debt covenants for a particular company.">
+                  Debt Covenant Analysis
+                </li>
+                <li data-tooltip="Analyze doccuments, texts and management comments for red flags. Use queries such as 'Highlight red flag statements in this passage: [paste text]' or 'Which of these are red flag statements' or Scan the below for red flags. or 'Red flag analysis: [paste]'">
+                  Red Flag Analysis
+                </li>
+                <li data-tooltip="Find out if full year guidances have undergone a change.">
+                  Company Guidance Review
+                </li>
+                <li data-tooltip="Evaluate how direct management responses have been.">
+                  Management evasiveness
+                </li>
+                <li data-tooltip="(Add more instructions here…)">5) …</li>
+                <li data-tooltip="(Add more instructions here…)">6) …</li>
+              </ol>
+            </div>
+
+          </div>
+
         <div class="chat-main">
-          <div id="chat-box"></div>
+    <div id="chat-box"></div>
 
-          <div class="text-input">
-            <button id="attach-btn" title="Attach a PDF file">+</button>
-            <input type="file" id="file-input" accept="application/pdf, text/html" multiple style="display: none;" />
-            <span id="file-info"></span>
-            <select id="summary-type" style="display: none;">
-              <option value="short">Short Summary</option>
-              <option value="long">Long Summary</option>
-              <option value="esg">ESG Sustainability Report</option>
-              <option value="esg_compare">ESG Comparison</option>
-              <option value="redflag">Red Flag Analysis</option>
-            </select>
-            <textarea id="chat-input" placeholder="Enter text here..."></textarea>
-            <button id="send-btn">Send</button>
-          </div>
-        </div>
-      </div>
+    <!-- ✅ Now inside chat-main -->
+    <div class="text-input">
+      <button id="attach-btn" title="Attach a PDF file">+</button>
+      <input type="file" id="file-input" accept="application/pdf, text/html" multiple style="display: none;" />
+      <span id="file-info"></span>
+      <select id="summary-type" style="display: none;">
+        <option value="short">Short Summary</option>
+        <option value="long">Long Summary</option>
+        <option value="esg">ESG Sustainability Report</option>
+        <option value="esg_compare">ESG Comparison</option>
+        <option value="redflag">Red Flag Analysis</option>
+      </select>
+      <textarea id="chat-input" placeholder="Enter text here..."></textarea>
+      <button id="send-btn">Send</button>
     </div>
+  </div>
+  </div> <!-- end of chat-container -->
+</div>
 
-    <!-- Custom Agents UI (Hidden Until Activated) -->
-    <div id="custom-agents-ui" style="display: none; width: 100%;">
-      <!-- Reuse Header for Custom Agents -->
-      <header>
-        <div class="logo">
-          <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
-        </div>
-        <div class="logout">
-          <a href="{{ url_for('logout') }}">Logout</a>
-        </div>
-      </header>
 
-      <main>
-        <section class="landing-panel">
-          <h1>Explore Our Research Agents</h1>
-          <p>Discover AI-powered tools tailored for financial research, strategy, and analysis.</p>
-        </section>
-        <section class="agent-grid" id="agent-grid">
-          <!-- Cards will be injected here -->
-        </section>
-      </main>
+<!-- Custom Agents Section (Rendered After Login) -->
+<div id="custom-agents-ui" style="display: none;">
+  <header>
+    <div class="logo">
+      <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
     </div>
+    
+    <div class="logout">
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="landing-panel">
+        <h1>Explore Our Research Agents</h1>
+        <p>Discover AI-powered tools tailored for financial research, strategy, and analysis.</p>
+    </section>
+    <section class="agent-grid" id="agent-grid">
+      <!-- Cards will be injected here -->
+    </section>
   </main>
+</div>
 
-  <script>
-    // Manage showing/hiding panels and session storage
-    var currentUser = "{{ session['username'] }}";
-    var userFirstName = "{{ first_name }}";
-    var userCompany = "{{ company_name }}";
-    sessionStorage.setItem("userFirstName", userFirstName);
-    sessionStorage.setItem("userCompany", userCompany);
 
-    document.addEventListener("DOMContentLoaded", function() {
-      const nameEl = document.getElementById("user-name-span");
-      const companyEl = document.getElementById("user-company-span");
-      const name = sessionStorage.getItem("userFirstName");
-      const company = sessionStorage.getItem("userCompany");
-      if (nameEl && name) nameEl.textContent = name;
-      if (companyEl && company) companyEl.textContent = company;
-    });
 
-    function activateChat() {
-      document.getElementById("landing-panel").style.display = "none";
-      document.getElementById("chat-ui").style.display = "block";
-      document.getElementById("custom-agents-ui").style.display = "none";
-      window.history.pushState({ page: "chat-ui" }, "", "#chat");
-    }
+<script>
+  // currentUser is now available in your JavaScript
+  var currentUser = "{{ session['username'] }}";
+  var userFirstName = "{{ first_name }}";
+  var userCompany = "{{ company_name }}";
 
-    function useCustomAgents() {
-      document.getElementById("landing-panel").style.display = "none";
-      document.getElementById("chat-ui").style.display = "none";
-      document.getElementById("custom-agents-ui").style.display = "block";
-      window.history.pushState({ page: "custom-agents" }, "", "#agents");
-      loadCustomAgents();
-    }
+  // Store in sessionStorage so other scripts can use it too
+  sessionStorage.setItem("userFirstName", userFirstName);
+  sessionStorage.setItem("userCompany", userCompany);
+</script>
+<script>
+  const nameEl = document.getElementById("user-name-span");
+  const companyEl = document.getElementById("user-company-span");
+  const name = sessionStorage.getItem("userFirstName");
+  const company = sessionStorage.getItem("userCompany");
 
-    window.addEventListener("popstate", function(event) {
-      if (event.state?.page === "chat-ui") {
-        document.getElementById("landing-panel").style.display = "none";
-        document.getElementById("chat-ui").style.display = "block";
-        document.getElementById("custom-agents-ui").style.display = "none";
-      } else if (event.state?.page === "custom-agents") {
-        document.getElementById("landing-panel").style.display = "none";
-        document.getElementById("chat-ui").style.display = "none";
-        document.getElementById("custom-agents-ui").style.display = "block";
-      } else {
-        document.getElementById("landing-panel").style.display = "block";
-        document.getElementById("chat-ui").style.display = "none";
-        document.getElementById("custom-agents-ui").style.display = "none";
-      }
-    });
+  if (nameEl && name) nameEl.textContent = name;
+  if (companyEl && company) companyEl.textContent = company;
+</script>
 
-    // Attach/Detach file input and summary dropdown
-    document.getElementById("attach-btn").addEventListener("click", function() {
-      document.getElementById("file-input").click();
-    });
 
-    document.getElementById("file-input").addEventListener("change", function() {
-      const fileInput = document.getElementById("file-input");
-      const fileInfo = document.getElementById("file-info");
-      if (fileInput.files.length > 0) {
-        let fileNames = Array.from(fileInput.files).map(f => f.name).join(", ");
-        fileInfo.innerText = `Attached: ${fileNames}`;
-        document.getElementById("summary-type").style.display = "inline-block";
-      } else {
-        fileInfo.innerText = "";
-        document.getElementById("summary-type").style.display = "none";
-      }
-    });
-  </script>
 
-  <script src="{{ url_for('static', filename='js/scripts.js') }}?v=20240531"></script>
+<script src="{{ url_for('static', filename='js/scripts.js') }}?v=20240531"></script>
+
+
+
 </body>
 </html>
