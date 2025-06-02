@@ -652,13 +652,13 @@ body {
 }
 
 .modal-content {
-  background-color: #1f2937;
+  background-color: #1e1e1e;
   margin: 10% auto;
   padding: 24px;
-  border: 1px solid #3b82f6;
+  border: 1px solid #2b2b2b;
   width: 90%;
   max-width: 800px; /* ⬅ changed from 600px */
-  color: #e5e5e5;
+  color: #ffffff;
   border-radius: 12px;
   font-family: 'Inter', 'Roboto', sans-serif;
   font-size: 15px;
@@ -672,8 +672,8 @@ body {
   font-size: 15px;
   border-radius: 6px;
   border: 1px solid #4b5563;
-  background-color: #111827;
-  color: #f3f4f6;
+  background-color: #1e1e1e;
+  color: #ffffff;
   resize: vertical;
   box-sizing: border-box;
   margin-top: 6px;
@@ -688,7 +688,7 @@ body {
 }
 
 .modal-content pre {
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: #2b2b2b;
   padding: 12px;
   border-radius: 6px;
   font-family: monospace;
@@ -709,7 +709,7 @@ body {
 }
 
 .modal-content button {
-  background-color: #3b82f6;
+  background-color: #6b6b6b;
   color: white;
   padding: 10px 16px;
   border: none;
