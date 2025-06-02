@@ -523,12 +523,26 @@ def analyze_transaction_doc(
     if "swot" in lower_q:
         print(f"[DEBUG] analyze_transaction_doc: detected 'SWOT' in query; running SWOT path")
         swot_json_str = summarize_swot(selected_text)
+
+        # Strip out triple-backtick fences if present
+        cleaned = swot_json_str.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
+
         try:
-            swot_json = json.loads(swot_json_str)
+            swot_json = json.loads(cleaned)
         except json.JSONDecodeError:
+            # If JSON fails, fall back to raw text
             swot_json = {"raw_swot_text": swot_json_str}
+
+        # Return under a uniform "answer" key
         return {
-            "swot_analysis": swot_json,
+            "answer": swot_json,
             "pages_scanned": pages_scanned,
             "relevant_pages": pages_used,
             "chunks_used": None
@@ -554,8 +568,9 @@ Query: {user_query}
         print(f"[DEBUG] analyze_transaction_doc: entering single-shot RED FLAG path")
         single_shot_response = call_deepseek_chat(messages, temperature=0.0, max_tokens=1000)
         print(f"[DEBUG] analyze_transaction_doc: single_shot_response length {len(single_shot_response)}")
+
         return {
-            "red_flags": single_shot_response,
+            "answer": single_shot_response,
             "pages_scanned": pages_scanned,
             "relevant_pages": pages_used,
             "chunks_used": None
@@ -591,12 +606,9 @@ Query: {user_query}
     # —— NEW: strip out triple-backtick fences if present —— #
     cleaned = aggregate_json_str.strip()
     if cleaned.startswith("```"):
-        # Remove leading ``` (possibly with "json") and trailing ```
         lines = cleaned.splitlines()
-        # If first line is ```json or ```, drop it
         if lines[0].startswith("```"):
             lines = lines[1:]
-        # If last line is ```, drop it
         if lines and lines[-1].startswith("```"):
             lines = lines[:-1]
         cleaned = "\n".join(lines).strip()
@@ -608,7 +620,7 @@ Query: {user_query}
         aggregate_json = {"raw_aggregate_text": aggregate_json_str}
 
     result: Dict[str, Union[str, int, List[int], Dict]] = {
-        "aggregate_analysis": aggregate_json,
+        "answer": aggregate_json,
         "pages_scanned": pages_scanned,
         "relevant_pages": pages_used,
         "chunks_used": len(raw_chunks)
@@ -633,6 +645,7 @@ Query: {user_query}
                 custom = deep_dive_prompts[section_key]
 
             section_text = deep_dive_section(section, combined_summaries_text, custom_prompt=custom)
+            # Put each deep dive under its own key; the front end can read these if it wants
             result[f"deep_dive_{section_key}"] = section_text
 
     print(f"[DEBUG] analyze_transaction_doc: completed analysis, returning result")
