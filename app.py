@@ -694,50 +694,35 @@ def analyze_red_flags():
 
 @app.route('/optimize-factor-portfolio', methods=['POST'])
 def optimize_factor_portfolio():
+    
     try:
-        # Check file upload
         file = request.files.get('file')
         if not file or not file.filename.endswith('.csv'):
-            return jsonify({'error': 'Please upload a valid CSV file.'}), 400
+            return jsonify({"status": "error", "message": "Please upload a valid CSV file."}), 400
 
-        # Save uploaded file to temp location
         temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
         file.save(temp_path)
 
-        # Get additional form inputs
-        target_exposures_raw = request.form.get('target_exposures')
-        turnover_raw = request.form.get('turnover_limit')
+        raw = request.form.get('target_exposures')
+        to_raw = request.form.get('turnover_limit')
 
-        if not target_exposures_raw:
-            return jsonify({'error': 'Target exposures are required.'}), 400
+        if not raw:
+            return jsonify({"status": "error", "message": "Target exposures are required."}), 400
 
-        # Parse exposures safely
         try:
-            target_exposures = json.loads(target_exposures_raw)
+            target_exposures = json.loads(raw)
         except json.JSONDecodeError:
-            return jsonify({'error': 'Invalid format for target_exposures. Must be JSON.'}), 400
+            return jsonify({"status": "error", "message": "Invalid format for target_exposures. Must be JSON."}), 400
 
-        turnover_limit = float(turnover_raw) if turnover_raw else None
+        turnover_limit = float(to_raw) if to_raw else None
 
-        # Run optimization
         result = run_factor_optimizer_csv(temp_path, target_exposures, turnover_limit)
-        return jsonify({
-            "status": "success",
-            "optimized_weights": [ { "ticker": t, "weight": ... }, … ],
-            "target_exposures_raw": [ … ],
-            "target_exposures_standardized": [ … ],
-            "achieved_exposures_standardized": {
-                "MKT": …,
-                "SMB": …,
-                "HML": …,
-                "RMW": …,
-                "CMA": …
-            }
-        })
+        return jsonify(result)
 
     except Exception as e:
-        print(f"🔥 Error in /optimize-factor-portfolio: {str(e)}")
-        return jsonify({"status": "error", "message": "<explanation>"}), 400
+        print(f"🔥 Error in /optimize-factor-portfolio: {e}", file=sys.stderr)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 # Earnings Call Summary Route - This should ask for keywords if needed
