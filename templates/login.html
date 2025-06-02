@@ -10,7 +10,6 @@
     body {
       margin: 0;
       font-family: 'Roboto', sans-serif;
-      background: linear-gradient(to bottom right, #0f172a, #1e293b);
       color: #e5e5e5;
       overflow-x: hidden;
     }
@@ -20,7 +19,7 @@
       top: 0;
       left: 0;
       width: 100%;
-      background: rgba(246, 242, 239);  /* Already present */
+      background-color: #111111;  /* Already present */
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
       display: flex;
       justify-content: space-between;
@@ -35,7 +34,7 @@
 
     header .banner, header .title {
       font-weight: bold;
-      color: #1f2937;
+      color: #ffffff;
     }
 
     header .banner {
@@ -77,7 +76,7 @@
       height: auto;
       margin: 40px auto 20px auto;
       padding: 20px;
-      background: rgba(255, 255, 255, 0.05);
+      background-color: #2b2b2b;
       border-radius: 16px;
       box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); /* subtle blue glow */
       display: flex;
@@ -106,7 +105,7 @@
     }
 
     .step-card {
-      background: rgba(255, 255, 255, 0.1);
+      background-color: #2b2b2b;
       border-radius: 10px;
       padding: 20px;
       max-width: 220px;
@@ -123,7 +122,7 @@
     .login-container {
       width: 100%;
       max-width: 400px;
-      background: rgba(15, 23, 42, 0.85); /* deep navy translucent */
+      background-color: #808080; /* deep navy translucent */
       padding: 24px;
       border-radius: 16px;
       box-shadow: 0 0 25px rgba(59, 130, 246, 0.3); /* subtle blue glow */
@@ -142,7 +141,7 @@
       position: relative;
       margin-top: 30px;
       width: 420px;
-      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.2), transparent 70%);
+      background-color: #808080;
       border-radius: 16px;
       padding: 30px;
       box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
@@ -164,7 +163,7 @@
   margin-top: 40px;
   max-width: 1200px;
   width: 90%;
-  background: rgba(255, 255, 255, 0.05);
+  background-color: #444444;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(6px);
   border-radius: 12px;
@@ -180,7 +179,7 @@
 }
 
 .case-carousel .case-card {
-  background: rgba(255, 255, 255, 0.03);
+  background-color: #444444;
   border-radius: 12px;
   padding: 20px;
   color: #e5e5e5;
@@ -225,7 +224,7 @@
 
 .carousel-card {
   text-align: center;
-  background: rgba(255, 255, 255, 0.05);
+  background-color: #1e1e1e;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 20px;
@@ -273,7 +272,7 @@
     .login-container button {
       width: 100%;
       padding: 12px;
-      background-color: #307aff;
+      background-color: #1e1e1e;
       border: none;
       color: #fff;
       font-size: 16px;
@@ -282,7 +281,7 @@
     }
 
     .login-container button:hover {
-      background-color: #1d6ef5;
+      background-color: #101010;
     }
 
     .toggle-link {
@@ -299,7 +298,7 @@
       margin-top: 50px;
       padding: 30px;
       text-align: center;
-      background: #0f172a;
+      background-color: #1e1e1e;
       color: #cbd5e1;
       font-size: 14px;
     }
@@ -320,7 +319,7 @@
     }
 
     .agent-card {
-        background-color: rgba(31, 41, 55, 0.95);
+        background-color: #1e1e1e;
         border: 1px solid #3b82f6;
         border-radius: 12px;
         padding: 20px;
@@ -333,7 +332,7 @@
         border-color: #60a5fa;
     }
     .agent-card button {
-        background-color: #3b82f6;
+        background-color: #2b2b2b;
         color: white;
         padding: 10px 16px;
         border: none;
@@ -342,7 +341,7 @@
         cursor: pointer;
     }
     .agent-card button:hover {
-        background-color: #2563eb;
+        background-color: #1e1e1e;
     }
 
     .modal {
@@ -354,10 +353,10 @@
         width: 100%;
         height: 100%;
         overflow: auto;
-        background-color: rgba(0,0,0,0.8);
+        background-color: #1e1e1e;
     }
     .modal-content {
-        background-color: #1f2937;
+        background-color: #2b2b2b;
         margin: 10% auto;
         padding: 20px;
         border: 1px solid #3b82f6;
@@ -377,7 +376,7 @@
         cursor: pointer;
     }
     .modal-content pre {
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: #2b2b2b;
         padding: 10px;
         border-radius: 6px;
         font-family: monospace;
@@ -529,22 +528,22 @@
 <div class="carousel-container">
   <div class="carousel">
     <div class="carousel-card">
-      <lottie-player src="https://lottie.host/66f58ec0-ff9b-4d33-91b0-62e64db1f9a7/AEVv97LoZq.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <lottie-player src="https://lottie.host/66f58ec0-ff9b-4d33-91b0-62e64db1f9a7/AEVv97LoZq.json" background-color="transparent" speed="1" loop autoplay></lottie-player>
       <img src="{{ url_for('static', filename='images/report_chart.png') }}" alt="Report Example" class="carousel-img">
       <p>Getting started with an investment opportunity evaluation. MaSh's got you covered. Get a head start on US publicly listed companies byt generating company reports, earnings call summaries, understanding management evasiveness during earnings call, extracting key data points from earnings calls, reviewing company guidance, understanding debt covenants and much more.</p>
     </div>
     <div class="carousel-card">
-      <lottie-player src="https://lottie.host/738d3ab1-e9c8-499e-a325-49ad94ac1b37/fGpBzLUwwK.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <lottie-player src="https://lottie.host/738d3ab1-e9c8-499e-a325-49ad94ac1b37/fGpBzLUwwK.json" background-color="transparent" speed="1" loop autoplay></lottie-player>
       <img src="{{ url_for('static', filename='images/esg_preview.png') }}" alt="ESG Insight" class="carousel-img">
       <p>Don't spend hours reading sustainability reports. MaSh's ESG insights tool does that for you and presents the 10 most interesting insights across E, S and G. CHeck out some key management comments made around climate change, social impact, and governance.</p>
     </div>
     <div class="carousel-card">
-      <lottie-player src="https://lottie.host/5997b9a9-0a13-4aa3-8610-6c2c40bc1a1a/NeiEVO0HPW.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <lottie-player src="https://lottie.host/5997b9a9-0a13-4aa3-8610-6c2c40bc1a1a/NeiEVO0HPW.json" background-color="transparent" speed="1" loop autoplay></lottie-player>
       <img src="{{ url_for('static', filename='images/download_excel.png') }}" alt="Download Excel" class="carousel-img">
       <p>The output is easy to use in the form of downloadable excel reports or html outputs that can review on your own time and use for internal team discussions.</p>
     </div>
     <div class="carousel-card">
-      <lottie-player src="https://lottie.host/5997b9a9-0a13-4aa3-8610-6c2c40bc1a1a/NeiEVO0HPW.json" background="transparent" speed="1" loop autoplay></lottie-player>
+      <lottie-player src="https://lottie.host/5997b9a9-0a13-4aa3-8610-6c2c40bc1a1a/NeiEVO0HPW.json" background-color="transparent" speed="1" loop autoplay></lottie-player>
       <img src="{{ url_for('static', filename='images/red_flag.png') }}" alt="Red Flag Analysis" class="carousel-img">
       <p>MaSh's in-house trained model lets you examine any document related to publicly listed companies for any red flag analysis.</p>
     </div>
@@ -638,7 +637,7 @@
   <script>
 tsParticles.load("particles-js", {
   fullScreen: false,
-  background: { color: "transparent" },
+  background-color: { color: "transparent" },
   particles: {
     number: { value: 30 },
     color: { value: "#60a5fa" },
