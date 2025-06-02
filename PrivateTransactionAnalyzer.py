@@ -489,13 +489,13 @@ def analyze_transaction_doc(
     1) Extract the PDF as a list of pages.
     2) Identify which pages matter for `user_query`.
     3) Concatenate only those pages (or all if none found).
-    4) If `user_query` contains “SWOT”, run a dedicated SWOT prompt.
-    5) Else if `user_query` contains “red flag” or “risk”, run single-shot red-flag prompt.
-    6) Otherwise, do layered summarization:
-         a) Chunk the selected_text into ≤ chunk_size tokens each.
-         b) If > 20 chunks, reduce hierarchically until ≤ 20 summaries.
-         c) Summarize each of the ≤ 20 pieces & aggregate into JSON.
-    7) Optionally run deep dives on the aggregated summaries.
+    4) Detect if the user wants BOTH valuation and SWOT (split on “ and ”).
+       - If “SWOT” is present alongside something else (e.g. “Valuation”),
+         treat them as two separate intents.
+    5) If only “SWOT” is requested, do the dedicated SWOT prompt.
+    6) If only “red flag” or “risk” is requested, do the single‐shot red‐flag prompt.
+    7) Otherwise run layered summarization (valuation or whatever remains).
+    8) Optionally run all requested deep‐dives.
     """
     print(f"[DEBUG] analyze_transaction_doc: Starting analysis for query='{user_query}' on file '{filepath}'")
 
@@ -517,10 +517,127 @@ def analyze_transaction_doc(
 
     print(f"[DEBUG] analyze_transaction_doc: pages_scanned={pages_scanned}, pages_used={pages_used}")
 
-    lower_q = user_query.lower()
+    lower_q = user_query.lower().strip()
 
-    # 4) SWOT-specific path
-    if "swot" in lower_q:
+    # ---------------------------------------------------
+    # 4) “SWOT + Something Else” DETECTION
+    # ---------------------------------------------------
+    # If the user typed “Valuation and SWOT Analysis” (or used a comma, etc.),
+    # we want to run TWO passes: one for “SWOT” and one for “Valuation”.
+    #
+    # We’ll split on “ and ” first, then fall back to commas if needed.
+
+    faces: List[str] = []
+    if "swot" in lower_q and (" and " in lower_q or "," in lower_q):
+        # split on " and " first
+        if " and " in lower_q:
+            faces = [p.strip() for p in lower_q.split(" and ")]
+        else:
+            faces = [p.strip() for p in lower_q.split(",")]
+
+        # Now faces might be something like ['valuation', 'swot analysis'] or similar
+        # Normalize each piece
+        faces = [f for f in faces if f]
+
+        # If one of them is 'swot...' and another is something else, keep both
+        swot_requested = any("swot" in f for f in faces)
+        other_requested = [f for f in faces if "swot" not in f]
+        # We’ll handle each in turn below
+    else:
+        faces = []
+        swot_requested = ("swot" in lower_q)
+        other_requested = [lower_q] if not swot_requested else []
+
+    # If both a non‐SWOT intent and SWOT are present:
+    do_valuation_first = bool(other_requested)
+    do_swot = swot_requested
+
+    # The final payload we’ll return under “answer”
+    answer_payload: Dict[str, Union[Dict, str]] = {}
+
+    # ---------------------------------------------------
+    # 5) HANDLE ANY NON‐SWOT INTENT (e.g. “valuation”)
+    # ---------------------------------------------------
+    if do_valuation_first:
+        # We assume other_requested might be something like ['valuation', 'swot analysis']
+        # Pick everything that DOESN’T contain “swot”
+        non_swot_intents = [f for f in other_requested if "swot" not in f]
+        # We’ll join them back into one string (e.g. “valuation” or “valuation analysis”)
+        # If multiple, join with “ and ” again.
+        combined_non_swot_query = " and ".join(non_swot_intents).strip()
+
+        # Single‐shot “red flag/risk” path if they asked “risk” or “red flag”
+        if "red flag" in combined_non_swot_query or "risk" in combined_non_swot_query:
+            prompt = f"""
+You are a Private Equity analyst. Identify ALL potential “Risk” or “Red Flag” statements
+in the following document excerpt. Return each as a plain English line (no Markdown, no bullets).
+
+Query: {combined_non_swot_query}
+
+--- DOCUMENT EXCERPT START ---
+{selected_text}
+--- DOCUMENT EXCERPT END ---
+""".strip()
+
+            messages = [
+                {"role": "system", "content": "You are a knowledgeable private equity investment analyst."},
+                {"role": "user",   "content": prompt}
+            ]
+            print(f"[DEBUG] analyze_transaction_doc: entering single-shot RED FLAG path for '{combined_non_swot_query}'")
+            single_shot_response = call_deepseek_chat(messages, temperature=0.0, max_tokens=1000)
+            print(f"[DEBUG] analyze_transaction_doc: single_shot_response length {len(single_shot_response)}")
+            answer_payload["valuation_analysis"] = single_shot_response
+
+        else:
+            # 6) LAYERED SUMMARIZATION for the “valuation” or whatever remains.
+            # 6a) Chunk the selected_text
+            raw_chunks = chunk_text(selected_text, max_tokens=chunk_size)
+            print(f"[DEBUG] analyze_transaction_doc: total raw_chunks after chunk_text = {len(raw_chunks)}")
+
+            # 6b) If too many raw_chunks (>20), reduce hierarchically until ≤ 20 summaries
+            if len(raw_chunks) > 20:
+                print(f"[DEBUG] analyze_transaction_doc: {len(raw_chunks)} raw_chunks > 20, reducing hierarchically")
+                raw_chunks = reduce_chunks_hierarchically(
+                    raw_chunks,
+                    max_chunks=20,
+                    chunk_size=chunk_size,
+                    custom_prompt=chunk_prompt
+                )
+                print(f"[DEBUG] analyze_transaction_doc: reduced to {len(raw_chunks)} summaries")
+
+            # 6c) Summarize each of the ≤ 20 pieces
+            chunk_summaries: List[str] = []
+            for idx, chunk in enumerate(raw_chunks, start=1):
+                print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(raw_chunks)}")
+                summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
+                chunk_summaries.append(summary)
+
+            # 6d) Aggregate those chunk summaries into final JSON
+            aggregate_json_str = aggregate_summaries(chunk_summaries, custom_prompt=aggregate_prompt)
+
+            # —— strip out triple-backtick fences if present —— #
+            cleaned = aggregate_json_str.strip()
+            if cleaned.startswith("```"):
+                lines = cleaned.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                cleaned = "\n".join(lines).strip()
+
+            try:
+                aggregate_json = json.loads(cleaned)
+            except json.JSONDecodeError:
+                aggregate_json = {"raw_aggregate_text": aggregate_json_str}
+
+            answer_payload["valuation_analysis"] = aggregate_json
+            # Save how many chunks we used
+            valuation_chunks_used = len(raw_chunks)
+
+    # ---------------------------------------------------
+    # 7) HANDLE “SWOT” INTENT (if requested)
+    # ---------------------------------------------------
+    if do_swot:
         print(f"[DEBUG] analyze_transaction_doc: detected 'SWOT' in query; running SWOT path")
         swot_json_str = summarize_swot(selected_text)
 
@@ -540,93 +657,68 @@ def analyze_transaction_doc(
             # If JSON fails, fall back to raw text
             swot_json = {"raw_swot_text": swot_json_str}
 
-        # Return under a uniform "answer" key
-        return {
-            "answer": swot_json,
-            "pages_scanned": pages_scanned,
-            "relevant_pages": pages_used,
-            "chunks_used": None
-        }
+        answer_payload["swot_analysis"] = swot_json
 
-    # 5) Single-shot “red flag/risk” branch
-    if "red flag" in lower_q or "risk" in lower_q:
-        prompt = f"""
-You are a Private Equity analyst. Identify ALL potential “Risk” or “Red Flag” statements
-in the following document excerpt. Return each as a plain English line (no Markdown, no bullets).
+    # ---------------------------------------------------
+    # 8) IF NEITHER “SWOT” NOR “RISK/RED FLAG” NOR ANY OTHER SPECIAL STRINGS:
+    #     do a normal layered summarization of the entire query
+    # ---------------------------------------------------
+    if not do_valuation_first and not do_swot:
+        # (i.e. “swot” wasn’t present, and “risk/red flag” wasn’t present as a top‐level intent)
+        # so we treat the entire user_query as “some generic question” → do layered summary.
+        print(f"[DEBUG] analyze_transaction_doc: No SWOT or red-flag detected; doing generic summary for '{lower_q}'")
 
-Query: {user_query}
+        raw_chunks = chunk_text(selected_text, max_tokens=chunk_size)
+        print(f"[DEBUG] analyze_transaction_doc: total raw_chunks after chunk_text = {len(raw_chunks)}")
 
---- DOCUMENT EXCERPT START ---
-{selected_text}
---- DOCUMENT EXCERPT END ---
-""".strip()
+        if len(raw_chunks) > 20:
+            print(f"[DEBUG] analyze_transaction_doc: {len(raw_chunks)} raw_chunks > 20, reducing hierarchically")
+            raw_chunks = reduce_chunks_hierarchically(
+                raw_chunks,
+                max_chunks=20,
+                chunk_size=chunk_size,
+                custom_prompt=chunk_prompt
+            )
+            print(f"[DEBUG] analyze_transaction_doc: reduced to {len(raw_chunks)} summaries")
 
-        messages = [
-            {"role": "system", "content": "You are a knowledgeable private equity investment analyst."},
-            {"role": "user",   "content": prompt}
-        ]
-        print(f"[DEBUG] analyze_transaction_doc: entering single-shot RED FLAG path")
-        single_shot_response = call_deepseek_chat(messages, temperature=0.0, max_tokens=1000)
-        print(f"[DEBUG] analyze_transaction_doc: single_shot_response length {len(single_shot_response)}")
+        chunk_summaries: List[str] = []
+        for idx, chunk in enumerate(raw_chunks, start=1):
+            print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(raw_chunks)}")
+            summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
+            chunk_summaries.append(summary)
 
-        return {
-            "answer": single_shot_response,
-            "pages_scanned": pages_scanned,
-            "relevant_pages": pages_used,
-            "chunks_used": None
-        }
+        aggregate_json_str = aggregate_summaries(chunk_summaries, custom_prompt=aggregate_prompt)
+        cleaned = aggregate_json_str.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            cleaned = "\n".join(lines).strip()
 
-    # 6) Otherwise, layered summarization:
+        try:
+            aggregate_json = json.loads(cleaned)
+        except json.JSONDecodeError:
+            aggregate_json = {"raw_aggregate_text": aggregate_json_str}
 
-    # 6a) Chunk the selected_text
-    raw_chunks = chunk_text(selected_text, max_tokens=chunk_size)
-    print(f"[DEBUG] analyze_transaction_doc: total raw_chunks after chunk_text = {len(raw_chunks)}")
+        answer_payload["generic_summary"] = aggregate_json
 
-    # 6b) If too many raw_chunks (>20), reduce hierarchically until ≤ 20 summaries
-    if len(raw_chunks) > 20:
-        print(f"[DEBUG] analyze_transaction_doc: {len(raw_chunks)} raw_chunks > 20, reducing hierarchically")
-        raw_chunks = reduce_chunks_hierarchically(
-            raw_chunks,
-            max_chunks=20,
-            chunk_size=chunk_size,
-            custom_prompt=chunk_prompt
-        )
-        print(f"[DEBUG] analyze_transaction_doc: reduced to {len(raw_chunks)} summaries")
-
-    # 6c) Summarize each of the ≤ 20 pieces
-    chunk_summaries: List[str] = []
-    for idx, chunk in enumerate(raw_chunks, start=1):
-        print(f"[DEBUG] analyze_transaction_doc: summarizing chunk {idx}/{len(raw_chunks)}")
-        summary = summarize_chunk(chunk, custom_prompt=chunk_prompt)
-        chunk_summaries.append(summary)
-
-    # 6d) Aggregate those chunk summaries into final JSON
-    aggregate_json_str = aggregate_summaries(chunk_summaries, custom_prompt=aggregate_prompt)
-
-    # —— NEW: strip out triple-backtick fences if present —— #
-    cleaned = aggregate_json_str.strip()
-    if cleaned.startswith("```"):
-        lines = cleaned.splitlines()
-        if lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].startswith("```"):
-            lines = lines[:-1]
-        cleaned = "\n".join(lines).strip()
-
-    try:
-        aggregate_json = json.loads(cleaned)
-    except json.JSONDecodeError:
-        # Fallback: return the raw text under "raw_aggregate_text"
-        aggregate_json = {"raw_aggregate_text": aggregate_json_str}
+    # ---------------------------------------------------
+    # 9) BUILD THE RESULT DICT
+    # ---------------------------------------------------
 
     result: Dict[str, Union[str, int, List[int], Dict]] = {
-        "answer": aggregate_json,
+        "answer": answer_payload,
         "pages_scanned": pages_scanned,
         "relevant_pages": pages_used,
-        "chunks_used": len(raw_chunks)
+        # If we did a valuation pass, record how many chunks were used; otherwise None
+        "chunks_used": valuation_chunks_used if do_valuation_first else None
     }
 
-    # 7) (Optional) Run deep dives if requested
+    # ---------------------------------------------------
+    # 10) (Optional) RUN DEEP DIVES
+    # ---------------------------------------------------
     if run_deep_dives:
         if not deep_dive_sections:
             deep_dive_sections = [
@@ -636,7 +728,14 @@ Query: {user_query}
                 "Exit Strategy"
             ]
 
-        combined_summaries_text = "\n\n".join(chunk_summaries)
+        # Combine all chunk_summaries from whichever pass was done (use a fallback if needed)
+        if do_valuation_first:
+            # We already generated chunk_summaries in the “valuation” branch above
+            combined_summaries_text = "\n\n".join(chunk_summaries)  # re-use that
+        else:
+            # If “swot” only or “generic_summary,” we’d have chunk_summaries built above as well
+            combined_summaries_text = "\n\n".join(chunk_summaries)
+
         print(f"[DEBUG] analyze_transaction_doc: running deep dives on sections {deep_dive_sections}")
         for section in deep_dive_sections:
             section_key = section.replace(" ", "_")
@@ -645,7 +744,6 @@ Query: {user_query}
                 custom = deep_dive_prompts[section_key]
 
             section_text = deep_dive_section(section, combined_summaries_text, custom_prompt=custom)
-            # Put each deep dive under its own key; the front end can read these if it wants
             result[f"deep_dive_{section_key}"] = section_text
 
     print(f"[DEBUG] analyze_transaction_doc: completed analysis, returning result")
