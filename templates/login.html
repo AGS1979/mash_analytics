@@ -16,38 +16,65 @@
     }
 
     header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(246, 242, 239);  /* Already present */
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 20px;
-      z-index: 9999;
-    }
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
 
-    header .logo img {
-      height: 60px;
-    }
+/* ====== Top Navigation Row ====== */
+.top-nav {
+  background: rgba(246, 242, 239);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+.top-nav ul {
+  margin: 0;
+  padding: 0 20px;
+  list-style: none;
+  display: flex;
+  justify-content: flex-start; /* left-aligns the menu items */
+  align-items: center;
+  height: 40px; /* adjust as needed */
+}
+.top-nav li {
+  margin-right: 24px; /* spacing between links */
+}
+.top-nav li:last-child {
+  margin-right: 0;
+}
+.top-nav a {
+  text-decoration: none;
+  font-weight: bold;
+  color: #1f2937;
+  font-size: 14px;
+}
 
-    header .banner, header .title {
-      font-weight: bold;
-      color: #1f2937;
-    }
-
-    header .banner {
-      font-size: 20px;
-    }
-
-    header .title {
-      font-size: 18px;
-    }
+    .header-main {
+  background: rgba(246, 242, 239);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+}
+.header-main .logo img {
+  height: 60px;
+}
+.header-main .title a {
+  font-size: 18px;
+  font-weight: bold;
+  color: #1f2937;
+  text-decoration: none;
+}
+.header-main .title a:hover {
+  text-decoration: underline;
+}
 
     main {
-      margin-top: 100px;
+      margin-top: 120px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -453,13 +480,27 @@
 <body>
 
   <!-- Header -->
-  <header>
+<header>
+  <!-- Top navigation row -->
+  <div class="top-nav">
+    <ul>
+      <li><a href="#solutions">Solutions</a></li>
+      <li><a href="#company">Company</a></li>
+      <li><a href="#blogs">Blogs</a></li>
+    </ul>
+  </div>
+
+  <!-- Main header row: logo on left, "Login" on right -->
+  <div class="header-main">
     <div class="logo">
       <img src="{{ url_for('static', filename='images/Picture1.png') }}" alt="Company Logo" />
     </div>
-    <div class="banner">Banner</div>
-    <div class="title">Research Blitz</div>
-  </header>
+    <div class="title">
+      <a href="#login-form">Login</a>
+    </div>
+  </div>
+</header>
+
 
   <!-- Main Content -->
   <main>
