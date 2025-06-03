@@ -42,7 +42,7 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 14px 20px;
-  background-color: #787878;  /* Already present */
+  background-color: #000000;  /* Already present */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
