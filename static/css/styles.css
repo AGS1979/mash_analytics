@@ -83,7 +83,7 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 100px;  /* ← Add this to avoid content going under header */
+  margin-top: 60px;  /* ← Add this to avoid content going under header */
 }
 
 
@@ -533,7 +533,7 @@ body {
   background: rgba(0, 0, 0, 0.65);
   border-radius: 12px;
   max-width: 600px;
-  margin: 80px auto;
+  margin: 20px auto;
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
