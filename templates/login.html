@@ -185,12 +185,13 @@
 
 .case-carousel-wrapper {
   margin: 40px auto 20px auto;
-  width: 920px;       /* e.g. exactly 3 cards ×  (380px width + 20px gutter) */
-  max-width: 100%;    /* or whatever your design calls for */
-  height: 320px;      /* fixed height for all slides */
-  overflow: hidden;   /* hide any overflow if a card’s content is slightly larger */
+  width: 100%;
+  max-width: 1200px;  /* never grow beyond 1200px */
+  height: 320px;
+  overflow: hidden;
   position: relative;
 }
+
 
 /* 2) Tell Slick to treat each slide as the same width/height */
 .case-carousel-wrapper .slick-track,
@@ -200,13 +201,13 @@
 }
 
 .case-carousel .case-card {
-  flex: 0 0 300px;        /* fixed width for each card */
-  height: 300px;          /* fixed height for each card */
-  box-sizing: border-box; /* include padding + border in that height/width */
+  width: 100%;             /* fill the slide’s width */
+  height: 300px;           /* fixed height for all cards */
+  box-sizing: border-box;  /* include padding/border in that height */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background-color: #2b2b2b;
+  background-color: #2b2b2b;        /* your dark background */
   border-radius: 12px;
   padding: 20px;
   color: #e5e5e5;
@@ -231,6 +232,9 @@
   display: flex !important;
   align-items: stretch;
   justify-content: center;
+  /* A 20px total gutter between cards: 10px on each side */
+  padding: 0 10px;
+  box-sizing: border-box;
 }
 
 .case-carousel .case-card h3 {
@@ -299,6 +303,57 @@
   font-size: 18px;
   color: #cbd5e1;
   padding: 20px;
+}
+
+
+/* By default, Slick injects .slick-prev / .slick-next. 
+   You can restyle them like so: */
+.case-carousel-wrapper .slick-prev,
+.case-carousel-wrapper .slick-next {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  z-index: 10;
+  background-color: rgba(0,0,0,0.6);
+  border-radius: 50%;
+}
+
+.case-carousel-wrapper .slick-prev:before,
+.case-carousel-wrapper .slick-next:before {
+  color: #ffffff;   /* arrow color */
+  font-size: 24px;
+}
+
+/* Move the left arrow slightly outside */
+.case-carousel-wrapper .slick-prev {
+  left: -20px;   /* adjust as needed */
+}
+/* Move the right arrow slightly outside */
+.case-carousel-wrapper .slick-next {
+  right: -20px;  /* adjust as needed */
+}
+
+/* —————————————————————————
+   8) Ensure Slick’s dots are hidden (or style them if you want)
+   ————————————————————————— */
+.case-carousel-wrapper .slick-dots {
+  display: none;
+}
+
+/* —————————————————————————
+   9) Responsive tweaks: 4 slides → 3 at 1024px → 2 at 768px → 1 at 600px
+   ————————————————————————— */
+@media (max-width: 1024px) {
+  .case-carousel-wrapper {
+    height: 300px; /* reduce wrapper height if needed */
+  }
+}
+
+@media (max-width: 768px) {
+  .case-carousel-wrapper {
+    height: auto; /* let cards stack if only 2 or 1 visible */
+  }
 }
 
     .login-container button {
@@ -699,11 +754,12 @@ tsParticles.load("particles-js", {
   });
 
 $('.case-carousel').slick({
-  slidesToShow: 3,
+  slidesToShow: 4,
   slidesToScroll: 1,
   arrows: true,
   dots: false,
   autoplay: false,
+  variableWidth: false,
   infinite: true,
   responsive: [
     {
