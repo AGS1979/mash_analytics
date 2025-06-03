@@ -587,7 +587,7 @@ def analyze_dcf_route():
 
     # 6) Build download URL
     filename = os.path.basename(output_path)
-    download_url = url_for('download_report', filename=filename, _external=True)
+    download_url = url_for('download_dcf_report', filename=filename, _external=True)
 
     return jsonify({
         "message": "DCF valuation completed successfully",
@@ -595,11 +595,8 @@ def analyze_dcf_route():
         "dcf_summary": summary_dict
     }), 200
 
-@app.route('/download/<filename>', methods=['GET'])
-def download_report(filename):
-    """
-    Serves the generated Excel from ./reports.
-    """
+@app.route('/download-dcf/<filename>', methods=['GET'])
+def download_dcf_report(filename):
     reports_dir = os.path.join(os.getcwd(), "reports")
     full_path = os.path.join(reports_dir, filename)
     if not os.path.exists(full_path):
