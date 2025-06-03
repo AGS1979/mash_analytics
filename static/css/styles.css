@@ -13,7 +13,7 @@ body {
   padding: 0;
   position: relative;
   min-height: 100vh;
-  background-color: #a6a6a6;
+  background-color: #5a5a5a;
   }
 
 body::before {
@@ -73,7 +73,7 @@ header .title {
 
 header .logout a {
   text-decoration: none;
-  color: #307aff;
+  color: #ffffff;
   font-weight: bold;
 }
 
@@ -107,7 +107,7 @@ main {
   padding: 8px 12px;
   margin-bottom: 8px;
   cursor: pointer;
-  color: #eaebf7;
+  color: #111111;
   border-radius: 5px;
   transition: background-color 0.2s ease;
 }
@@ -125,6 +125,7 @@ main {
   height: 100%;
   border-left: 2px solid #3b82f6;
   overflow: hidden;
+  background-color: #101010;
 }
 
 
@@ -193,7 +194,7 @@ main {
   margin-left: 20px;
   border: none;
   border-radius: 8px;
-  background-color: #3b82f6;
+  background-color: #5a5a5a;
   color: #fff;
   font-size: 18px;
   cursor: pointer;
@@ -201,7 +202,7 @@ main {
 }
 
 .text-input button:hover {
-  background-color: #4d94ff;
+  background-color: #5a5a5a;
 }
 
 #chat-box::-webkit-scrollbar-track,
@@ -228,7 +229,7 @@ main {
   width: 100vw;                /* Full width of the viewport */
   height: calc(100vh - 140px); /* Adjust for header */
   margin: 70px auto 0 auto;
-  background-color: #6b6b6b;
+  background-color: #111111;
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   overflow: hidden;
