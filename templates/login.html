@@ -20,7 +20,7 @@
       top: 0;
       left: 0;
       width: 100%;
-      background-color: #000000;  /* Already present */
+      background-color: #222322;  /* Already present */
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
       display: flex;
       justify-content: space-between;
@@ -99,22 +99,32 @@
 
     .steps {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 16px;
-      margin-bottom: 40px;
+      gap: 20px;               /* space between cards */
+      justify-content: center; /* or whatever alignment you like */
+      align-items: stretch;    /* make each .step-card fill the same height */
     }
 
     .step-card {
       background-color: #2b2b2b;
       border-radius: 10px;
       padding: 20px;
-      max-width: 220px;
+      /* replace max-width with a fixed width */
+      width: 220px;
+
+      /* pick a height that comfortably fits your longest line of text */
+      height: 120px;
+
+      /* center the text inside each card */
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
+
       backdrop-filter: blur(6px);
       border: 1px solid rgba(255, 255, 255, 0.1);
       transition: transform 0.2s;
     }
+
 
     .step-card:hover {
       transform: translateY(-4px);
@@ -145,7 +155,7 @@
       background-color: #2b2b2b;
       border-radius: 16px;
       padding: 30px;
-      box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.3);
     }
 
 
