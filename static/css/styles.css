@@ -270,7 +270,7 @@ main {
   left: 0;
   transform: translateY(-8px);
   background: #fff;
-  color: #000;
+  color: #ffffff;
   padding: 6px 10px;
   border-radius: 4px;
   white-space: pre-wrap;
@@ -299,7 +299,7 @@ main {
   width: 350px;
   padding: 20px;
   flex-shrink: 0; /* Prevent shrinking */
-  background-color: #111111;
+  background-color: #000000;
   border-top-left-radius: 15px;
   border-bottom-left-radius: 15px;
   border-right: 2px solid #3b82f6;
