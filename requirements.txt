@@ -32,5 +32,6 @@ markdown
 tiktoken
 python-pptx
 xlrd
+camelot-py[cv]
 
 
