@@ -55,6 +55,7 @@ from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
+from DCFAgent import run_dcf_model
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -465,7 +466,7 @@ def signup():
 def get_custom_agents():
     agents = [
         {
-            "id": "quant_signal",
+            "id": "PE_analyzer",
             "name": "Private Transaction Analyzer",
             "category": "Private Equity",
             "description": "Analyze CIMs, models, and memos to extract key deal insights..",
@@ -493,11 +494,11 @@ def get_custom_agents():
             "output": "Sample sector heatmap output..."
         },
         {
-            "id": "new_agent_1",
-            "name": "Sector Heatmap Analyzer",
-            "category": "Sector Insights",
-            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
-            "output": "Sample sector heatmap output..."
+            "id": "dcf_analyzer",
+            "name": "DCF Analyzer",
+            "category": "Valuation",
+            "description": "Perform a discounted cash flow (DCF) valuation for a given stock ticker.",
+            "output": "Excel/JSON DCF report"
         },
         {
             "id": "new_agent_1",
@@ -530,6 +531,80 @@ def get_custom_agents():
     ]
     return jsonify(agents)
 
+
+@app.route('/analyze-dcf', methods=['POST'])
+def analyze_dcf_route():
+    """
+    Expects multipart/form-data:
+      • company_name (form field)
+      • assumptions (form field, JSON string; optional)
+      • files (one or more PDF/DOCX uploads)
+    Returns JSON:
+      {
+        "message": "DCF completed",
+        "download_url": "...",
+        "dcf_summary": {...}
+      }
+    """
+    # 1) Company name
+    company_name = request.form.get("company_name", "").strip()
+    if not company_name:
+        return jsonify({"error": "company_name is required"}), 400
+
+    # 2) Parse assumptions if provided
+    raw_assump = request.form.get("assumptions", "").strip()
+    if raw_assump:
+        try:
+            assumptions = json.loads(raw_assump)
+        except json.JSONDecodeError:
+            return jsonify({"error": "`assumptions` must be valid JSON"}), 400
+    else:
+        assumptions = {}
+
+    # 3) Ensure files were uploaded
+    uploaded_files = request.files.getlist("files")
+    if not uploaded_files or len(uploaded_files) == 0:
+        return jsonify({"error": "Please upload at least one document (PDF or DOCX)."}), 400
+
+    # 4) Save each file under UPLOAD_FOLDER
+    temp_paths = []
+    for f in uploaded_files:
+        if f and allowed_file(f.filename):
+            safe_name = secure_filename(f.filename)
+            # Prepend timestamp to avoid collisions
+            timestamp = int(time.time() * 1000)
+            out_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{timestamp}_{safe_name}")
+            f.save(out_path)
+            temp_paths.append(out_path)
+        else:
+            return jsonify({"error": f"Unsupported file type: {f.filename}"}), 400
+
+    # 5) Run the DCF model
+    try:
+        output_path, summary_dict = run_dcf_model(company_name, assumptions, temp_paths)
+    except Exception as e:
+        return jsonify({"error": f"DCF processing failed: {str(e)}"}), 500
+
+    # 6) Build download URL
+    filename = os.path.basename(output_path)
+    download_url = url_for('download_report', filename=filename, _external=True)
+
+    return jsonify({
+        "message": "DCF valuation completed successfully",
+        "download_url": download_url,
+        "dcf_summary": summary_dict
+    }), 200
+
+@app.route('/download/<filename>', methods=['GET'])
+def download_report(filename):
+    """
+    Serves the generated Excel from ./reports.
+    """
+    reports_dir = os.path.join(os.getcwd(), "reports")
+    full_path = os.path.join(reports_dir, filename)
+    if not os.path.exists(full_path):
+        return jsonify({"error": "File not found"}), 404
+    return send_file(full_path, as_attachment=True)
 
 @app.route('/generate-preipo-memo', methods=['POST'])
 def generate_preipo_memo():

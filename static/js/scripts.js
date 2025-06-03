@@ -96,6 +96,9 @@ function showFactorOptModal() {
     document.getElementById("modal-factor_opt").style.display = "block";
 }
 
+function showDcfModal() {
+    document.getElementById("modal-dcf_analyzer").style.display = "block";
+}
 
 
 // ------------------------------------------------------------
@@ -528,7 +531,124 @@ function showFactorOptModal() {
                             });
                         });
 
-                    } else {
+                    } else if (agent.id === "dcf_analyzer") {
+                    card.innerHTML = `
+                        <h3>${agent.name}</h3>
+                        <p><strong>Category:</strong> ${agent.category}</p>
+                        <p>${agent.description}</p>
+                        <button onclick="showDcfModal()">Run Agent</button>
+                    `;
+                    grid.appendChild(card);
+
+                    const modal = document.createElement("div");
+                    modal.id = `modal-${agent.id}`;
+                    modal.className = "modal";
+                    modal.innerHTML = `
+                        <div class="modal-content">
+                            <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+                            <h2>${agent.name}</h2>
+                            <p><strong>Category:</strong> ${agent.category}</p>
+                            <p><strong>Description:</strong> ${agent.description}</p>
+
+                            <form id="dcf-form" enctype="multipart/form-data">
+                                <label for="dcf-company">Company Name (e.g. Apple Inc.):</label><br>
+                                <input type="text" id="dcf-company" name="company_name" required
+                                    placeholder="Enter the full company name" /><br><br>
+
+                                <label for="dcf-assumptions">
+                                    Assumptions (JSON, optional)<br>
+                                    e.g.: {"growth_rates":{"bull":0.08,"base":0.05,"bear":0.02},
+                                           "waccs":{"bull":0.09,"base":0.10,"bear":0.11},
+                                           "terminal_multiples":{"bull":14,"base":12,"bear":10}}
+                                </label><br>
+                                <textarea id="dcf-assumptions" name="assumptions" rows="4"
+                                    placeholder='{"growth_rates":{"bull":0.08,"base":0.05,"bear":0.02},"waccs":{"bull":0.09,"base":0.10,"bear":0.11},"terminal_multiples":{"bull":14,"base":12,"bear":10}}'></textarea><br><br>
+
+                                <label for="dcf-files">Upload Documents (10-K, 10-Q, Annual Reports):</label><br>
+                                <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required /><br><br>
+
+                                <button type="submit">Run DCF</button>
+                            </form>
+                            <div id="dcf-result" style="margin-top: 15px; max-height: 60vh; overflow-y: auto;"></div>
+                        </div>
+                    `;
+                    document.getElementById("custom-agents-ui").appendChild(modal);
+
+                    modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
+                        e.preventDefault();
+                        const form = e.target;
+                        const companyInput = form.querySelector("#dcf-company").value.trim();
+                        const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
+                        const fileInput = form.querySelector("#dcf-files");
+                        const resultDiv = document.getElementById("dcf-result");
+                        const submitBtn = form.querySelector("button");
+
+                        if (!companyInput) {
+                            resultDiv.innerHTML = "<p style='color:red;'>Please enter a valid company name.</p>";
+                            return;
+                        }
+                        if (fileInput.files.length === 0) {
+                            resultDiv.innerHTML = "<p style='color:red;'>Please upload at least one document (PDF or DOCX).</p>";
+                            return;
+                        }
+
+                        const formData = new FormData();
+                        formData.append("company_name", companyInput);
+                        if (assumptionsInput) {
+                            formData.append("assumptions", assumptionsInput);
+                        }
+                        for (let i = 0; i < fileInput.files.length; i++) {
+                            formData.append("files", fileInput.files[i]);
+                        }
+
+                        resultDiv.innerHTML = "<p>⏳ Running DCF… please wait…</p>";
+                        submitBtn.disabled = true;
+
+                        fetch("/analyze-dcf", {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(async resp => {
+                            if (!resp.ok) {
+                                const err = await resp.json();
+                                throw new Error(err.error || `HTTP ${resp.status}`);
+                            }
+                            return resp.json();
+                        })
+                        .then(data => {
+                            if (data.download_url) {
+                                let summaryPretty = JSON.stringify(data.dcf_summary, null, 2);
+                                resultDiv.innerHTML = `
+                                    ✅ DCF completed!<br>
+                                    <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
+                                        ⬇ Download DCF Report
+                                    </a>
+                                    <pre style="background:#222; padding:12px; border-radius:6px; margin-top:10px; color:#fff;">
+${summaryPretty}
+                                    </pre>
+                                `;
+                            } else if (data.dcf_summary) {
+                                let summaryPretty = JSON.stringify(data.dcf_summary, null, 2);
+                                resultDiv.innerHTML = `
+                                    <h3>DCF Summary:</h3>
+                                    <pre style="background:#222; padding:12px; border-radius:6px; color:#fff;">
+${summaryPretty}
+                                    </pre>
+                                `;
+                            } else {
+                                resultDiv.innerHTML = `<span style="color:red;">❌ Unexpected response</span>`;
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            resultDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
+                        })
+                        .finally(() => {
+                            submitBtn.disabled = false;
+                            resultDiv.scrollIntoView({ behavior: "smooth" });
+                        });
+                    });
+                }  else {
                         // Default cards for other agents
                         card.innerHTML = `
                             <h3>${agent.name}</h3>
