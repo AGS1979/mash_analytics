@@ -12,7 +12,7 @@
       font-family: 'Roboto', sans-serif;
       color: #ffffff;
       overflow-x: hidden;
-      background-color: #5a5a5a;
+      background-color: #a6a6a6;
     }
 
     header {
@@ -185,18 +185,33 @@
 
 .case-carousel-wrapper {
   margin: 40px auto 20px auto;
-  width: 92%;
-  max-width: 1200px;
+  width: 920px;       /* e.g. exactly 3 cards ×  (380px width + 20px gutter) */
+  max-width: 100%;    /* or whatever your design calls for */
+  height: 320px;      /* fixed height for all slides */
+  overflow: hidden;   /* hide any overflow if a card’s content is slightly larger */
+  position: relative;
+}
+
+/* 2) Tell Slick to treat each slide as the same width/height */
+.case-carousel-wrapper .slick-track,
+.case-carousel-wrapper .slick-list {
+  display: flex !important;
+  align-items: stretch;   /* so all slides get the same height */
 }
 
 .case-carousel .case-card {
+  flex: 0 0 300px;        /* fixed width for each card */
+  height: 300px;          /* fixed height for each card */
+  box-sizing: border-box; /* include padding + border in that height/width */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   background-color: #2b2b2b;
   border-radius: 12px;
   padding: 20px;
   color: #e5e5e5;
   text-align: left;
   box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
-  transition: transform 0.3s ease;
   backdrop-filter: blur(4px);
 }
 
@@ -206,10 +221,16 @@
 
 .case-carousel .case-card img {
   width: 100%;
-  height: 160px;
+  height: 140px;      /* reserve a fixed block of height for the image */
   object-fit: cover;
   border-radius: 8px;
   margin-bottom: 15px;
+}
+
+.case-carousel .slick-slide {
+  display: flex !important;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .case-carousel .case-card h3 {
@@ -235,7 +256,7 @@
 
 .carousel-card {
   text-align: center;
-  background-color: #1e1e1e;
+  background-color: #a6a6a6;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 20px;
