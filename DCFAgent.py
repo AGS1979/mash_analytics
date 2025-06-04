@@ -143,8 +143,20 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
     """
     Searches `df` for a row containing 'Free Cash Flow' (case-insensitive)
     and returns the first numeric value in that row (USD).
-    Assumes the extracted number is in millions, so multiply by 1e6.
+    Detects if table headers mention millions/billions. Defaults to absolute USD if no scale.
     """
+    # Determine scale by scanning top rows for "in millions" or "in billions"
+    scale = 1
+    header_rows = min(3, len(df))
+    for i in range(header_rows):
+        row_str = " ".join(str(cell) for cell in df.iloc[i].tolist()).lower()
+        if "in millions" in row_str:
+            scale = 1_000_000
+            break
+        elif "in billions" in row_str:
+            scale = 1_000_000_000
+            break
+
     for _, row in df.iterrows():
         row_str = " ".join(str(cell) for cell in row.tolist())
         if re.search(r"free\s+cash\s+flow", row_str, re.IGNORECASE):
@@ -152,7 +164,7 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
                     val = float(s)
-                    return val * 1_000_000
+                    return val * scale
                 except Exception:
                     continue
     return None
@@ -163,10 +175,24 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
 def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     """
     Searches `df` for 'Revenue' and 'Net Income' rows (case-insensitive).
-    Returns a tuple (revenue, net_income) in USD. Assumes numbers in millions, so multiply by 1e6.
+    Returns a tuple (revenue, net_income) in USD.
+    Detects scale by table header.
     """
     rev = None
     ni = None
+
+    # Determine scale
+    scale = 1
+    header_rows = min(3, len(df))
+    for i in range(header_rows):
+        row_str = " ".join(str(cell) for cell in df.iloc[i].tolist()).lower()
+        if "in millions" in row_str:
+            scale = 1_000_000
+            break
+        elif "in billions" in row_str:
+            scale = 1_000_000_000
+            break
+
     for _, row in df.iterrows():
         row_str = " ".join(str(cell) for cell in row.tolist())
         if rev is None and re.search(r"(^|\s)revenue($|\s)", row_str, re.IGNORECASE):
@@ -174,7 +200,7 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
                     rev_val = float(s)
-                    rev = rev_val * 1_000_000
+                    rev = rev_val * scale
                     break
                 except Exception:
                     continue
@@ -183,7 +209,7 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
                     ni_val = float(s)
-                    ni = ni_val * 1_000_000
+                    ni = ni_val * scale
                     break
                 except Exception:
                     continue
@@ -192,19 +218,76 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     return rev, ni
 
 # ────────────────────────────────────────────────────────────────────────────────
-# CORE HELPER: Extract financials from PDF or DOCX
+# HELPER: Attempt to parse Total Debt & Cash from a Balance Sheet DataFrame
+# ────────────────────────────────────────────────────────────────────────────────
+def parse_balance_sheet_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
+    """
+    Searches `df` for 'Total Debt' and 'Cash and cash equivalents' (case-insensitive).
+    Returns (total_debt, cash) in USD.
+    Detects scale by table header.
+    """
+    total_debt = None
+    cash_ce = None
+
+    # Determine scale
+    scale = 1
+    header_rows = min(3, len(df))
+    for i in range(header_rows):
+        row_str = " ".join(str(cell) for cell in df.iloc[i].tolist()).lower()
+        if "in millions" in row_str:
+            scale = 1_000_000
+            break
+        elif "in billions" in row_str:
+            scale = 1_000_000_000
+            break
+
+    for _, row in df.iterrows():
+        row_str = " ".join(str(cell) for cell in row.tolist())
+        if total_debt is None and re.search(r"total\s+debt", row_str, re.IGNORECASE):
+            for cell in row.tolist()[1:]:
+                s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
+                try:
+                    td_val = float(s)
+                    total_debt = td_val * scale
+                    break
+                except Exception:
+                    continue
+        if cash_ce is None and re.search(r"cash\s+and\s+cash\s+equivalents", row_str, re.IGNORECASE):
+            for cell in row.tolist()[1:]:
+                s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
+                try:
+                    c_val = float(s)
+                    cash_ce = c_val * scale
+                    break
+                except Exception:
+                    continue
+        if total_debt is not None and cash_ce is not None:
+            break
+    return total_debt, cash_ce
+
+# ────────────────────────────────────────────────────────────────────────────────
+# CORE HELPER: Extract financials (year, revenue, net_income, fcf, debt, cash) from PDF or DOCX
 # ────────────────────────────────────────────────────────────────────────────────
 def extract_financials_from_file(file_path: str) -> dict | None:
     """
-    Attempts to extract {year, revenue, net_income, free_cash_flow} from a 10-K/10-Q PDF or a DOCX.
+    Attempts to extract {year, revenue, net_income, free_cash_flow, total_debt, cash_ce} 
+    from a 10-K/10-Q PDF or a DOCX.
     1. If PDF:
        a) Extract full text → find year via "Year Ended <Mon> <Day>, <Year>"
        b) Find pages with "Cash Flow" → extract tables → parse FCF
        c) Find pages with "Income Statement" → extract tables → parse revenue, net income
-       d) Fallback: search lines for "$" amounts beside "Free Cash Flow", "Revenue", "Net Income"
+       d) Find pages with "Balance Sheet" → extract tables → parse total_debt & cash_ce
+       e) Fallback: search lines for "$" amounts beside "Free Cash Flow", "Revenue", "Net Income", "Total Debt", "Cash and cash equivalents"
     2. If DOCX:
-       a) Extract full text → same line-based search for year, FCF, revenue, net income
-    Returns a dict {"year":int,"revenue":float,"net_income":float,"free_cash_flow":float} or None.
+       a) Extract full text → same line-based search for year, FCF, revenue, net income, debt, cash
+    Returns a dict {
+      "year": int,
+      "revenue": float,
+      "net_income": float,
+      "free_cash_flow": float,
+      "total_debt": float,
+      "cash_ce": float
+    } or None.
     """
     _, ext = os.path.splitext(file_path.lower())
     full_text = ""
@@ -212,6 +295,8 @@ def extract_financials_from_file(file_path: str) -> dict | None:
     revenue = None
     net_income = None
     fcf = None
+    total_debt = None
+    cash_ce = None
 
     # ────────── DEBUG ────────────────────────────────────────────────────────────
     print(f"[EXTRACT DEBUG] Starting extraction for: {file_path!r} (ext={ext})")
@@ -248,7 +333,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
 
     # 3) If PDF, attempt table extraction first
     if ext == ".pdf":
-        # a) Cash Flow
+        # a) Cash Flow → parse FCF
         cf_pages = find_pages_with_keyword(
             file_path,
             r"Consolidated\s+Statements\s+of\s+Cash\s+Flows|Cash\s+Flow"
@@ -260,7 +345,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 fcf = val
                 break
 
-        # b) Income Statement
+        # b) Income Statement → parse revenue, net income
         inc_pages = find_pages_with_keyword(
             file_path,
             r"Consolidated\s+Statements\s+of\s+Income|Consolidated\s+Statements\s+of\s+Comprehensive\s+Income|Income\s+Statement"
@@ -275,45 +360,88 @@ def extract_financials_from_file(file_path: str) -> dict | None:
             if revenue is not None and net_income is not None:
                 break
 
+        # c) Balance Sheet → parse total debt, cash & equivalents
+        bs_pages = find_pages_with_keyword(
+            file_path,
+            r"Consolidated\s+Balance\s+Sheets|Balance\s+Sheet"
+        )
+        tables_bs = extract_tables_from_pdf(file_path, bs_pages)
+        for df in tables_bs:
+            td, c = parse_balance_sheet_from_df(df)
+            if td is not None:
+                total_debt = td
+            if c is not None:
+                cash_ce = c
+            if total_debt is not None and cash_ce is not None:
+                break
+
     # 4) Fallback line-by-line search if any value still missing
-    if fcf is None or revenue is None or net_income is None:
+    if fcf is None or revenue is None or net_income is None or total_debt is None or cash_ce is None:
         for line in full_text.splitlines():
+            # Free Cash Flow
             if fcf is None and re.search(r"free\s+cash\s+flow", line, re.IGNORECASE):
                 m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
                 if m:
                     try:
                         fcf_val = float(m.group(1).replace(",", ""))
-                        fcf = fcf_val * 1_000_000
+                        fcf = fcf_val  # assume already absolute if not otherwise noted
                     except:
                         pass
+
+            # Revenue
             if revenue is None and re.search(r"(^|\s)revenue($|\s)", line, re.IGNORECASE):
                 m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
                 if m:
                     try:
                         rev_val = float(m.group(1).replace(",", ""))
-                        revenue = rev_val * 1_000_000
+                        revenue = rev_val
                     except:
                         pass
+
+            # Net Income
             if net_income is None and re.search(r"(^|\s)net\s+income($|\s)", line, re.IGNORECASE):
                 m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
                 if m:
                     try:
                         ni_val = float(m.group(1).replace(",", ""))
-                        net_income = ni_val * 1_000_000
+                        net_income = ni_val
                     except:
                         pass
-            if fcf is not None and revenue is not None and net_income is not None:
+
+            # Total Debt
+            if total_debt is None and re.search(r"(^|\s)total\s+debt($|\s)", line, re.IGNORECASE):
+                m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                if m:
+                    try:
+                        td_val = float(m.group(1).replace(",", ""))
+                        total_debt = td_val
+                    except:
+                        pass
+
+            # Cash & Cash Equivalents
+            if cash_ce is None and re.search(r"cash\s+and\s+cash\s+equivalents", line, re.IGNORECASE):
+                m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                if m:
+                    try:
+                        c_val = float(m.group(1).replace(",", ""))
+                        cash_ce = c_val
+                    except:
+                        pass
+
+            if fcf is not None and revenue is not None and net_income is not None and total_debt is not None and cash_ce is not None:
                 break
 
-    # 5) If still missing, return None
-    if year is None and fcf is None and revenue is None and net_income is None:
+    # 5) If still missing everything, return None
+    if year is None and fcf is None and revenue is None and net_income is None and total_debt is None and cash_ce is None:
         return None
 
     return {
         "year": year,
         "revenue": revenue,
         "net_income": net_income,
-        "free_cash_flow": fcf
+        "free_cash_flow": fcf,
+        "total_debt": total_debt,
+        "cash_ce": cash_ce
     }
 
 # ────────────────────────────────────────────────────────────────────────────────
@@ -325,14 +453,15 @@ def run_dcf_model(
     file_paths: list[str]
 ) -> tuple[str, dict]:
     """
-    Performs a 3-case (Bull / Base / Bear) DCF valuation for the given `company_name`.
+    Performs a 3-case (Bull / Base / Bear) FCFF-based DCF valuation for the given `company_name`.
     1) Uses DeepSeek to convert company_name → ticker.
     2) Extracts historical financials from each uploaded file via extract_financials_from_file.
     3) Aggregates at most 5 most recent years of financials.
     4) Uses user-supplied assumption dict (or defaults) for growth_rates, waccs, terminal_multiples.
-    5) Projects FCF for 5 years + terminal value → discounts at scenario WACC → computes NPV.
-    6) Writes an Excel under ./reports named "<TICKER>_DCF_<timestamp>.xlsx".
-    7) Returns (output_path, summary_dict).
+    5) Projects Free Cash Flow to Firm (FCFF) for 5 years + terminal value → discounts at scenario WACC → computes Enterprise Value.
+    6) Subtracts Net Debt → divides by Shares Outstanding → gets Equity Value per share for each scenario.
+    7) Writes an Excel under ./reports named "<TICKER>_DCF_<timestamp>.xlsx".
+    8) Returns (output_path, summary_dict).
     """
     # ────────────────────────────────────────────────────────────────────────────
     # 1) Convert company_name → ticker via DeepSeek
@@ -352,7 +481,7 @@ def run_dcf_model(
     current_price = get_current_share_price(ticker)
 
     # ────────────────────────────────────────────────────────────────────────────
-    # 2) Extract pandas dicts for each file (year, revenue, net_income, fcf)
+    # 2) Extract pandas dicts for each file (year, revenue, net_income, free_cash_flow, debt, cash)
     # ────────────────────────────────────────────────────────────────────────────
     extracted = []
     for path in file_paths:
@@ -372,6 +501,12 @@ def run_dcf_model(
     hist_fcfs = [e["free_cash_flow"] for e in historical_list]
     hist_revs = [e.get("revenue") for e in historical_list]
     hist_nis = [e.get("net_income") for e in historical_list]
+    # For debt & cash, take the most recent (largest year) if available
+    most_recent = historical_list[-1]
+    total_debt = most_recent.get("total_debt", 0) or 0
+    cash_ce = most_recent.get("cash_ce", 0) or 0
+    net_debt = total_debt - cash_ce
+
     last_year = hist_years[-1]
     last_fcf = hist_fcfs[-1]
 
@@ -388,10 +523,11 @@ def run_dcf_model(
     else:
         hist_str = ", ".join(f"{e['year']}:{e['free_cash_flow']:,}" for e in historical_list)
         gr_prompt = (
-            f"For ticker {ticker}, historical Free Cash Flows (USD) for years: {hist_str}.\n"
+            f"For ticker {ticker}, historical Free Cash Flows to Firm (USD) for years: {hist_str}.\n"
             f"Current share price: ${current_price:.2f} per share.\n"
-            f"Propose forward 5-year annual FCF growth rates under bull, base, bear,\n"
-            f"such that the resulting DCF per share falls in the same ballpark as the current price.\n"
+            f"Net Debt (Debt - Cash): ${net_debt:,.2f}.\n"
+            f"Propose forward 5-year annual FCFF growth rates under bull, base, bear,\n"
+            f"such that the resulting DCF per share is in the same ballpark as the current price.\n"
             f"Reply with JSON {{\"bull\":0.XX,\"base\":0.XX,\"bear\":0.XX}}."
         )
         raw_gr = deepseek_chat(gr_prompt, max_tokens=256)
@@ -420,10 +556,11 @@ def run_dcf_model(
         recent_three = historical_list[-3:]
         three_str = ", ".join(f"{e['year']}:{e['free_cash_flow']:,}" for e in recent_three)
         wa_prompt = (
-            f"For ticker {ticker}, last three years’ FCF (USD): {three_str}.\n"
+            f"For ticker {ticker}, last three years’ FCFF (USD): {three_str}.\n"
             f"Current share price: ${current_price:.2f} per share.\n"
+            f"Net Debt: ${net_debt:,.2f}.\n"
             f"Provide WACC and terminal multiples under bull, base, bear,\n"
-            f"such that the 5-year DCF per share remains in the vicinity of the market price.\n"
+            f"such that the 5-year DCF per share remains near the market price.\n"
             f"Reply JSON {{"
             f"\"bull\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
             f"\"base\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
@@ -453,7 +590,7 @@ def run_dcf_model(
             terminal_mults[scenario] = terminal_mults.get("base", 12)
 
     # ────────────────────────────────────────────────────────────────────────────
-    # 4) PROJECT FCF & DISCOUNT for EACH SCENARIO
+    # 4) PROJECT FCFF & DISCOUNT for EACH SCENARIO
     # ────────────────────────────────────────────────────────────────────────────
     dcf_results = {}
     for scenario in ["bull", "base", "bear"]:
@@ -461,27 +598,30 @@ def run_dcf_model(
         wacc = waccs[scenario]
         tm = terminal_mults[scenario]
 
-        # Project 5 years of FCF
+        # Project 5 years of FCFF
         projections = []
         for i in range(1, 6):
             year_i = last_year + i
             fcf_i = last_fcf * ((1 + gr) ** i)
             projections.append({"year": year_i, "fcf": fcf_i})
 
-        # Terminal value at year 5
+        # Terminal value at year 5 (using last FCFF)
         terminal_value = projections[-1]["fcf"] * tm
 
-        # Discount each year's FCF + terminal
-        equity_npv = sum(
+        # Discount each year's FCFF + terminal → Enterprise Value (PV)
+        ev = sum(
             proj["fcf"] / ((1 + wacc) ** j)
             for j, proj in enumerate(projections, start=1)
         )
-        equity_npv += terminal_value / ((1 + wacc) ** 5)
+        ev += terminal_value / ((1 + wacc) ** 5)
+
+        # Subtract Net Debt → Equity Value
+        equity_value = ev - net_debt
 
         # Per-share
         npv_per_share = None
-        if shares_outstanding:
-            npv_per_share = equity_npv / shares_outstanding
+        if shares_outstanding and shares_outstanding > 0:
+            npv_per_share = equity_value / shares_outstanding
 
         dcf_results[scenario] = {
             "growth_rate": gr,
@@ -489,7 +629,8 @@ def run_dcf_model(
             "terminal_multiple": tm,
             "projections": projections,
             "terminal_value": terminal_value,
-            "npv": equity_npv,
+            "enterprise_value": ev,
+            "equity_value": equity_value,
             "npv_per_share": npv_per_share
         }
 
@@ -503,6 +644,7 @@ def run_dcf_model(
         data = dcf_results[scenario]
         ws = wb.create_sheet(f"{scenario.capitalize()} Case")
 
+        # Header info
         ws.append(["Scenario", scenario.capitalize()])
         ws.append(["Assumptions", "Value"])
         ws.append(["Growth Rate", data["growth_rate"]])
@@ -510,14 +652,24 @@ def run_dcf_model(
         ws.append(["Terminal Multiple", data["terminal_multiple"]])
         ws.append([])
 
-        ws.append(["Year", "Projected FCF (USD)"])
+        # Projections
+        ws.append(["Year", "Projected FCFF (USD)"])
         for proj in data["projections"]:
             ws.append([proj["year"], proj["fcf"]])
-
         ws.append([])
+
+        # Terminal & EV
         ws.append(["Terminal Value (Year 5)", data["terminal_value"]])
         ws.append([])
-        ws.append(["NPV of Cash Flows", data["npv"]])
+        ws.append(["Enterprise Value (PV of FCFF + Terminal)", data["enterprise_value"]])
+        ws.append([])
+
+        # Net Debt & Equity Value
+        ws.append(["Net Debt (Debt - Cash)", net_debt])
+        ws.append(["Equity Value", data["equity_value"]])
+        ws.append([])
+
+        # Per-share
         if data["npv_per_share"] is not None:
             ws.append(["NPV per Share", data["npv_per_share"]])
 
@@ -535,13 +687,15 @@ def run_dcf_model(
         "ticker": ticker,
         "current_share_price": current_price,
         "shares_outstanding": shares_outstanding,
+        "net_debt": net_debt,
         "historical_years": hist_years,
         "historical_fcfs": hist_fcfs,
         "historical_revenues": hist_revs,
         "historical_net_incomes": hist_nis,
         "scenarios": {
             scenario: {
-                "npv": dcf_results[scenario]["npv"],
+                "enterprise_value": dcf_results[scenario]["enterprise_value"],
+                "equity_value": dcf_results[scenario]["equity_value"],
                 "npv_per_share": dcf_results[scenario]["npv_per_share"],
                 "terminal_value": dcf_results[scenario]["terminal_value"],
                 "wacc": dcf_results[scenario]["wacc"],
@@ -561,8 +715,9 @@ def run_dcf_model(
         gr = data["growth_rate"]
         wacc = data["wacc"]
         tm = data["terminal_multiple"]
-        npv_val = data["npv"]
-        term_val = data["terminal_value"]
+        ev_val = data["enterprise_value"]
+        eq_val = data["equity_value"]
+        per_share = data["npv_per_share"]
 
         if scenario == "bull":
             label = "Bull Case"
@@ -571,13 +726,14 @@ def run_dcf_model(
         else:
             label = "Bear Case"
 
-        reasonings[scenario] = (
-            f"<strong>{label}:</strong> We assumed an annual Free Cash Flow growth rate of "
+        reason_str = (
+            f"<strong>{label}:</strong> We assumed an annual FCFF growth rate of "
             f"{gr*100:.1f}%, a discount rate (WACC) of {wacc*100:.1f}%, "
-            f"and a terminal multiple of {tm}×.  Under these assumptions, the projected "
-            f"5‐year terminal value is {term_val:,.2f} USD, and the resulting NPV of "
-            f"all cash flows is {npv_val:,.2f} USD."
+            f"and a terminal multiple of {tm}×. Under these assumptions, the present value of projected FCFF "
+            f"and terminal value is ${ev_val:,.2f}; after subtracting net debt of ${net_debt:,.2f}, "
+            f"the implied equity value is ${eq_val:,.2f}, or ${per_share:,.2f} per share."
         )
+        reasonings[scenario] = reason_str
 
     summary_dict["reasonings"] = reasonings
 
