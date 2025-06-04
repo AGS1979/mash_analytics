@@ -529,4 +529,35 @@ def run_dcf_model(
         }
     }
 
+        # … (after you build summary_dict as before) …
+
+    # ────────────────────────────────────────────────────────────────────────────
+    # 7) Add plain-English “reasoning” paragraphs for each scenario
+    # ────────────────────────────────────────────────────────────────────────────
+    reasonings = {}
+    for scenario in ["bull", "base", "bear"]:
+        data = dcf_results[scenario]
+        gr = data["growth_rate"]
+        wacc = data["wacc"]
+        tm = data["terminal_multiple"]
+        npv_val = data["npv"]
+        term_val = data["terminal_value"]
+
+        if scenario == "bull":
+            label = "Bull Case"
+        elif scenario == "base":
+            label = "Base Case"
+        else:
+            label = "Bear Case"
+
+        reasonings[scenario] = (
+            f"<strong>{label}:</strong> We assumed an annual Free Cash Flow growth rate of "
+            f"{gr*100:.1f}%, a discount rate (WACC) of {wacc*100:.1f}%, "
+            f"and a terminal multiple of {tm}×.  Under these assumptions, the projected "
+            f"5‐year terminal value is {term_val:,.2f} USD, and the resulting NPV of "
+            f"all cash flows is {npv_val:,.2f} USD."
+        )
+
+    summary_dict["reasonings"] = reasonings
+
     return output_path, summary_dict

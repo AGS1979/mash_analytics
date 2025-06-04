@@ -616,29 +616,117 @@ function showDcfModal() {
                             return resp.json();
                         })
                         .then(data => {
-                            if (data.download_url) {
-                                let summaryPretty = JSON.stringify(data.dcf_summary, null, 2);
-                                resultDiv.innerHTML = `
-                                    ✅ DCF completed!<br>
-                                    <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
-                                        ⬇ Download DCF Report
-                                    </a>
-                                    <pre style="background:#222; padding:12px; border-radius:6px; margin-top:10px; color:#fff;">
-${summaryPretty}
-                                    </pre>
-                                `;
-                            } else if (data.dcf_summary) {
-                                let summaryPretty = JSON.stringify(data.dcf_summary, null, 2);
-                                resultDiv.innerHTML = `
-                                    <h3>DCF Summary:</h3>
-                                    <pre style="background:#222; padding:12px; border-radius:6px; color:#fff;">
-${summaryPretty}
-                                    </pre>
-                                `;
-                            } else {
-                                resultDiv.innerHTML = `<span style="color:red;">❌ Unexpected response</span>`;
-                            }
-                        })
+    if (data.download_url) {
+        // If a report was generated, show the download link and the summary
+        const summary = data.dcf_summary;
+        const downloadLink = data.download_url;
+
+        // Build HTML for the three scenarios
+        let html = `
+            ✅ DCF completed!<br>
+            <a href="${downloadLink}" target="_blank" style="color:lightblue;font-weight:bold;">
+                ⬇ Download DCF Report
+            </a>
+            <div style="margin-top:20px;">
+              <h3>DCF Valuation Detail (Ticker: ${summary.ticker})</h3>
+        `;
+
+        // For each scenario, insert the reasoning (already contains HTML tags) and a small table
+        ["bear","base","bull"].forEach((scenarioKey) => {
+            const sc = summary.scenarios[scenarioKey];
+            const reasonHtml = summary.reasonings[scenarioKey];
+
+            html += `
+              <div style="margin-bottom:24px; padding:12px; background:#f9f9f9; border:1px solid #ccc; border-radius:4px;">
+                ${reasonHtml}  
+                <table style="width:100%; border-collapse: collapse; margin-top:8px;">
+                  <thead>
+                    <tr style="background:#e0e0e0;">
+                      <th style="border:1px solid #999; padding:6px; text-align:left;">Metric</th>
+                      <th style="border:1px solid #999; padding:6px; text-align:left;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">Growth Rate</td>
+                      <td style="border:1px solid #ccc; padding:6px;">${(sc.growth_rate*100).toFixed(1)}%</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">WACC</td>
+                      <td style="border:1px solid #ccc; padding:6px;">${(sc.wacc*100).toFixed(1)}%</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">Terminal Multiple</td>
+                      <td style="border:1px solid #ccc; padding:6px;">${sc.terminal_multiple}×</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">Terminal Value</td>
+                      <td style="border:1px solid #ccc; padding:6px;">$${sc.terminal_value.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">NPV of Cash Flows</td>
+                      <td style="border:1px solid #ccc; padding:6px;">$${sc.npv.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            `;
+        });
+
+        html += `</div>`;  // close wrapper
+        resultDiv.innerHTML = html;
+    }
+    else if (data.dcf_summary) {
+        // If for some reason there was no download link but a summary exists
+        const summary = data.dcf_summary;
+        let html = `<h3>DCF Summary (Ticker: ${summary.ticker})</h3>`;
+        ["bear","base","bull"].forEach((scenarioKey) => {
+            const sc = summary.scenarios[scenarioKey];
+            const reasonHtml = summary.reasonings[scenarioKey];
+
+            html += `
+              <div style="margin-bottom:24px; padding:12px; background:#f9f9f9; border:1px solid #ccc; border-radius:4px;">
+                ${reasonHtml}
+                <table style="width:100%; border-collapse: collapse; margin-top:8px;">
+                  <thead>
+                    <tr style="background:#e0e0e0;">
+                      <th style="border:1px solid #999; padding:6px; text-align:left;">Metric</th>
+                      <th style="border:1px solid #999; padding:6px; text-align:left;">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">Growth Rate</td>
+                      <td style="border:1px solid #ccc; padding:6px;">${(sc.growth_rate*100).toFixed(1)}%</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">WACC</td>
+                      <td style="border:1px solid #ccc; padding:6px;">${(sc.wacc*100).toFixed(1)}%</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">Terminal Multiple</td>
+                      <td style="border:1px solid #ccc; padding:6px;">${sc.terminal_multiple}×</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">Terminal Value</td>
+                      <td style="border:1px solid #ccc; padding:6px;">$${sc.terminal_value.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    </tr>
+                    <tr>
+                      <td style="border:1px solid #ccc; padding:6px;">NPV of Cash Flows</td>
+                      <td style="border:1px solid #ccc; padding:6px;">$${sc.npv.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            `;
+        });
+        resultDiv.innerHTML = html;
+    }
+    else {
+        resultDiv.innerHTML = `<span style="color:red;">❌ Unexpected response</span>`;
+    }
+})
+
                         .catch(err => {
                             console.error(err);
                             resultDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
