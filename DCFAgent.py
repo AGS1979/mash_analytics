@@ -191,6 +191,11 @@ def extract_financials_from_file(file_path: str) -> dict | None:
     net_income = None
     fcf = None
 
+    # ────────── DEBUG ────────────────────────────────────────────────────────────
+    print(f"[EXTRACT DEBUG] Starting extraction for: {file_path!r} (ext={ext})")
+    # ─────────────────────────────────────────────────────────────────────────────
+
+
     # 1) Extract raw text
     if ext == ".pdf":
         full_text = extract_text_from_pdf(file_path)
@@ -200,7 +205,11 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         return None
 
     if not full_text.strip():
+        print(f"[EXTRACT DEBUG] Unsupported extension: {file_path!r}")
         return None
+
+    print(f"[EXTRACT DEBUG]   raw_text[0:300]: {repr(full_text[:300].replace(chr(10), ' '))} …")
+
 
     # 2) Find year via common patterns
     ymatches = re.findall(r"Year\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(\d{4})", full_text, re.IGNORECASE)

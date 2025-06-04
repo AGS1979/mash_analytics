@@ -541,7 +541,7 @@ def analyze_dcf_route():
       • files (one or more PDF/DOCX uploads)
     Returns JSON:
       {
-        "message": "DCF completed",
+        "message": "DCF valuation completed successfully",
         "download_url": "...",
         "dcf_summary": {...}
       }
@@ -571,21 +571,33 @@ def analyze_dcf_route():
     for f in uploaded_files:
         if f and allowed_file(f.filename):
             safe_name = secure_filename(f.filename)
-            # Prepend timestamp to avoid collisions
             timestamp = int(time.time() * 1000)
             out_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{timestamp}_{safe_name}")
             f.save(out_path)
+
+            # ────────── DEBUG ────────────────────────────────────────────────────────────
+            print(f"[DCF DEBUG] Saved upload → {out_path!r}")
+            print(f"[DCF DEBUG]    Exists? {os.path.exists(out_path)}, Size: {os.path.getsize(out_path) if os.path.exists(out_path) else 'N/A'} bytes")
+            # ─────────────────────────────────────────────────────────────────────────────
+
             temp_paths.append(out_path)
         else:
             return jsonify({"error": f"Unsupported file type: {f.filename}"}), 400
 
-    # 5) Run the DCF model
+    # 5) Before running DCF, verify each path again
+    for p in temp_paths:
+        print(f"[DCF DEBUG] Verifying path: {p!r}, exists? {os.path.exists(p)}, size: {os.path.getsize(p) if os.path.exists(p) else 'N/A'}")
+
+    # 6) Run the DCF model
     try:
         output_path, summary_dict = run_dcf_model(company_name, assumptions, temp_paths)
     except Exception as e:
+        # Print full traceback for maximum visibility
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": f"DCF processing failed: {str(e)}"}), 500
 
-    # 6) Build download URL
+    # 7) Build download URL
     filename = os.path.basename(output_path)
     download_url = url_for('download_dcf_report', filename=filename, _external=True)
 
@@ -594,6 +606,7 @@ def analyze_dcf_route():
         "download_url": download_url,
         "dcf_summary": summary_dict
     }), 200
+
 
 @app.route('/download-dcf/<filename>', methods=['GET'])
 def download_dcf_report(filename):
