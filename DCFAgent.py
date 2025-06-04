@@ -37,7 +37,7 @@ def deepseek_chat(prompt: str, max_tokens: int = 512) -> str:
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "gpt-4o-mini",
+        "model": "deepseek-chat",
         "messages": [ {"role": "user", "content": prompt} ],
         "max_tokens": max_tokens
     }
