@@ -532,211 +532,277 @@ function showDcfModal() {
                         });
 
                     } else if (agent.id === "dcf_analyzer") {
-                    card.innerHTML = `
-                        <h3>${agent.name}</h3>
-                        <p><strong>Category:</strong> ${agent.category}</p>
-                        <p>${agent.description}</p>
-                        <button onclick="showDcfModal()">Run Agent</button>
-                    `;
-                    grid.appendChild(card);
+  card.innerHTML = `
+    <h3>${agent.name}</h3>
+    <p><strong>Category:</strong> ${agent.category}</p>
+    <p>${agent.description}</p>
+    <button onclick="showDcfModal()">Run Agent</button>
+  `;
+  grid.appendChild(card);
 
-                    const modal = document.createElement("div");
-                    modal.id = `modal-${agent.id}`;
-                    modal.className = "modal";
-                    modal.innerHTML = `
-                        <div class="modal-content">
-                            <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
-                            <h2>${agent.name}</h2>
-                            <p><strong>Category:</strong> ${agent.category}</p>
-                            <p><strong>Description:</strong> ${agent.description}</p>
+  // Create and append the modal
+  const modal = document.createElement("div");
+  modal.id = `modal-${agent.id}`;
+  modal.className = "modal";
+  modal.innerHTML = `
+    <div class="modal-content">
+      <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+      <h2>${agent.name}</h2>
+      <p><strong>Category:</strong> ${agent.category}</p>
+      <p><strong>Description:</strong> ${agent.description}</p>
 
-                            <form id="dcf-form" enctype="multipart/form-data">
-                                <label for="dcf-company">Company Name (e.g. Apple Inc.):</label><br>
-                                <input type="text" id="dcf-company" name="company_name" required
-                                    placeholder="Enter the full company name" /><br><br>
+      <form id="dcf-form" enctype="multipart/form-data">
+        <label for="dcf-company">Company Name (e.g. Apple Inc.):</label><br>
+        <input
+          type="text"
+          id="dcf-company"
+          name="company_name"
+          required
+          placeholder="Enter the full company name"
+        /><br><br>
 
-                                <label for="dcf-assumptions">
-                                    Assumptions (JSON, optional)<br>
-                                    e.g.: {"growth_rates":{"bull":0.08,"base":0.05,"bear":0.02},
-                                           "waccs":{"bull":0.09,"base":0.10,"bear":0.11},
-                                           "terminal_multiples":{"bull":14,"base":12,"bear":10}}
-                                </label><br>
-                                <textarea id="dcf-assumptions" name="assumptions" rows="4"
-                                    placeholder='{"growth_rates":{"bull":0.08,"base":0.05,"bear":0.02},"waccs":{"bull":0.09,"base":0.10,"bear":0.11},"terminal_multiples":{"bull":14,"base":12,"bear":10}}'></textarea><br><br>
+        <label for="dcf-assumptions">
+          Assumptions (JSON, optional)<br>
+          e.g.:
+          {"growth_rates":{"bull":0.08,"base":0.05,"bear":0.02},
+           "waccs":{"bull":0.09,"base":0.10,"bear":0.11},
+           "terminal_multiples":{"bull":14,"base":12,"bear":10}}
+        </label><br>
+        <textarea
+          id="dcf-assumptions"
+          name="assumptions"
+          rows="4"
+          placeholder='{"growth_rates":{"bull":0.08,"base":0.05,"bear":0.02},"waccs":{"bull":0.09,"base":0.10,"bear":0.11},"terminal_multiples":{"bull":14,"base":12,"bear":10}}'
+        ></textarea><br><br>
 
-                                <label for="dcf-files">Upload Documents (10-K, 10-Q, Annual Reports):</label><br>
-                                <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required /><br><br>
+        <label for="dcf-files">Upload Documents (10-K, 10-Q, Annual Reports):</label><br>
+        <input
+          type="file"
+          id="dcf-files"
+          name="files"
+          accept=".pdf,.docx"
+          multiple
+          required
+        /><br><br>
 
-                                <button type="submit">Run DCF</button>
-                            </form>
-                            <div id="dcf-result" style="margin-top: 15px; max-height: 60vh; overflow-y: auto;"></div>
-                        </div>
-                    `;
-                    document.getElementById("custom-agents-ui").appendChild(modal);
+        <button type="submit">Run DCF</button>
+      </form>
 
-                    modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
-                        e.preventDefault();
-                        const form = e.target;
-                        const companyInput = form.querySelector("#dcf-company").value.trim();
-                        const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
-                        const fileInput = form.querySelector("#dcf-files");
-                        const resultDiv = document.getElementById("dcf-result");
-                        const submitBtn = form.querySelector("button");
+      <!-- Notice: removed inline styles here; we give this div a class -->
+      <div id="dcf-result" class="dcf-result"></div>
+    </div>
+  `;
+  document.getElementById("custom-agents-ui").appendChild(modal);
 
-                        if (!companyInput) {
-                            resultDiv.innerHTML = "<p style='color:red;'>Please enter a valid company name.</p>";
-                            return;
-                        }
-                        if (fileInput.files.length === 0) {
-                            resultDiv.innerHTML = "<p style='color:red;'>Please upload at least one document (PDF or DOCX).</p>";
-                            return;
-                        }
+  // Attach the submit listener
+  modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const companyInput = form.querySelector("#dcf-company").value.trim();
+    const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
+    const fileInput = form.querySelector("#dcf-files");
+    const resultDiv = document.getElementById("dcf-result");
+    const submitBtn = form.querySelector("button");
 
-                        const formData = new FormData();
-                        formData.append("company_name", companyInput);
-                        if (assumptionsInput) {
-                            formData.append("assumptions", assumptionsInput);
-                        }
-                        for (let i = 0; i < fileInput.files.length; i++) {
-                            formData.append("files", fileInput.files[i]);
-                        }
+    // Simple client‐side validation: require company name and at least one file
+    if (!companyInput) {
+      resultDiv.innerHTML = `<p class="error-text">Please enter a valid company name.</p>`;
+      return;
+    }
+    if (fileInput.files.length === 0) {
+      resultDiv.innerHTML = `<p class="error-text">Please upload at least one document (PDF or DOCX).</p>`;
+      return;
+    }
 
-                        resultDiv.innerHTML = "<p>⏳ Running DCF… please wait…</p>";
-                        submitBtn.disabled = true;
+    // Build FormData for the POST
+    const formData = new FormData();
+    formData.append("company_name", companyInput);
+    if (assumptionsInput) {
+      formData.append("assumptions", assumptionsInput);
+    }
+    for (let i = 0; i < fileInput.files.length; i++) {
+      formData.append("files", fileInput.files[i]);
+    }
 
-                        fetch("/analyze-dcf", {
-                            method: "POST",
-                            body: formData
-                        })
-                        .then(async resp => {
-                            if (!resp.ok) {
-                                const err = await resp.json();
-                                throw new Error(err.error || `HTTP ${resp.status}`);
-                            }
-                            return resp.json();
-                        })
-                        .then(data => {
-    if (data.download_url) {
-        // If a report was generated, show the download link and the summary
-        const summary = data.dcf_summary;
-        const downloadLink = data.download_url;
+    // Show a loading message
+    resultDiv.innerHTML = `<p class="loading-text">⏳ Running DCF… please wait…</p>`;
+    submitBtn.disabled = true;
 
-        // Build HTML for the three scenarios
-        let html = `
-            ✅ DCF completed!<br>
-            <a href="${downloadLink}" target="_blank" style="color:lightblue;font-weight:bold;">
-                ⬇ Download DCF Report
-            </a>
-            <div style="margin-top:20px;">
-              <h3>DCF Valuation Detail (Ticker: ${summary.ticker})</h3>
-        `;
+    fetch("/analyze-dcf", {
+      method: "POST",
+      body: formData
+    })
+      .then(async (resp) => {
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+        return resp.json();
+      })
+      .then((data) => {
+        // ─────────────────────────────────────────────────────────────────────────
+        // CASE 1: data.download_url is present → show link + detailed scenarios
+        // ─────────────────────────────────────────────────────────────────────────
+        if (data.download_url) {
+          const summary = data.dcf_summary;
+          const downloadLink = data.download_url;
 
-        // For each scenario, insert the reasoning (already contains HTML tags) and a small table
-        ["bear","base","bull"].forEach((scenarioKey) => {
+          let html = `
+            <div class="dcf-container">
+              <div class="dcf-header">
+                ✅ DCF completed!<br>
+                <a href="${downloadLink}" target="_blank" class="dcf-download">
+                  ⬇ Download DCF Report
+                </a>
+              </div>
+              <div class="dcf-body">
+                <h3 class="dcf-title">
+                  DCF Valuation Detail (Ticker: ${summary.ticker})
+                </h3>
+          `;
+
+          ["bear", "base", "bull"].forEach((scenarioKey) => {
             const sc = summary.scenarios[scenarioKey];
-            const reasonHtml = summary.reasonings[scenarioKey];
+            const reasonHtml = summary.reasonings[scenarioKey] || "";
 
             html += `
-              <div style="margin-bottom:24px; padding:12px; background:#f9f9f9; border:1px solid #ccc; border-radius:4px;">
-                ${reasonHtml}  
-                <table style="width:100%; border-collapse: collapse; margin-top:8px;">
+              <div class="dcf-scenario">
+                <div class="dcf-reasoning">
+                  ${reasonHtml}
+                </div>
+                <table class="dcf-table">
                   <thead>
-                    <tr style="background:#e0e0e0;">
-                      <th style="border:1px solid #999; padding:6px; text-align:left;">Metric</th>
-                      <th style="border:1px solid #999; padding:6px; text-align:left;">Value</th>
+                    <tr class="dcf-table-header">
+                      <th>Metric</th>
+                      <th>Value</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">Growth Rate</td>
-                      <td style="border:1px solid #ccc; padding:6px;">${(sc.growth_rate*100).toFixed(1)}%</td>
+                      <td>Growth Rate</td>
+                      <td>${(sc.growth_rate * 100).toFixed(1)}%</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">WACC</td>
-                      <td style="border:1px solid #ccc; padding:6px;">${(sc.wacc*100).toFixed(1)}%</td>
+                      <td>WACC</td>
+                      <td>${(sc.wacc * 100).toFixed(1)}%</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">Terminal Multiple</td>
-                      <td style="border:1px solid #ccc; padding:6px;">${sc.terminal_multiple}×</td>
+                      <td>Terminal Multiple</td>
+                      <td>${sc.terminal_multiple}×</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">Terminal Value</td>
-                      <td style="border:1px solid #ccc; padding:6px;">$${sc.terminal_value.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                      <td>Terminal Value</td>
+                      <td>$${sc.terminal_value.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">NPV of Cash Flows</td>
-                      <td style="border:1px solid #ccc; padding:6px;">$${sc.npv.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                      <td>NPV of Cash Flows</td>
+                      <td>$${sc.npv.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             `;
-        });
+          });
 
-        html += `</div>`;  // close wrapper
-        resultDiv.innerHTML = html;
-    }
-    else if (data.dcf_summary) {
-        // If for some reason there was no download link but a summary exists
-        const summary = data.dcf_summary;
-        let html = `<h3>DCF Summary (Ticker: ${summary.ticker})</h3>`;
-        ["bear","base","bull"].forEach((scenarioKey) => {
+          html += `
+              </div> <!-- /.dcf-body -->
+            </div> <!-- /.dcf-container -->
+          `;
+          resultDiv.innerHTML = html;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // CASE 2: data.dcf_summary exists but no download_url → show summary only
+        // ─────────────────────────────────────────────────────────────────────────
+        else if (data.dcf_summary) {
+          const summary = data.dcf_summary;
+          let html = `
+            <div class="dcf-container">
+              <div class="dcf-body">
+                <h3 class="dcf-title">
+                  DCF Summary (Ticker: ${summary.ticker})
+                </h3>
+          `;
+
+          ["bear", "base", "bull"].forEach((scenarioKey) => {
             const sc = summary.scenarios[scenarioKey];
-            const reasonHtml = summary.reasonings[scenarioKey];
+            const reasonHtml = summary.reasonings[scenarioKey] || "";
 
             html += `
-              <div style="margin-bottom:24px; padding:12px; background:#f9f9f9; border:1px solid #ccc; border-radius:4px;">
-                ${reasonHtml}
-                <table style="width:100%; border-collapse: collapse; margin-top:8px;">
+              <div class="dcf-scenario">
+                <div class="dcf-reasoning">
+                  ${reasonHtml}
+                </div>
+                <table class="dcf-table">
                   <thead>
-                    <tr style="background:#e0e0e0;">
-                      <th style="border:1px solid #999; padding:6px; text-align:left;">Metric</th>
-                      <th style="border:1px solid #999; padding:6px; text-align:left;">Value</th>
+                    <tr class="dcf-table-header">
+                      <th>Metric</th>
+                      <th>Value</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">Growth Rate</td>
-                      <td style="border:1px solid #ccc; padding:6px;">${(sc.growth_rate*100).toFixed(1)}%</td>
+                      <td>Growth Rate</td>
+                      <td>${(sc.growth_rate * 100).toFixed(1)}%</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">WACC</td>
-                      <td style="border:1px solid #ccc; padding:6px;">${(sc.wacc*100).toFixed(1)}%</td>
+                      <td>WACC</td>
+                      <td>${(sc.wacc * 100).toFixed(1)}%</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">Terminal Multiple</td>
-                      <td style="border:1px solid #ccc; padding:6px;">${sc.terminal_multiple}×</td>
+                      <td>Terminal Multiple</td>
+                      <td>${sc.terminal_multiple}×</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">Terminal Value</td>
-                      <td style="border:1px solid #ccc; padding:6px;">$${sc.terminal_value.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                      <td>Terminal Value</td>
+                      <td>$${sc.terminal_value.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}</td>
                     </tr>
                     <tr>
-                      <td style="border:1px solid #ccc; padding:6px;">NPV of Cash Flows</td>
-                      <td style="border:1px solid #ccc; padding:6px;">$${sc.npv.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                      <td>NPV of Cash Flows</td>
+                      <td>$${sc.npv.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             `;
-        });
-        resultDiv.innerHTML = html;
-    }
-    else {
-        resultDiv.innerHTML = `<span style="color:red;">❌ Unexpected response</span>`;
-    }
-})
+          });
 
-                        .catch(err => {
-                            console.error(err);
-                            resultDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
-                        })
-                        .finally(() => {
-                            submitBtn.disabled = false;
-                            resultDiv.scrollIntoView({ behavior: "smooth" });
-                        });
-                    });
-                }  else {
+          html += `
+              </div> <!-- /.dcf-body -->
+            </div> <!-- /.dcf-container -->
+          `;
+          resultDiv.innerHTML = html;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────
+        // CASE 3: unexpected response → error message
+        // ─────────────────────────────────────────────────────────────────────────
+        else {
+          resultDiv.innerHTML = `<span class="error-text">❌ Unexpected response</span>`;
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        resultDiv.innerHTML = `<p class="error-text">❌ Error: ${err.message}</p>`;
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        resultDiv.scrollIntoView({ behavior: "smooth" });
+      });
+  });
+} else {
                         // Default cards for other agents
                         card.innerHTML = `
                             <h3>${agent.name}</h3>
