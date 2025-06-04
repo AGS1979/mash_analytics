@@ -832,3 +832,131 @@ body {
   padding-left: 0;
   width: 100%;
 }
+
+
+/* ───────────────────────────────────────────────────────────────────────── *
+   DCF‐Output Styling (no inline styles; uses the class names above)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ───────────────────────────────────────────────────────────────────────── *
+   DCF‐Output Styling (wrapper background, border, padding)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* 0) Give the .dcf-container itself a dark background, border, and some padding */
+#dcf-result .dcf-container {
+  background-color: #1e1e1e;      /* same dark tone as your modal */
+  border: 1px solid #3b82f6;      /* the same blue accent border */
+  border-radius: 8px;             /* match your other card corner styles */
+  padding: 20px;                  /* give it breathing room */
+  margin-top: 8px;                /* small gap above, if needed */
+  color: #e5e5e5;                 /* text color inside */
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+
+/* 1) Entire wrapper: */
+#dcf-result .dcf-container {
+  color: #e5e5e5;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* 2) Header + download link: */
+#dcf-result .dcf-header {
+  margin-bottom: 16px;
+}
+#dcf-result .dcf-header a.dcf-download {
+  display: inline-block;
+  margin-top: 4px;
+  color: #60a5fa;
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 16px;
+}
+#dcf-result .dcf-header a.dcf-download:hover {
+  text-decoration: underline;
+}
+
+/* 3) Title under the header: */
+#dcf-result .dcf-title {
+  color: #93c5fd;
+  font-size: 20px;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+/* 4) Each scenario “box”: */
+#dcf-result .dcf-scenario {
+  background-color: #2b2b2b;
+  border: 1px solid #3b82f6;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+/* 5) Reasoning paragraph inside each scenario: */
+#dcf-result .dcf-reasoning {
+  margin-bottom: 12px;
+}
+#dcf-result .dcf-reasoning strong {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+/* 6) Table itself: */
+#dcf-result .dcf-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  background-color: transparent;
+}
+
+/* 6a) Table header row: */
+#dcf-result .dcf-table th {
+  background-color: #1e293b;
+  color: #93c5fd;
+  border: 1px solid #3b82f6;
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+
+/* 6b) Table body cells: */
+#dcf-result .dcf-table td {
+  border: 1px solid #3b82f6;
+  padding: 8px 12px;
+  color: #e5e5e5;
+}
+
+/* 6c) Zebra‐striping for readability: */
+#dcf-result .dcf-table tr:nth-child(even) td {
+  background-color: #1e1e1e;
+}
+
+/* 7) Small‐screen tweaks: */
+@media (max-width: 768px) {
+  #dcf-result .dcf-container {
+    font-size: 14px;
+  }
+  #dcf-result .dcf-table th,
+  #dcf-result .dcf-table td {
+    padding: 6px 8px;
+  }
+  #dcf-result .dcf-title {
+    font-size: 18px;
+  }
+}
+
+/* 8) Error and loading text styles: */
+#dcf-result .error-text {
+  color: #f87171;  /* pale red for errors */
+  font-weight: 500;
+}
+#dcf-result .loading-text {
+  color: #f9f871;  /* pale yellow for loading */
+  font-weight: 500;
+}
+/* ───────────────────────────────────────────────────────────────────────── *
+   End DCF‐Output Styling
+   ───────────────────────────────────────────────────────────────────────── */
