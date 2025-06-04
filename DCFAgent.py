@@ -4,7 +4,6 @@ import os
 import json
 import time
 import re
-import tempfile
 import requests
 
 import pandas as pd
@@ -38,7 +37,7 @@ def deepseek_chat(prompt: str, max_tokens: int = 512) -> str:
     }
     payload = {
         "model": "deepseek-chat",
-        "messages": [ {"role": "user", "content": prompt} ],
+        "messages": [{"role": "user", "content": prompt}],
         "max_tokens": max_tokens
     }
     resp = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload, timeout=60)
@@ -172,10 +171,10 @@ def extract_financials_from_pdf(pdf_path: str) -> dict | None:
     """
     Attempts to extract {year, revenue, net_income, free_cash_flow} from a 10-K/10-Q PDF.
     Procedure:
-      1. Scan the PDF text for a phrase like "For the year ended December 31, 2023"
-         to deduce `year`.
+      1. Scan the PDF text for a phrase like "Year Ended January 31, 2021" to deduce `year`.
       2. Look for pages containing "Consolidated Statements of Cash Flows" → parse tables there → find Free Cash Flow.
-      3. Look for pages containing "Consolidated Statements of Income" (or "Income Statement" / "Statement of Operations") → parse those → find revenue & net income.
+      3. Look for pages containing "Consolidated Statements of Income" → parse those → find revenue & net income.
+      4. If tables fail, fall back to line-by-line text search for "Free Cash Flow", "Revenue", and "Net Income".
     Returns a dict {"year": int, "revenue": float, "net_income": float, "free_cash_flow": float}
     or None if it fails.
     """
@@ -187,12 +186,16 @@ def extract_financials_from_pdf(pdf_path: str) -> dict | None:
             txt = p.extract_text() or ""
             full_text += "\n" + txt
 
-        # Look for "For the year ended December 31, 2023"
-        year_match = re.search(r"For\s+the\s+year\s+ended\s+December\s+31,\s*(\d{4})", full_text, re.IGNORECASE)
+        # Look for "Year Ended <Month> <Day>, <Year>"
+        year_match = re.search(
+            r"Year\s+Ended\s+([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})",
+            full_text,
+            re.IGNORECASE
+        )
         if year_match:
-            year = int(year_match.group(1))
+            year = int(year_match.group(3))
         else:
-            # Fallback: look for standalone year at top of financial section
+            # Fallback: look for any “YYYY Consolidated Balance Sheets” heading
             y2 = re.search(r"(\d{4})\s+Consolidated\s+Balance\s+Sheets", full_text, re.IGNORECASE)
             year = int(y2.group(1)) if y2 else None
 
@@ -200,7 +203,10 @@ def extract_financials_from_pdf(pdf_path: str) -> dict | None:
             return None
 
         # 2) Find pages with Cash Flow Statement
-        cf_pages = find_pages_with_keyword(pdf_path, "Cash Flows")
+        cf_pages = find_pages_with_keyword(
+            pdf_path,
+            r"Consolidated\s+Statements\s+of\s+Cash\s+Flows|Cash\s+Flow"
+        )
         tables_cf = extract_tables_from_pdf(pdf_path, cf_pages)
         fcf = None
         for df in tables_cf:
@@ -210,7 +216,10 @@ def extract_financials_from_pdf(pdf_path: str) -> dict | None:
                 break
 
         # 3) Find pages with Income Statement
-        inc_pages = find_pages_with_keyword(pdf_path, "Income Statement|Statement of Operations",)
+        inc_pages = find_pages_with_keyword(
+            pdf_path,
+            r"Consolidated\s+Statements\s+of\s+Income|Consolidated\s+Statements\s+of\s+Comprehensive\s+Income|Income\s+Statement"
+        )
         tables_inc = extract_tables_from_pdf(pdf_path, inc_pages)
         revenue = None
         net_income = None
@@ -222,6 +231,40 @@ def extract_financials_from_pdf(pdf_path: str) -> dict | None:
                 net_income = ni
             if revenue is not None and net_income is not None:
                 break
+
+        # 4) If any of revenue/net_income/fcf still None, attempt line-by-line extraction
+        if fcf is None or revenue is None or net_income is None:
+            # Search each line in full_text
+            for line in full_text.splitlines():
+                # Free Cash Flow
+                if fcf is None and re.search(r"free\s+cash\s+flow", line, re.IGNORECASE):
+                    amt_match = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                    if amt_match:
+                        try:
+                            fcf = float(amt_match.group(1).replace(",", ""))
+                        except Exception:
+                            pass
+
+                # Revenue
+                if revenue is None and re.search(r"(^|\s)revenue($|\s)", line, re.IGNORECASE):
+                    rev_match = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                    if rev_match:
+                        try:
+                            revenue = float(rev_match.group(1).replace(",", ""))
+                        except Exception:
+                            pass
+
+                # Net Income
+                if net_income is None and re.search(r"(^|\s)net\s+income($|\s)", line, re.IGNORECASE):
+                    ni_match = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                    if ni_match:
+                        try:
+                            net_income = float(ni_match.group(1).replace(",", ""))
+                        except Exception:
+                            pass
+
+                if fcf is not None and revenue is not None and net_income is not None:
+                    break
 
         if revenue is None and net_income is None and fcf is None:
             return None
@@ -246,7 +289,7 @@ def run_dcf_model(
     """
     Performs a 3-case (Bull / Base / Bear) DCF valuation for the given `company_name`.
     1) Uses DeepSeek to convert company_name → ticker.
-    2) Extracts historical financials from each uploaded PDF/DOCX via extract_financials_from_pdf.
+    2) Extracts historical financials from each uploaded PDF via extract_financials_from_pdf.
     3) Aggregates at most 5 most recent years of financials.
     4) Uses user-supplied assumption dict (or defaults) for growth_rates, waccs, terminal_multiples.
     5) Projects FCF for 5 years + terminal value → discounts at scenario WACC → computes NPV.
@@ -254,13 +297,13 @@ def run_dcf_model(
     7) Returns (output_path, summary_dict).
 
     Input:
-      company_name: str, e.g. "Apple Inc." or "Microsoft Corporation"
+      company_name: str, e.g. "Apple Inc."
       assumptions: dict, e.g. {
-         "growth_rates": {"bull":0.08, "base":0.05, "bear":0.02},
-         "waccs": {"bull":0.09, "base":0.10, "bear":0.11},
-         "terminal_multiples": {"bull":14, "base":12, "bear":10}
+         "growth_rates": {"bull":0.08,"base":0.05,"bear":0.02},
+         "waccs": {"bull":0.09,"base":0.10,"bear":0.11},
+         "terminal_multiples": {"bull":14,"base":12,"bear":10}
       }
-      file_paths: list of locally saved file paths to user-uploaded annual reports, 10-Ks, etc.
+      file_paths: list of locally saved PDF file paths.
 
     Output:
       (output_path, summary_dict)
@@ -283,7 +326,7 @@ def run_dcf_model(
     extracted = []
     for path in file_paths:
         fin = extract_financials_from_pdf(path)
-        if fin is not None and all(k in fin for k in ("year", "free_cash_flow")):
+        if fin is not None and "year" in fin and fin.get("free_cash_flow") is not None:
             extracted.append(fin)
     if not extracted:
         # If nothing could be parsed, abort
@@ -314,23 +357,20 @@ def run_dcf_model(
             "bear": assumptions["growth_rates"].get("bear"),
         }
     else:
-        # Default fallback: caret sign CAGR of last 3 years of FCF → use DeepSeek to tweak
+        # Default fallback: use shortest representation of historical_list
+        hist_str = ", ".join(f"{e['year']}:{e['free_cash_flow']}" for e in historical_list)
         gr_prompt = (
-            f"For ticker {ticker}, the historical Free Cash Flows (USD) for years "
-            f"{json.dumps(historical_list, indent=2)}\n"
-            f"Propose forward 5-year annual FCF growth rates under bull, base, bear. "
+            f"For ticker {ticker}, historical Free Cash Flows (USD) for years: {hist_str}.\n"
+            f"Propose forward 5-year annual FCF growth rates under bull, base, bear.\n"
             f"Reply with JSON {{\"bull\":0.XX,\"base\":0.XX,\"bear\":0.XX}}."
         )
         raw_gr = deepseek_chat(gr_prompt, max_tokens=256)
         try:
             growth_rates = json.loads(raw_gr)
         except Exception:
-            # Naive defaults: 5% base, +/- 3% for bull/bear
-            growth_rates = {
-                "base": 0.05,
-                "bull": 0.08,
-                "bear": 0.02
-            }
+            # Naive defaults: 5% base, +/-3% for bull/bear
+            growth_rates = {"base": 0.05, "bull": 0.08, "bear": 0.02}
+
     # Fill any missing
     for scenario in ["bull", "base", "bear"]:
         if growth_rates.get(scenario) is None:
@@ -349,10 +389,13 @@ def run_dcf_model(
             "bear": assumptions["terminal_multiples"].get("bear"),
         }
     else:
+        recent_three = historical_list[-3:]
+        three_str = ", ".join(f"{e['year']}:{e['free_cash_flow']}" for e in recent_three)
         wa_prompt = (
-            f"For ticker {ticker}, given historical financials {json.dumps(historical_list[-3:], indent=2)},\n"
-            f"provide WACC and terminal multiples under bull, base, bear. "
-            f"Reply JSON {{\"bull\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
+            f"For ticker {ticker}, given last three years’ FCF: {three_str},\n"
+            f"provide WACC and terminal multiples under bull, base, bear.\n"
+            f"Reply JSON {{"
+            f"\"bull\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
             f"\"base\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
             f"\"bear\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}}}."
         )
