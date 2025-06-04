@@ -10,8 +10,9 @@ import pandas as pd
 import numpy as np
 
 from PyPDF2 import PdfReader
-import camelot             # for table extraction
+import camelot
 from openpyxl import Workbook
+from docx import Document
 
 # ────────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION: DEEPSEEK API
@@ -46,26 +47,40 @@ def deepseek_chat(prompt: str, max_tokens: int = 512) -> str:
     return data["choices"][0]["message"]["content"]
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Extract raw text from a list of PDFs
+# HELPER: Extract raw text from a PDF
 # ────────────────────────────────────────────────────────────────────────────────
-def extract_text_from_pdfs(file_paths: list[str]) -> str:
+def extract_text_from_pdf(pdf_path: str) -> str:
     """
-    Concatenates all textual content from the given PDF file paths.
+    Extracts and concatenates all textual content from a PDF file.
     """
     all_text = []
-    for path in file_paths:
-        try:
-            reader = PdfReader(path)
-            for page in reader.pages:
-                txt = page.extract_text()
-                if txt:
-                    all_text.append(txt)
-        except Exception:
-            continue
+    try:
+        reader = PdfReader(pdf_path)
+        for page in reader.pages:
+            txt = page.extract_text() or ""
+            all_text.append(txt)
+    except Exception:
+        pass
     return "\n".join(all_text)
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Identify page numbers containing a given keyword
+# HELPER: Extract raw text from a DOCX
+# ────────────────────────────────────────────────────────────────────────────────
+def extract_text_from_docx(docx_path: str) -> str:
+    """
+    Extracts and concatenates all textual content from a DOCX file.
+    """
+    all_text = []
+    try:
+        doc = Document(docx_path)
+        for para in doc.paragraphs:
+            all_text.append(para.text)
+    except Exception:
+        pass
+    return "\n".join(all_text)
+
+# ────────────────────────────────────────────────────────────────────────────────
+# HELPER: Identify page numbers containing a given keyword in PDF
 # ────────────────────────────────────────────────────────────────────────────────
 def find_pages_with_keyword(pdf_path: str, keyword: str) -> list[int]:
     """
@@ -84,19 +99,16 @@ def find_pages_with_keyword(pdf_path: str, keyword: str) -> list[int]:
     return pages
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Extract financial table (as pandas DataFrame) from given PDF pages
+# HELPER: Extract tables from PDF pages
 # ────────────────────────────────────────────────────────────────────────────────
 def extract_tables_from_pdf(pdf_path: str, page_indices: list[int]) -> list[pd.DataFrame]:
     """
     Uses Camelot to extract all tables on the specified 1-based pages.
-    Camelot requires pages in '1,2,5' format (1-based).
     Returns a list of DataFrames.
     """
     dfs = []
     if not page_indices:
         return dfs
-
-    # Camelot wants pages as a comma-separated string of 1-based indices
     pages_str = ",".join(str(i + 1) for i in page_indices)
     try:
         tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor='stream')
@@ -111,18 +123,13 @@ def extract_tables_from_pdf(pdf_path: str, page_indices: list[int]) -> list[pd.D
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
     """
-    Looks for a row containing 'Free Cash Flow' (case-insensitive) in the DataFrame `df`.
-    If found, tries to parse the number from the next column.
-    Returns a float (in USD) or None if not found/parsable.
+    Searches `df` for a row containing 'Free Cash Flow' (case-insensitive)
+    and returns the first numeric value in that row (USD).
     """
-    for row_idx in range(len(df)):
-        row = df.iloc[row_idx].tolist()
-        # Combine all row cells into one string for matching
-        row_str = " ".join(str(cell) for cell in row)
+    for _, row in df.iterrows():
+        row_str = " ".join(str(cell) for cell in row.tolist())
         if re.search(r"free\s+cash\s+flow", row_str, re.IGNORECASE):
-            # Assume the numeric value is in one of the subsequent columns
-            for cell in row[1:]:
-                # Remove commas, dollar signs, parentheses
+            for cell in row.tolist()[1:]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
                     return float(s)
@@ -131,29 +138,27 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
     return None
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Attempt to parse Revenue & Net Income from Income Statement tables
+# HELPER: Attempt to parse Revenue & Net Income from Income Statement DataFrame
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     """
-    Looks for 'Revenue' and 'Net Income' rows (case-insensitive) in `df`.
-    Returns (revenue, net_income) in USD, or (None, None) if not found.
+    Searches `df` for 'Revenue' and 'Net Income' rows (case-insensitive).
+    Returns a tuple (revenue, net_income) in USD, or (None,None).
     """
     rev = None
     ni = None
-    for row_idx in range(len(df)):
-        row = df.iloc[row_idx].tolist()
-        row_str = " ".join(str(cell) for cell in row)
-        if re.search(r"(^|\s)revenue($|\s)", row_str, re.IGNORECASE):
-            # parse number from next columns
-            for cell in row[1:]:
+    for _, row in df.iterrows():
+        row_str = " ".join(str(cell) for cell in row.tolist())
+        if rev is None and re.search(r"(^|\s)revenue($|\s)", row_str, re.IGNORECASE):
+            for cell in row.tolist()[1:]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
                     rev = float(s)
                     break
                 except Exception:
                     continue
-        if re.search(r"(^|\s)net\s+income($|\s)", row_str, re.IGNORECASE):
-            for cell in row[1:]:
+        if ni is None and re.search(r"(^|\s)net\s+income($|\s)", row_str, re.IGNORECASE):
+            for cell in row.tolist()[1:]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
                     ni = float(s)
@@ -165,64 +170,74 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     return rev, ni
 
 # ────────────────────────────────────────────────────────────────────────────────
-# CORE HELPER: Extract historical financials from a single PDF
+# CORE HELPER: Extract financials from PDF or DOCX
 # ────────────────────────────────────────────────────────────────────────────────
-def extract_financials_from_pdf(pdf_path: str) -> dict | None:
+def extract_financials_from_file(file_path: str) -> dict | None:
     """
-    Attempts to extract {year, revenue, net_income, free_cash_flow} from a 10-K/10-Q PDF.
-    Procedure:
-      1. Scan the PDF text for a phrase like "Year Ended January 31, 2021" to deduce `year`.
-      2. Look for pages containing "Consolidated Statements of Cash Flows" → parse tables there → find Free Cash Flow.
-      3. Look for pages containing "Consolidated Statements of Income" → parse those → find revenue & net income.
-      4. If tables fail, fall back to line-by-line text search for "Free Cash Flow", "Revenue", and "Net Income".
-    Returns a dict {"year": int, "revenue": float, "net_income": float, "free_cash_flow": float}
-    or None if it fails.
+    Attempts to extract {year, revenue, net_income, free_cash_flow} from a 10-K/10-Q PDF or a DOCX.
+    1. If PDF:
+       a) Extract full text → find year via "Year Ended <Mon> <Day>, <Year>"
+       b) Find pages with "Cash Flow" → extract tables → parse FCF
+       c) Find pages with "Income Statement" → extract tables → parse revenue, net income
+       d) Fallback: search lines for "$" amounts beside "Free Cash Flow", "Revenue", "Net Income"
+    2. If DOCX:
+       a) Extract full text → same line-based search for year, FCF, revenue, net income
+    Returns a dict {"year":int,"revenue":float,"net_income":float,"free_cash_flow":float} or None.
     """
-    try:
-        # 1) Extract raw text to find the year
-        reader = PdfReader(pdf_path)
-        full_text = ""
-        for p in reader.pages:
-            txt = p.extract_text() or ""
-            full_text += "\n" + txt
+    _, ext = os.path.splitext(file_path.lower())
+    full_text = ""
+    year = None
+    revenue = None
+    net_income = None
+    fcf = None
 
-        # Look for "Year Ended <Month> <Day>, <Year>"
-        year_match = re.search(
-            r"Year\s+Ended\s+([A-Za-z]+)\s+(\d{1,2}),\s*(\d{4})",
-            full_text,
-            re.IGNORECASE
-        )
-        if year_match:
-            year = int(year_match.group(3))
-        else:
-            # Fallback: look for any “YYYY Consolidated Balance Sheets” heading
-            y2 = re.search(r"(\d{4})\s+Consolidated\s+Balance\s+Sheets", full_text, re.IGNORECASE)
-            year = int(y2.group(1)) if y2 else None
+    # 1) Extract raw text
+    if ext == ".pdf":
+        full_text = extract_text_from_pdf(file_path)
+    elif ext == ".docx":
+        full_text = extract_text_from_docx(file_path)
+    else:
+        return None
 
-        if year is None:
-            return None
+    if not full_text.strip():
+        return None
 
-        # 2) Find pages with Cash Flow Statement
+    # 2) Find year via common patterns
+    ymatches = re.findall(r"Year\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(\d{4})", full_text, re.IGNORECASE)
+    if ymatches:
+        # take most recent match
+        try:
+            year = int(sorted({int(y) for y in ymatches})[-1])
+        except Exception:
+            year = None
+    if year is None:
+        y2 = re.findall(r"(\d{4})\s+Consolidated\s+Balance\s+Sheets", full_text, re.IGNORECASE)
+        if y2:
+            try:
+                year = int(sorted({int(y) for y in y2})[-1])
+            except Exception:
+                year = None
+
+    # 3) If PDF, attempt table extraction first
+    if ext == ".pdf":
+        # a) Cash Flow
         cf_pages = find_pages_with_keyword(
-            pdf_path,
+            file_path,
             r"Consolidated\s+Statements\s+of\s+Cash\s+Flows|Cash\s+Flow"
         )
-        tables_cf = extract_tables_from_pdf(pdf_path, cf_pages)
-        fcf = None
+        tables_cf = extract_tables_from_pdf(file_path, cf_pages)
         for df in tables_cf:
             val = parse_fcf_from_df(df)
             if val is not None:
                 fcf = val
                 break
 
-        # 3) Find pages with Income Statement
+        # b) Income Statement
         inc_pages = find_pages_with_keyword(
-            pdf_path,
+            file_path,
             r"Consolidated\s+Statements\s+of\s+Income|Consolidated\s+Statements\s+of\s+Comprehensive\s+Income|Income\s+Statement"
         )
-        tables_inc = extract_tables_from_pdf(pdf_path, inc_pages)
-        revenue = None
-        net_income = None
+        tables_inc = extract_tables_from_pdf(file_path, inc_pages)
         for df in tables_inc:
             r, ni = parse_income_from_df(df)
             if r is not None:
@@ -232,51 +247,50 @@ def extract_financials_from_pdf(pdf_path: str) -> dict | None:
             if revenue is not None and net_income is not None:
                 break
 
-        # 4) If any of revenue/net_income/fcf still None, attempt line-by-line extraction
-        if fcf is None or revenue is None or net_income is None:
-            # Search each line in full_text
-            for line in full_text.splitlines():
-                # Free Cash Flow
-                if fcf is None and re.search(r"free\s+cash\s+flow", line, re.IGNORECASE):
-                    amt_match = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
-                    if amt_match:
-                        try:
-                            fcf = float(amt_match.group(1).replace(",", ""))
-                        except Exception:
-                            pass
+    # 4) Fallback line-by-line search if any value still missing
+    #    Search for patterns like "Free Cash Flow $XX,XXX"
+    if fcf is None or revenue is None or net_income is None:
+        for line in full_text.splitlines():
+            # Free Cash Flow
+            if fcf is None and re.search(r"free\s+cash\s+flow", line, re.IGNORECASE):
+                m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                if m:
+                    try:
+                        fcf = float(m.group(1).replace(",", ""))
+                    except:
+                        pass
 
-                # Revenue
-                if revenue is None and re.search(r"(^|\s)revenue($|\s)", line, re.IGNORECASE):
-                    rev_match = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
-                    if rev_match:
-                        try:
-                            revenue = float(rev_match.group(1).replace(",", ""))
-                        except Exception:
-                            pass
+            # Revenue
+            if revenue is None and re.search(r"(^|\s)revenue($|\s)", line, re.IGNORECASE):
+                m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                if m:
+                    try:
+                        revenue = float(m.group(1).replace(",", ""))
+                    except:
+                        pass
 
-                # Net Income
-                if net_income is None and re.search(r"(^|\s)net\s+income($|\s)", line, re.IGNORECASE):
-                    ni_match = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
-                    if ni_match:
-                        try:
-                            net_income = float(ni_match.group(1).replace(",", ""))
-                        except Exception:
-                            pass
+            # Net Income
+            if net_income is None and re.search(r"(^|\s)net\s+income($|\s)", line, re.IGNORECASE):
+                m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
+                if m:
+                    try:
+                        net_income = float(m.group(1).replace(",", ""))
+                    except:
+                        pass
 
-                if fcf is not None and revenue is not None and net_income is not None:
-                    break
+            if fcf is not None and revenue is not None and net_income is not None:
+                break
 
-        if revenue is None and net_income is None and fcf is None:
-            return None
-
-        return {
-            "year": year,
-            "revenue": revenue,
-            "net_income": net_income,
-            "free_cash_flow": fcf
-        }
-    except Exception:
+    # 5) If still missing, return None
+    if year is None and fcf is None and revenue is None and net_income is None:
         return None
+
+    return {
+        "year": year,
+        "revenue": revenue,
+        "net_income": net_income,
+        "free_cash_flow": fcf
+    }
 
 # ────────────────────────────────────────────────────────────────────────────────
 # MAIN FUNCTION: run_dcf_model (company_name-based)
@@ -289,7 +303,7 @@ def run_dcf_model(
     """
     Performs a 3-case (Bull / Base / Bear) DCF valuation for the given `company_name`.
     1) Uses DeepSeek to convert company_name → ticker.
-    2) Extracts historical financials from each uploaded PDF via extract_financials_from_pdf.
+    2) Extracts historical financials from each uploaded file via extract_financials_from_file.
     3) Aggregates at most 5 most recent years of financials.
     4) Uses user-supplied assumption dict (or defaults) for growth_rates, waccs, terminal_multiples.
     5) Projects FCF for 5 years + terminal value → discounts at scenario WACC → computes NPV.
@@ -303,7 +317,7 @@ def run_dcf_model(
          "waccs": {"bull":0.09,"base":0.10,"bear":0.11},
          "terminal_multiples": {"bull":14,"base":12,"bear":10}
       }
-      file_paths: list of locally saved PDF file paths.
+      file_paths: list of locally saved PDF or DOCX file paths.
 
     Output:
       (output_path, summary_dict)
@@ -321,20 +335,20 @@ def run_dcf_model(
     ticker = raw_ticker.upper()
 
     # ────────────────────────────────────────────────────────────────────────────
-    # 2) Extract pandas dicts for each PDF file (year, revenue, net_income, fcf)
+    # 2) Extract pandas dicts for each file (year, revenue, net_income, fcf)
     # ────────────────────────────────────────────────────────────────────────────
     extracted = []
     for path in file_paths:
-        fin = extract_financials_from_pdf(path)
-        if fin is not None and "year" in fin and fin.get("free_cash_flow") is not None:
+        fin = extract_financials_from_file(path)
+        # Require at least a year and an FCF (so we can project)
+        if fin is not None and fin.get("year") is not None and fin.get("free_cash_flow") is not None:
             extracted.append(fin)
     if not extracted:
-        # If nothing could be parsed, abort
         raise ValueError("No valid financial data could be extracted from uploaded files.")
 
     # Keep only 5 most recent years
-    extracted = sorted(extracted, key=lambda x: x["year"], reverse=True)[:5]
-    historical_list = sorted(extracted, key=lambda x: x["year"])  # ascending
+    extracted = sorted(extracted, key=lambda x: x["year"] or 0, reverse=True)[:5]
+    historical_list = sorted(extracted, key=lambda x: x["year"] or 0)  # ascending
 
     # Extract arrays
     hist_years = [e["year"] for e in historical_list]
@@ -347,8 +361,6 @@ def run_dcf_model(
     # ────────────────────────────────────────────────────────────────────────────
     # 3) Scenario assumptions: growth_rates, waccs, terminal_multiples
     # ────────────────────────────────────────────────────────────────────────────
-    # Fill gaps with DeepSeek prompts if missing
-
     # 3a) Growth Rates
     if "growth_rates" in assumptions:
         growth_rates = {
@@ -357,7 +369,6 @@ def run_dcf_model(
             "bear": assumptions["growth_rates"].get("bear"),
         }
     else:
-        # Default fallback: use shortest representation of historical_list
         hist_str = ", ".join(f"{e['year']}:{e['free_cash_flow']}" for e in historical_list)
         gr_prompt = (
             f"For ticker {ticker}, historical Free Cash Flows (USD) for years: {hist_str}.\n"
@@ -368,10 +379,8 @@ def run_dcf_model(
         try:
             growth_rates = json.loads(raw_gr)
         except Exception:
-            # Naive defaults: 5% base, +/-3% for bull/bear
             growth_rates = {"base": 0.05, "bull": 0.08, "bear": 0.02}
 
-    # Fill any missing
     for scenario in ["bull", "base", "bear"]:
         if growth_rates.get(scenario) is None:
             growth_rates[scenario] = growth_rates.get("base", 0.05)
@@ -483,10 +492,8 @@ def run_dcf_model(
         ws.append([])
         ws.append(["NPV of Cash Flows", data["npv"]])
 
-    # Ensure reports directory exists
     reports_dir = os.path.join(os.getcwd(), "reports")
     os.makedirs(reports_dir, exist_ok=True)
-
     filename = f"{ticker}_DCF_{int(time.time())}.xlsx"
     output_path = os.path.join(reports_dir, filename)
     wb.save(output_path)
