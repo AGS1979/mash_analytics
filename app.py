@@ -608,6 +608,14 @@ def analyze_dcf_route():
     filename = os.path.basename(output_path)
     download_url = url_for('download_dcf_report', filename=filename, _external=True)
 
+    # HERE: dump the final JSON for inspection
+    import json
+    print("FINAL DCF JSON →", json.dumps({
+        "message": "DCF valuation completed successfully",
+        "download_url": url_for('download_dcf_report', filename=os.path.basename(output_path), _external=True),
+        "dcf_summary": summary_dict
+    }, indent=2))
+
     return jsonify({
         "message": "DCF valuation completed successfully",
         "download_url": download_url,
