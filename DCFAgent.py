@@ -799,6 +799,8 @@ def build_fcff_forecast(
 # ────────────────────────────────────────────────────────────────────────────────
 # 5. Full DCF Agent That Combines All Steps
 # ────────────────────────────────────────────────────────────────────────────────
+# In DCFAgent.py, replace the existing run_dcf_model definition with this corrected version:
+
 def run_dcf_model(
     company_name: str,
     assumptions: dict,
@@ -996,8 +998,17 @@ def run_dcf_model(
         "scenarios": {}
     }
 
+    # Ensure all three scenarios exist
     for scenario in ("bull", "base", "bear"):
-        data = dcf_results[scenario]
+        data = dcf_results.get(scenario, {
+            "enterprise_value": None,
+            "equity_value": None,
+            "npv_per_share": None,
+            "terminal_value": None,
+            "wacc": None,
+            "growth_rate": None,
+            "terminal_multiple": None
+        })
         summary["scenarios"][scenario] = {
             "enterprise_value": data["enterprise_value"],
             "equity_value": data["equity_value"],
@@ -1009,3 +1020,4 @@ def run_dcf_model(
         }
 
     return output_path, summary
+

@@ -592,10 +592,13 @@ def analyze_dcf_route():
     try:
         output_path, summary_dict = run_dcf_model(company_name, assumptions, temp_paths)
     except Exception as e:
-        # Print full traceback for maximum visibility
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"DCF processing failed: {str(e)}"}), 500
+
+    # Ensure 'scenarios' key is always present
+    if "scenarios" not in summary_dict:
+        summary_dict["scenarios"] = {"bull": None, "base": None, "bear": None}
 
     # 7) Build download URL
     filename = os.path.basename(output_path)
