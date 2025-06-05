@@ -1,9 +1,9 @@
 # DCFAgent.py
 
 import os
-import json
-import time
 import re
+import time
+import json
 import requests
 
 import pandas as pd
@@ -14,6 +14,7 @@ from PyPDF2 import PdfReader
 import camelot
 from openpyxl import Workbook
 from docx import Document
+from bs4 import BeautifulSoup
 
 # ────────────────────────────────────────────────────────────────────────────────
 # CONFIGURATION: DEEPSEEK API
@@ -25,7 +26,6 @@ DEEPSEEK_CHAT_URL = os.getenv(
 )
 if not DEEPSEEK_API_KEY:
     raise RuntimeError("Please set DEEPSEEK_API_KEY in your environment.")
-
 
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Call DeepSeek Chat API
@@ -68,19 +68,41 @@ def get_current_share_price(ticker: str) -> float | None:
         return None
 
 
+# ────────────────────────────────────────────────────────────────────────────────
+# HELPER: Fetch “official” net debt via yfinance
+# ────────────────────────────────────────────────────────────────────────────────
+def get_yfinance_net_debt(ticker: str) -> float | None:
+    """
+    Attempts to fetch totalDebt and cash from yfinance Ticker.info and returns netDebt = totalDebt - cash.
+    """
+    try:
+        info = yf.Ticker(ticker).info
+        total_debt = info.get("totalDebt")
+        cash = info.get("cash")
+        if total_debt is not None and cash is not None:
+            return float(total_debt) - float(cash)
+    except Exception:
+        pass
+    return None
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# HELPER: Fetch fallback FCF from yfinance “cashflow” DataFrame
+# ────────────────────────────────────────────────────────────────────────────────
 def get_yfinance_fcf(ticker: str) -> float | None:
     """
-    Fallback: Pull most recent Free Cash Flow from yfinance cashflow statement.
+    Pulls most recent Free Cash Flow from yfinance cashflow statement (annual).
     """
     try:
         cf = yf.Ticker(ticker).cashflow
-        # yfinance cashflow columns are dates; take the most recent column
-        most_recent = cf.columns[0]
-        # "Free Cash Flow" or "Free Cash Flow (FCF)" might be a row index
-        for label in ["Free Cash Flow", "FreeCashFlow", "Free Cash Flow (FCF)"]:
+        if cf is None or cf.empty:
+            return None
+        # yfinance columns are dates; first column is most recent
+        most_recent_col = cf.columns[0]
+        for label in ("Free Cash Flow", "FreeCashFlow"):
             if label in cf.index:
-                val = cf.loc[label, most_recent]
-                return float(val)  # already in USD absolute
+                fcf_val = cf.loc[label, most_recent_col]
+                return float(fcf_val)
     except Exception:
         return None
     return None
@@ -90,9 +112,6 @@ def get_yfinance_fcf(ticker: str) -> float | None:
 # HELPER: Extract raw text from a PDF
 # ────────────────────────────────────────────────────────────────────────────────
 def extract_text_from_pdf(pdf_path: str) -> str:
-    """
-    Extracts and concatenates all textual content from a PDF file.
-    """
     all_text = []
     try:
         reader = PdfReader(pdf_path)
@@ -108,9 +127,6 @@ def extract_text_from_pdf(pdf_path: str) -> str:
 # HELPER: Extract raw text from a DOCX
 # ────────────────────────────────────────────────────────────────────────────────
 def extract_text_from_docx(docx_path: str) -> str:
-    """
-    Extracts and concatenates all textual content from a DOCX file.
-    """
     all_text = []
     try:
         doc = Document(docx_path)
@@ -125,10 +141,6 @@ def extract_text_from_docx(docx_path: str) -> str:
 # HELPER: Identify page numbers containing a given keyword in PDF
 # ────────────────────────────────────────────────────────────────────────────────
 def find_pages_with_keyword(pdf_path: str, keyword: str) -> list[int]:
-    """
-    Returns a list of 0-based page indices where keyword appears in the text.
-    Keyword match is case-insensitive.
-    """
     pages = []
     try:
         reader = PdfReader(pdf_path)
@@ -145,16 +157,12 @@ def find_pages_with_keyword(pdf_path: str, keyword: str) -> list[int]:
 # HELPER: Extract tables from PDF pages
 # ────────────────────────────────────────────────────────────────────────────────
 def extract_tables_from_pdf(pdf_path: str, page_indices: list[int]) -> list[pd.DataFrame]:
-    """
-    Uses Camelot to extract all tables on the specified 1-based pages.
-    Returns a list of DataFrames.
-    """
     dfs = []
     if not page_indices:
         return dfs
     pages_str = ",".join(str(i + 1) for i in page_indices)
     try:
-        tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor='stream')
+        tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor="stream")
         for t in tables:
             dfs.append(t.df)
     except Exception:
@@ -163,15 +171,14 @@ def extract_tables_from_pdf(pdf_path: str, page_indices: list[int]) -> list[pd.D
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Attempt to parse Free Cash Flow from a DataFrame
+# HELPER: Parse Free Cash Flow from a DataFrame with better scale detection
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
     """
     Searches df for a row containing 'Free Cash Flow' (case-insensitive)
     and returns the first numeric value in that row (USD).
-    Detects if table headers mention millions/billions anywhere in the first 5 rows.
+    Detects if table headers mention 'in millions' or 'in billions' anywhere in the first 5 rows.
     """
-    # 1) Determine scale by scanning up to first 5 rows for "in millions"/"in billions"
     scale = 1
     header_rows = min(5, len(df))
     for i in range(header_rows):
@@ -183,11 +190,9 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
             scale = 1_000_000_000
             break
 
-    # 2) Look for "Free Cash Flow" in any row
     for _, row in df.iterrows():
         row_str = " ".join(str(cell) for cell in row.tolist())
         if re.search(r"free\s+cash\s+flow", row_str, re.IGNORECASE):
-            # Once found, grab the first number in that row
             for cell in row.tolist()[1:]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
@@ -199,18 +204,12 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Attempt to parse Revenue & Net Income from Income Statement DataFrame
+# HELPER: Parse Revenue & Net Income from Income Statement DataFrame
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
-    """
-    Searches df for 'Revenue' and 'Net Income' rows (case-insensitive).
-    Returns a tuple (revenue, net_income) in USD.
-    Detects scale by scanning up to first 5 rows.
-    """
     rev = None
     ni = None
 
-    # Determine scale by scanning up to first 5 rows
     scale = 1
     header_rows = min(5, len(df))
     for i in range(header_rows):
@@ -244,22 +243,17 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
                     continue
         if rev is not None and ni is not None:
             break
+
     return rev, ni
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# HELPER: Attempt to parse Total Debt & Cash from a Balance Sheet DataFrame
+# HELPER: Parse Total Debt & Cash from Balance Sheet DataFrame
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_balance_sheet_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
-    """
-    Searches df for 'Total Debt' and 'Cash and cash equivalents' (case-insensitive).
-    Returns (total_debt, cash_ce) in USD.
-    Detects scale by scanning up to first 5 rows.
-    """
     total_debt = None
     cash_ce = None
 
-    # Determine scale by scanning up to first 5 rows
     scale = 1
     header_rows = min(5, len(df))
     for i in range(header_rows):
@@ -293,6 +287,7 @@ def parse_balance_sheet_from_df(df: pd.DataFrame) -> tuple[float | None, float |
                     continue
         if total_debt is not None and cash_ce is not None:
             break
+
     return total_debt, cash_ce
 
 
@@ -303,22 +298,6 @@ def extract_financials_from_file(file_path: str) -> dict | None:
     """
     Attempts to extract {year, revenue, net_income, free_cash_flow, total_debt, cash_ce} 
     from a 10-K/10-Q PDF or a DOCX.
-    1. If PDF:
-       a) Extract full text → find year via "Year Ended <Mon> <Day>, <Year>"
-       b) Find pages with "Cash Flow" → extract tables → parse FCF
-       c) Find pages with "Income Statement" → extract tables → parse revenue, net income
-       d) Find pages with "Balance Sheet" → extract tables → parse total_debt & cash_ce
-       e) Fallback: search lines for "$" amounts beside "Free Cash Flow", etc.
-    2. If DOCX:
-       a) Extract full text → same line-based search for year, FCF, revenue, net income, debt, cash
-    Returns a dict {
-      "year": int,
-      "revenue": float,
-      "net_income": float,
-      "free_cash_flow": float,
-      "total_debt": float,
-      "cash_ce": float
-    } or None.
     """
     _, ext = os.path.splitext(file_path.lower())
     full_text = ""
@@ -329,11 +308,8 @@ def extract_financials_from_file(file_path: str) -> dict | None:
     total_debt = None
     cash_ce = None
 
-    # ────────── DEBUG ────────────────────────────────────────────────────────────
     print(f"[EXTRACT DEBUG] Starting extraction for: {file_path!r} (ext={ext})")
-    # ─────────────────────────────────────────────────────────────────────────────
 
-    # 1) Extract raw text
     if ext == ".pdf":
         full_text = extract_text_from_pdf(file_path)
     elif ext == ".docx":
@@ -342,12 +318,10 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         return None
 
     if not full_text.strip():
-        print(f"[EXTRACT DEBUG] Unsupported extension or empty text: {file_path!r}")
+        print(f"[EXTRACT DEBUG] No text found in {file_path}. Skipping.")
         return None
 
-    print(f"[EXTRACT DEBUG]   raw_text[0:300]: {repr(full_text[:300].replace(chr(10), ' '))} …")
-
-    # 2) Find year via common patterns
+    # 1) Find year via "Year Ended ... <Year>"
     ymatches = re.findall(r"Year\s+Ended\s+[A-Za-z]+\s+\d{1,2},\s*(\d{4})", full_text, re.IGNORECASE)
     if ymatches:
         try:
@@ -362,7 +336,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
             except Exception:
                 year = None
 
-    # 3) If PDF, attempt table extraction first
+    # 2) If PDF, attempt table extraction
     if ext == ".pdf":
         # a) Cash Flow → parse FCF
         cf_pages = find_pages_with_keyword(
@@ -376,7 +350,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 fcf = val
                 break
 
-        # b) Income Statement → parse revenue, net_income
+        # b) Income Statement → parse revenue, net income
         inc_pages = find_pages_with_keyword(
             file_path,
             r"Consolidated\s+Statements\s+of\s+Income|Consolidated\s+Statements\s+of\s+Comprehensive\s+Income|Income\s+Statement"
@@ -391,7 +365,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
             if revenue is not None and net_income is not None:
                 break
 
-        # c) Balance Sheet → parse total_debt, cash_ce
+        # c) Balance Sheet → parse total debt, cash & equivalents
         bs_pages = find_pages_with_keyword(
             file_path,
             r"Consolidated\s+Balance\s+Sheets|Balance\s+Sheet"
@@ -406,7 +380,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
             if total_debt is not None and cash_ce is not None:
                 break
 
-    # 4) Fallback line-by-line search if any value still missing
+    # 3) Fallback line-by-line search for any missing items
     if fcf is None or revenue is None or net_income is None or total_debt is None or cash_ce is None:
         for line in full_text.splitlines():
             # Free Cash Flow
@@ -415,7 +389,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         fcf_val = float(m.group(1).replace(",", ""))
-                        fcf = fcf_val  # assume already absolute if no scale indicator
+                        fcf = fcf_val
                     except:
                         pass
 
@@ -449,7 +423,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                     except:
                         pass
 
-            # Cash & Cash Equivalents
+            # Cash & Equivalents
             if cash_ce is None and re.search(r"cash\s+and\s+cash\s+equivalents", line, re.IGNORECASE):
                 m = re.search(r"\$[\s,]*([\d,]+(?:\.\d+)?)", line)
                 if m:
@@ -462,7 +436,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
             if fcf is not None and revenue is not None and net_income is not None and total_debt is not None and cash_ce is not None:
                 break
 
-    # 5) If still missing everything, return None
+    # 4) If nothing found, give up
     if year is None and fcf is None and revenue is None and net_income is None and total_debt is None and cash_ce is None:
         return None
 
@@ -477,9 +451,289 @@ def extract_financials_from_file(file_path: str) -> dict | None:
 
 
 # ────────────────────────────────────────────────────────────────────────────────
-# MAIN FUNCTION: run_dcf_model (company_name-based)
+# 1. Segment Extraction & Summarization
 # ────────────────────────────────────────────────────────────────────────────────
-def run_dcf_model(
+def find_segment_pages(pdf_path: str) -> list[int]:
+    """
+    Returns a list of 0-based page indices where 'Segment' or 'MD&A' appears.
+    """
+    keywords = [
+        r"Management’s\s+Discussion\s+and\s+Analysis",
+        r"MD&A",
+        r"Segments",
+        r"Business\s+Segments",
+        r"Segment\s+Results"
+    ]
+    pages = set()
+    try:
+        reader = PdfReader(pdf_path)
+        for idx, page in enumerate(reader.pages):
+            text = page.extract_text() or ""
+            for kw in keywords:
+                if re.search(kw, text, re.IGNORECASE):
+                    pages.add(idx)
+    except:
+        pass
+    return sorted(pages)
+
+
+def extract_segment_tables(pdf_path: str, segment_pages: list[int]) -> list[pd.DataFrame]:
+    """
+    Uses Camelot to extract every table on the identified Segment/MD&A pages.
+    """
+    dfs = []
+    if not segment_pages:
+        return dfs
+    pages_str = ",".join(str(i + 1) for i in segment_pages)
+    try:
+        tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor="stream")
+        for tbl in tables:
+            dfs.append(tbl.df)
+    except:
+        pass
+    return dfs
+
+
+def summarize_segment_performance(dfs: list[pd.DataFrame], ticker: str) -> str:
+    """
+    Given a list of DataFrames (from camelot) that contain segment revenue & margin tables,
+    ask DeepSeek to summarize revenue CAGRs and average margins for each segment.
+    """
+    table_strs = []
+    for df in dfs:
+        # Limit to first 5 rows & 5 columns for prompt brevity
+        small = df.iloc[:5, :5].to_csv(index=False)
+        table_strs.append(small)
+
+    prompt = (
+        f"You are a financial data summarization assistant. For ticker {ticker},\n"
+        f"here are extracted segment tables (in CSV form). Each table has columns 'Segment', '2021 Revenue', '2022 Revenue', '2023 Revenue', '2021 Operating Profit', etc.\n"
+        f"Compute for each segment:\n"
+        f"  • Revenue each year (in USD), and 3-year CAGR (2021→2023).\n"
+        f"  • Average operating margin over 2021-2023.\n"
+        f"Return a bullet-point summary.\n"
+        "\n"
+        f"TABLES:\n"
+        + "\n\n---\n\n".join(table_strs)
+    )
+
+    raw = deepseek_chat(prompt, max_tokens=512)
+    return raw
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 2. Management Guidance Extraction (MD&A)
+# ────────────────────────────────────────────────────────────────────────────────
+def find_mda_pages(pdf_path: str) -> list[int]:
+    """
+    Returns pages that contain 'Management’s Discussion & Analysis' or 'MD&A'.
+    """
+    keywords = [r"Management’s\s+Discussion\s+and\s+Analysis", r"MD&A"]
+    pages = set()
+    try:
+        reader = PdfReader(pdf_path)
+        for idx, page in enumerate(reader.pages):
+            txt = page.extract_text() or ""
+            for kw in keywords:
+                if re.search(kw, txt, re.IGNORECASE):
+                    pages.add(idx)
+    except:
+        pass
+    return sorted(pages)
+
+
+def extract_mda_text(pdf_path: str, mda_pages: list[int]) -> str:
+    """
+    Concatenate all the text from the identified MD&A pages.
+    """
+    collected = []
+    try:
+        reader = PdfReader(pdf_path)
+        for idx in mda_pages:
+            page = reader.pages[idx]
+            txt = page.extract_text() or ""
+            collected.append(txt)
+    except:
+        pass
+    return "\n\n".join(collected)
+
+
+def summarize_management_guidance(mda_text: str, ticker: str) -> dict:
+    """
+    Given the MD&A text, ask DeepSeek to extract forward guidance as JSON:
+      {
+        "next_year_overall_revenue": "...",
+        "next_year_fcff": "...",
+        "segment_guidance": { "Collins Aerospace": "...", "Pratt & Whitney": "...", "Raytheon": "..." }
+      }
+    """
+    prompt = (
+        f"You are a financial analyst. Below is the MD&A section from the {ticker} 10-K.\n\n"
+        f"{mda_text[:8000]}\n\n"
+        f"Extract any forward guidance for:\n"
+        f"1) Next fiscal year revenue (overall).\n"
+        f"2) Next fiscal year FCFF (free cash flow to firm).\n"
+        f"3) Any segment-level guidance (e.g. revenue growth %, margin) for Collins, Pratt & Whitney, Raytheon.\n"
+        f"Return your answer strictly as valid JSON with keys:\n"
+        f"  \"next_year_overall_revenue\", \"next_year_fcff\", and \"segment_guidance\" (which itself is a dict by segment name).\n"
+        f"If a particular data point is not mentioned, set it to null.\n"
+    )
+    raw = deepseek_chat(prompt, max_tokens=1024)
+    try:
+        guidance = json.loads(raw)
+    except:
+        print("[WARNING] Could not parse management guidance JSON. LLM response:")
+        print(raw)
+        guidance = {
+            "next_year_overall_revenue": None,
+            "next_year_fcff": None,
+            "segment_guidance": None
+        }
+    return guidance
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 3. Analyst Consensus Scraping from Yahoo Finance
+# ────────────────────────────────────────────────────────────────────────────────
+def scrape_yahoo_finance_consensus(ticker: str) -> dict:
+    """
+    Basic scrape of Yahoo Finance 'Analysis' page for forward revenue/FCF estimates.
+    This example assumes a table with rows 'Revenue Estimate' and 'Free Cash Flow Estimate'.
+    """
+    consensus = {"revenue": {}, "freeCashFlow": {}}
+    url = f"https://finance.yahoo.com/quote/{ticker}/analysis?p={ticker}"
+    try:
+        resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        soup = BeautifulSoup(resp.text, "html.parser")
+        table = soup.find("table", {"class": "W(100%) M(0)"})
+        if table:
+            for row in table.find_all("tr"):
+                cols = [col.get_text(strip=True) for col in row.find_all("td")]
+                if not cols:
+                    continue
+                label = cols[0]
+                # Example parsing: actual HTML may differ—adjust selectors accordingly
+                if "Revenue Estimate" in label:
+                    # Assume cols[1]=2024, cols[2]=2025
+                    try:
+                        consensus["revenue"]["2024"] = float(cols[1].replace(",", "")) * 1e6
+                        consensus["revenue"]["2025"] = float(cols[2].replace(",", "")) * 1e6
+                    except:
+                        pass
+                if "Free Cash Flow Estimate" in label or "FCF Estimate" in label:
+                    try:
+                        consensus["freeCashFlow"]["2024"] = float(cols[1].replace(",", "")) * 1e6
+                        consensus["freeCashFlow"]["2025"] = float(cols[2].replace(",", "")) * 1e6
+                    except:
+                        pass
+    except Exception as e:
+        print(f"[WARNING] Yahoo Finance scrape failed: {e}")
+    return consensus
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 4. Build FCFF Forecast Using Guidance, Consensus, & Segment Growth
+# ────────────────────────────────────────────────────────────────────────────────
+def build_fcff_forecast(
+    hist_year: int,
+    last_historical_fcf: float,
+    mgmt_guidance: dict,
+    yahoo_consensus: dict,
+    segment_summary_text: str
+) -> dict[int, float]:
+    """
+    Returns a dict {year: fcf} for the next 5 fiscal years.
+    Priority:
+      1) mgmt_guidance["next_year_fcff"] (midpoint if a range)
+      2) yahoo_consensus["freeCashFlow"][year]
+      3) fallback growth of last historical FCF at 5%
+      4) Years 3-5: grown by an LLM-proposed blended segment rate
+    """
+
+    def parse_range_to_midpoint(text: str) -> float | None:
+        """
+        If text = "7.5 to 8.2 billion" or "$7.5B - $8.2B", parse and return midpoint.
+        """
+        try:
+            nums = re.findall(r"([\d\.]+)\s*(?:billion|B|bn)?", text.replace(",", "").lower())
+            if len(nums) >= 2:
+                low = float(nums[0]) * 1e9
+                high = float(nums[1]) * 1e9
+                return (low + high) / 2
+            elif len(nums) == 1:
+                return float(nums[0]) * 1e9
+        except:
+            pass
+        return None
+
+    forecast = {}
+    # Year 1 (hist_year+1)
+    y1 = hist_year + 1
+    fcf_y1 = None
+    # a) Management guidance
+    if mgmt_guidance.get("next_year_fcff"):
+        fcf_y1 = parse_range_to_midpoint(mgmt_guidance["next_year_fcff"])
+        if fcf_y1:
+            print(f"[INFO] Using management guidance FCFF for {y1}: ${fcf_y1:,.0f}")
+    # b) Yahoo consensus
+    if fcf_y1 is None and yahoo_consensus.get("freeCashFlow", {}).get("2024"):
+        fcf_y1 = yahoo_consensus["freeCashFlow"].get("2024")
+        if fcf_y1:
+            print(f"[INFO] Using Yahoo consensus FCFF for {y1}: ${fcf_y1:,.0f}")
+    # c) Fallback
+    if fcf_y1 is None:
+        fcf_y1 = last_historical_fcf * 1.05
+        print(f"[WARNING] No explicit FCFF for {y1}, fallback to {last_historical_fcf:,.0f} * 1.05 = ${fcf_y1:,.0f}")
+    forecast[y1] = fcf_y1
+
+    # Year 2 (hist_year+2)
+    y2 = hist_year + 2
+    fcf_y2 = None
+    # a) If mgmt provided a separate key for +1, try that (e.g. "next_year_fcff_plus1")
+    if mgmt_guidance.get("next_year_fcff_plus1"):
+        fcf_y2 = parse_range_to_midpoint(mgmt_guidance["next_year_fcff_plus1"])
+        if fcf_y2:
+            print(f"[INFO] Using management guidance FCFF for {y2}: ${fcf_y2:,.0f}")
+    # b) Yahoo
+    if fcf_y2 is None and yahoo_consensus.get("freeCashFlow", {}).get("2025"):
+        fcf_y2 = yahoo_consensus["freeCashFlow"].get("2025")
+        if fcf_y2:
+            print(f"[INFO] Using Yahoo consensus FCFF for {y2}: ${fcf_y2:,.0f}")
+    # c) Fallback
+    if fcf_y2 is None:
+        fcf_y2 = forecast[y1] * 1.05
+        print(f"[WARNING] No explicit FCFF for {y2}, fallback to {forecast[y1]:,.0f} * 1.05 = ${fcf_y2:,.0f}")
+    forecast[y2] = fcf_y2
+
+    # Years 3-5: determine a blended segment growth rate via LLM
+    prompt = (
+        f"You are a financial modeler. Based on this segment performance summary:\n\n"
+        f"{segment_summary_text}\n\n"
+        f"Estimate a single blended forward growth rate (as a decimal) for total FCFF over the next 3 years. "
+        f"For example, if Collins is growing 5%, Pratt 8%, Raytheon 7% with revenue weights, return something like 0.066. "
+        f"If you cannot estimate, return 0.05."
+    )
+    raw_rate = deepseek_chat(prompt, max_tokens=64)
+    try:
+        blended_rate = float(re.search(r"0\.\d+", raw_rate).group(0))
+        print(f"[INFO] Blended segment FCFF growth rate from LLM: {blended_rate*100:.1f}%")
+    except:
+        blended_rate = 0.05
+        print(f"[WARNING] Could not parse blended rate. Defaulting to 5%.")
+
+    for i in range(3, 6):
+        y = hist_year + i
+        prev = forecast[y - 1]
+        forecast[y] = prev * (1 + blended_rate)
+        print(f"[DEBUG] Projected FCFF for {y} = {prev:,.0f} * (1+{blended_rate:.3f}) = ${forecast[y]:,.0f}")
+
+    return forecast
+
+
+# ────────────────────────────────────────────────────────────────────────────────
+# 5. Full DCF Agent That Combines All Steps
+# ────────────────────────────────────────────────────────────────────────────────
+def run_dcf_model_improved(
     company_name: str,
     assumptions: dict,
     file_paths: list[str]
@@ -487,83 +741,80 @@ def run_dcf_model(
     """
     Performs a 3-case (Bull / Base / Bear) FCFF-based DCF valuation for the given company_name.
     1) Uses DeepSeek to convert company_name → ticker.
-    2) Extracts historical financials from each uploaded file via extract_financials_from_file.
-    3) Aggregates at most 5 most recent years of financials.
-    4) Uses user-supplied assumption dict (or defaults) for growth_rates, waccs, terminal_multiples.
-    5) Projects Free Cash Flow to Firm (FCFF) for 5 years + terminal value → discounts at scenario WACC → computes Enterprise Value.
-    6) Subtracts Net Debt → divides by Shares Outstanding → gets Equity Value per share for each scenario.
-    7) Writes an Excel under ./reports named "<TICKER>_DCF_<timestamp>.xlsx".
-    8) Returns (output_path, summary_dict).
+    2) Extracts historical financials from uploaded files.
+    3) Extracts segment performance and management guidance from the most recent file.
+    4) Scrapes Yahoo Finance consensus.
+    5) Builds a bottom-up 5-year FCFF forecast.
+    6) Fetches net debt via yfinance or fallback to PDF parse.
+    7) Projects and discounts FCFF under Bull/Base/Bear scenarios.
+    8) Writes an Excel and returns a summary dict.
     """
-    # ────────────────────────────────────────────────────────────────────────────
     # 1) Convert company_name → ticker via DeepSeek
-    # ────────────────────────────────────────────────────────────────────────────
     ticker_prompt = (
         f"You are a stock ticker lookup assistant.\n"
-        f"For the company name \"{company_name}\", provide the primary U.S. stock ticker (e.g. 'AAPL').\n"
-        f"Reply with exactly the ticker symbol (no extra text)."
+        f"For the company name \"{company_name}\", provide the primary U.S. stock ticker (no extra text)."
     )
     raw_ticker = deepseek_chat(ticker_prompt, max_tokens=32).strip()
     ticker = raw_ticker.upper()
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 1.5) Fetch shares outstanding & current share price
-    # ────────────────────────────────────────────────────────────────────────────
+    # 2) Fetch shares out & current price
     shares_outstanding = get_shares_outstanding(ticker)
     current_price = get_current_share_price(ticker)
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 2) Extract pandas dicts for each file (year, revenue, net_income, free_cash_flow, debt, cash)
-    # ────────────────────────────────────────────────────────────────────────────
+    # 3) Extract historical financials
     extracted = []
     for path in file_paths:
         fin = extract_financials_from_file(path)
-        # Require at least a year and an FCF (so we can project)
-        if fin is not None and fin.get("year") is not None and fin.get("free_cash_flow") is not None:
+        if fin and fin.get("year") and fin.get("free_cash_flow") is not None:
             extracted.append(fin)
     if not extracted:
-        raise ValueError("No valid financial data could be extracted from uploaded files.")
+        raise ValueError("No valid historical financial data extracted.")
+    extracted = sorted(extracted, key=lambda x: x["year"], reverse=True)[:5]
+    historical_list = list(reversed(extracted))  # ascending by year
 
-    # Keep only 5 most recent years
-    extracted = sorted(extracted, key=lambda x: x["year"] or 0, reverse=True)[:5]
-    historical_list = sorted(extracted, key=lambda x: x["year"] or 0)  # ascending
-
-    # Extract arrays
     hist_years = [e["year"] for e in historical_list]
     hist_fcfs = [e["free_cash_flow"] for e in historical_list]
     hist_revs = [e.get("revenue") for e in historical_list]
     hist_nis = [e.get("net_income") for e in historical_list]
-    # For debt & cash, take the most recent (largest year) if available
-    most_recent = historical_list[-1]
-    total_debt = most_recent.get("total_debt", 0) or 0
-    cash_ce = most_recent.get("cash_ce", 0) or 0
-    net_debt = total_debt - cash_ce
+    last_hist_year = hist_years[-1]
+    last_hist_fcf = hist_fcfs[-1]
 
-    last_year = hist_years[-1]
-    last_fcf = hist_fcfs[-1]
+    # 4) Extract segment performance from most recent file
+    latest_file = file_paths[-1]
+    seg_pages = find_segment_pages(latest_file)
+    seg_tables = extract_segment_tables(latest_file, seg_pages)
+    segment_summary = summarize_segment_performance(seg_tables, ticker)
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 2.5) FCF VALIDATION & FALLBACK
-    # ────────────────────────────────────────────────────────────────────────────
-    # If the extracted FCF is implausibly low (e.g., < $500M for a large-cap), fetch from yfinance.
-    # We assume that if last_fcf < 500 million but company is large, it’s wrong.
-    if last_fcf is None or last_fcf < 500_000_000:
-        print(f"[WARNING] Extracted FCF (${last_fcf}) too low for {ticker}. Attempting fallback via yfinance.")
-        yf_fcf = get_yfinance_fcf(ticker)
-        if yf_fcf is not None and yf_fcf > 0:
-            last_fcf = yf_fcf
-            print(f"[INFO] Using fallback FCF from yfinance: ${last_fcf:,.0f}")
-        else:
-            # If yfinance fails, let user know, and still proceed with the low number (risking inaccuracy)
-            print(f"[WARNING] yfinance FCF lookup failed or returned None. Continuing with extracted FCF = ${last_fcf}")
+    # 5) Extract management guidance from MD&A
+    mda_pages = find_mda_pages(latest_file)
+    mda_text = extract_mda_text(latest_file, mda_pages)
+    mgmt_guidance = summarize_management_guidance(mda_text, ticker)
 
-    print(f"[DEBUG] Base Free Cash Flow used for projection: ${last_fcf:,.0f} (Fiscal Year {last_year})")
-    print(f"[DEBUG] Net Debt used: ${net_debt:,.0f}")
+    # 6) Scrape Yahoo Finance consensus
+    yahoo_consensus = scrape_yahoo_finance_consensus(ticker)
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 3) Scenario assumptions: growth_rates, waccs, terminal_multiples
-    # ────────────────────────────────────────────────────────────────────────────
-    # 3a) Growth Rates
+    # 7) Determine net debt (prefer yfinance)
+    yfinance_nd = get_yfinance_net_debt(ticker)
+    if yfinance_nd is not None:
+        net_debt = yfinance_nd
+        print(f"[INFO] Using yfinance net debt for {ticker}: ${net_debt:,.0f}")
+    else:
+        most_recent = historical_list[-1]
+        total_debt = most_recent.get("total_debt", 0) or 0
+        cash_ce = most_recent.get("cash_ce", 0) or 0
+        net_debt = total_debt - cash_ce
+        print(f"[WARNING] yfinance net debt lookup failed; using PDF parse net debt ({most_recent['year']}): ${net_debt:,.0f}")
+
+    # 8) Build FCFF forecast
+    fcf_proj = build_fcff_forecast(
+        hist_year=last_hist_year,
+        last_historical_fcf=last_hist_fcf,
+        mgmt_guidance=mgmt_guidance,
+        yahoo_consensus=yahoo_consensus,
+        segment_summary_text=segment_summary
+    )
+
+    # 9) Scenario assumptions (growth_rates, waccs, terminal_multiples)
     if "growth_rates" in assumptions:
         growth_rates = {
             "bull": assumptions["growth_rates"].get("bull"),
@@ -571,27 +822,13 @@ def run_dcf_model(
             "bear": assumptions["growth_rates"].get("bear"),
         }
     else:
-        hist_str = ", ".join(f"{e['year']}:{e['free_cash_flow']:,}" for e in historical_list)
-        gr_prompt = (
-            f"For ticker {ticker}, historical Free Cash Flows to Firm (USD) for years: {hist_str}.\n"
-            f"Current share price: ${current_price:.2f} per share.\n"
-            f"Net Debt (Debt - Cash): ${net_debt:,.2f}.\n"
-            f"Propose forward 5-year annual FCFF growth rates under bull, base, bear,\n"
-            f"such that the resulting DCF per share is in the same ballpark as the current price.\n"
-            f"Reply with JSON {{\"bull\":0.XX,\"base\":0.XX,\"bear\":0.XX}}."
-        )
-        raw_gr = deepseek_chat(gr_prompt, max_tokens=256)
-        try:
-            growth_rates = json.loads(raw_gr)
-        except Exception:
-            print("[WARNING] Failed to parse growth rates from DeepSeek. Using defaults 8%,5%,2%.")
-            growth_rates = {"base": 0.05, "bull": 0.08, "bear": 0.02}
+        # Default values (LLM could generate better ones, but using static defaults here)
+        growth_rates = {"bull": 0.08, "base": 0.06, "bear": 0.03}
 
-    for scenario in ["bull", "base", "bear"]:
-        if growth_rates.get(scenario) is None:
-            growth_rates[scenario] = growth_rates.get("base", 0.05)
+    for s in ("bull", "base", "bear"):
+        if growth_rates.get(s) is None:
+            growth_rates[s] = growth_rates.get("base", 0.06)
 
-    # 3b) WACCs and Terminal Multiples
     if "waccs" in assumptions and "terminal_multiples" in assumptions:
         waccs = {
             "bull": assumptions["waccs"].get("bull"),
@@ -604,79 +841,41 @@ def run_dcf_model(
             "bear": assumptions["terminal_multiples"].get("bear"),
         }
     else:
-        recent_three = historical_list[-3:]
-        three_str = ", ".join(f"{e['year']}:{e['free_cash_flow']:,}" for e in recent_three)
-        wa_prompt = (
-            f"For ticker {ticker}, last three years’ FCFF (USD): {three_str}.\n"
-            f"Current share price: ${current_price:.2f} per share.\n"
-            f"Net Debt: ${net_debt:,.2f}.\n"
-            f"Provide WACC and terminal multiples under bull, base, bear,\n"
-            f"such that the 5-year DCF per share remains near the market price.\n"
-            f"Reply JSON {{"
-            f"\"bull\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
-            f"\"base\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}, "
-            f"\"bear\":{{\"wacc\":0.XX,\"terminal_multiple\":YY}}}}."
-        )
-        raw_wa = deepseek_chat(wa_prompt, max_tokens=256)
-        try:
-            wa_data = json.loads(raw_wa)
-            waccs = {
-                "bull": wa_data["bull"]["wacc"],
-                "base": wa_data["base"]["wacc"],
-                "bear": wa_data["bear"]["wacc"],
-            }
-            terminal_mults = {
-                "bull": wa_data["bull"]["terminal_multiple"],
-                "base": wa_data["base"]["terminal_multiple"],
-                "bear": wa_data["bear"]["terminal_multiple"],
-            }
-        except Exception:
-            print("[WARNING] Failed to parse WACC/terminal multiples from DeepSeek. Using defaults.")
-            waccs = {"bull": 0.09, "base": 0.10, "bear": 0.11}
-            terminal_mults = {"bull": 14, "base": 12, "bear": 10}
+        waccs = {"bull": 0.09, "base": 0.10, "bear": 0.11}
+        terminal_mults = {"bull": 14, "base": 12, "bear": 10}
 
-    for scenario in ["bull", "base", "bear"]:
-        if waccs.get(scenario) is None:
-            waccs[scenario] = waccs.get("base", 0.10)
-        if terminal_mults.get(scenario) is None:
-            terminal_mults[scenario] = terminal_mults.get("base", 12)
+    for s in ("bull", "base", "bear"):
+        if waccs.get(s) is None:
+            waccs[s] = waccs.get("base", 0.10)
+        if terminal_mults.get(s) is None:
+            terminal_mults[s] = terminal_mults.get("base", 12)
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 4) PROJECT FCFF & DISCOUNT for EACH SCENARIO
-    # ────────────────────────────────────────────────────────────────────────────
+    # 10) Run DCF projection for each scenario
     dcf_results = {}
-    for scenario in ["bull", "base", "bear"]:
-        gr = growth_rates[scenario]
+    for scenario in ("bull", "base", "bear"):
         wacc = waccs[scenario]
         tm = terminal_mults[scenario]
 
-        # Project 5 years of FCFF (starting from last_fcf)
         projections = []
         for i in range(1, 6):
-            year_i = last_year + i
-            fcf_i = last_fcf * ((1 + gr) ** i)
+            year_i = last_hist_year + i
+            fcf_i = fcf_proj.get(year_i)
             projections.append({"year": year_i, "fcf": fcf_i})
 
-        # Terminal value at year 5 (using last projected FCFF)
         terminal_value = projections[-1]["fcf"] * tm
 
-        # Discount each year's FCFF + terminal → Enterprise Value (PV)
         ev = sum(
-            proj["fcf"] / ((1 + wacc) ** j)
-            for j, proj in enumerate(projections, start=1)
-        )
-        ev += terminal_value / ((1 + wacc) ** 5)
+            p["fcf"] / ((1 + wacc) ** idx)
+            for idx, p in enumerate(projections, start=1)
+        ) + terminal_value / ((1 + wacc) ** 5)
 
-        # Subtract Net Debt → Equity Value
         equity_value = ev - net_debt
-
-        # Per-share
         npv_per_share = None
-        if shares_outstanding and shares_outstanding > 0:
+        if shares_outstanding:
             npv_per_share = equity_value / shares_outstanding
 
         dcf_results[scenario] = {
-            "growth_rate": gr,
+            "growth_rate": growth_rates[scenario],
             "wacc": wacc,
             "terminal_multiple": tm,
             "projections": projections,
@@ -686,55 +885,42 @@ def run_dcf_model(
             "npv_per_share": npv_per_share
         }
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 5) CREATE EXCEL WORKBOOK UNDER ./reports
-    # ────────────────────────────────────────────────────────────────────────────
+    # 11) Write Excel workbook under ./reports
     wb = Workbook()
-    wb.remove(wb.active)  # remove default sheet
-
-    for scenario in ["bull", "base", "bear"]:
+    wb.remove(wb.active)
+    for scenario in ("bull", "base", "bear"):
         data = dcf_results[scenario]
         ws = wb.create_sheet(f"{scenario.capitalize()} Case")
 
-        # Header info
         ws.append(["Scenario", scenario.capitalize()])
         ws.append(["Assumptions", "Value"])
-        ws.append(["Growth Rate", data["growth_rate"]])
         ws.append(["WACC", data["wacc"]])
         ws.append(["Terminal Multiple", data["terminal_multiple"]])
         ws.append([])
 
-        # Projections
         ws.append(["Year", "Projected FCFF (USD)"])
-        for proj in data["projections"]:
-            ws.append([proj["year"], proj["fcf"]])
+        for p in data["projections"]:
+            ws.append([p["year"], p["fcf"]])
         ws.append([])
 
-        # Terminal & EV
         ws.append(["Terminal Value (Year 5)", data["terminal_value"]])
         ws.append([])
         ws.append(["Enterprise Value (PV of FCFF + Terminal)", data["enterprise_value"]])
         ws.append([])
-
-        # Net Debt & Equity Value
         ws.append(["Net Debt (Debt - Cash)", net_debt])
         ws.append(["Equity Value", data["equity_value"]])
         ws.append([])
-
-        # Per-share
         if data["npv_per_share"] is not None:
             ws.append(["NPV per Share", data["npv_per_share"]])
 
     reports_dir = os.path.join(os.getcwd(), "reports")
     os.makedirs(reports_dir, exist_ok=True)
-    filename = f"{ticker}_DCF_{int(time.time())}.xlsx"
+    filename = f"{ticker}_EnhancedDCF_{int(time.time())}.xlsx"
     output_path = os.path.join(reports_dir, filename)
     wb.save(output_path)
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 6) BUILD SUMMARY DICT
-    # ────────────────────────────────────────────────────────────────────────────
-    summary_dict = {
+    # 12) Build summary_dict
+    summary = {
         "company_name": company_name,
         "ticker": ticker,
         "current_share_price": current_price,
@@ -744,53 +930,23 @@ def run_dcf_model(
         "historical_fcfs": hist_fcfs,
         "historical_revenues": hist_revs,
         "historical_net_incomes": hist_nis,
-        "scenarios": {
-            scenario: {
-                # Include an "npv" key so your existing JS (which does sc.npv) still works:
-                "npv": dcf_results[scenario]["equity_value"],
-
-                # Keep the other new fields in case you want to reference them later:
-                "enterprise_value": dcf_results[scenario]["enterprise_value"],
-                "equity_value": dcf_results[scenario]["equity_value"],
-                "npv_per_share": dcf_results[scenario]["npv_per_share"],
-                "terminal_value": dcf_results[scenario]["terminal_value"],
-                "wacc": dcf_results[scenario]["wacc"],
-                "growth_rate": dcf_results[scenario]["growth_rate"],
-                "terminal_multiple": dcf_results[scenario]["terminal_multiple"]
-            }
-            for scenario in ["bull", "base", "bear"]
-        }
+        "segment_summary": segment_summary,
+        "management_guidance": mgmt_guidance,
+        "yahoo_consensus": yahoo_consensus,
+        "fcff_forecast": fcf_proj,
+        "scenarios": {}
     }
 
-    # ────────────────────────────────────────────────────────────────────────────
-    # 7) Add plain-English “reasoning” paragraphs for each scenario
-    # ────────────────────────────────────────────────────────────────────────────
-    reasonings = {}
-    for scenario in ["bull", "base", "bear"]:
+    for scenario in ("bull", "base", "bear"):
         data = dcf_results[scenario]
-        gr = data["growth_rate"]
-        wacc = data["wacc"]
-        tm = data["terminal_multiple"]
-        ev_val = data["enterprise_value"]
-        eq_val = data["equity_value"]
-        per_share = data["npv_per_share"]
+        summary["scenarios"][scenario] = {
+            "enterprise_value": data["enterprise_value"],
+            "equity_value": data["equity_value"],
+            "npv_per_share": data["npv_per_share"],
+            "terminal_value": data["terminal_value"],
+            "wacc": data["wacc"],
+            "growth_rate": data["growth_rate"],
+            "terminal_multiple": data["terminal_multiple"]
+        }
 
-        if scenario == "bull":
-            label = "Bull Case"
-        elif scenario == "base":
-            label = "Base Case"
-        else:
-            label = "Bear Case"
-
-        reason_str = (
-            f"<strong>{label}:</strong> We assumed an annual FCFF growth rate of "
-            f"{gr*100:.1f}%, a discount rate (WACC) of {wacc*100:.1f}%, "
-            f"and a terminal multiple of {tm}×. Under these assumptions, the present value of projected FCFF "
-            f"and terminal value is ${ev_val:,.2f}; after subtracting net debt of ${net_debt:,.2f}, "
-            f"the implied equity value is ${eq_val:,.2f}, or ${per_share:,.2f} per share."
-        )
-        reasonings[scenario] = reason_str
-
-    summary_dict["reasonings"] = reasonings
-
-    return output_path, summary_dict
+    return output_path, summary
