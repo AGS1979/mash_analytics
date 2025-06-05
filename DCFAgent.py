@@ -26,6 +26,7 @@ DEEPSEEK_CHAT_URL = os.getenv(
 if not DEEPSEEK_API_KEY:
     raise RuntimeError("Please set DEEPSEEK_API_KEY in your environment.")
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Call DeepSeek Chat API
 # ────────────────────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ def deepseek_chat(prompt: str, max_tokens: int = 512) -> str:
     data = resp.json()
     return data["choices"][0]["message"]["content"]
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Fetch shares outstanding & current price via yfinance
 # ────────────────────────────────────────────────────────────────────────────────
@@ -57,12 +59,32 @@ def get_shares_outstanding(ticker: str) -> int | None:
     except Exception:
         return None
 
+
 def get_current_share_price(ticker: str) -> float | None:
     try:
         info = yf.Ticker(ticker).info
         return info.get("regularMarketPrice")
     except Exception:
         return None
+
+
+def get_yfinance_fcf(ticker: str) -> float | None:
+    """
+    Fallback: Pull most recent Free Cash Flow from yfinance cashflow statement.
+    """
+    try:
+        cf = yf.Ticker(ticker).cashflow
+        # yfinance cashflow columns are dates; take the most recent column
+        most_recent = cf.columns[0]
+        # "Free Cash Flow" or "Free Cash Flow (FCF)" might be a row index
+        for label in ["Free Cash Flow", "FreeCashFlow", "Free Cash Flow (FCF)"]:
+            if label in cf.index:
+                val = cf.loc[label, most_recent]
+                return float(val)  # already in USD absolute
+    except Exception:
+        return None
+    return None
+
 
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Extract raw text from a PDF
@@ -81,6 +103,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         pass
     return "\n".join(all_text)
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Extract raw text from a DOCX
 # ────────────────────────────────────────────────────────────────────────────────
@@ -96,6 +119,7 @@ def extract_text_from_docx(docx_path: str) -> str:
     except Exception:
         pass
     return "\n".join(all_text)
+
 
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Identify page numbers containing a given keyword in PDF
@@ -115,6 +139,7 @@ def find_pages_with_keyword(pdf_path: str, keyword: str) -> list[int]:
     except Exception:
         pass
     return pages
+
 
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Extract tables from PDF pages
@@ -136,6 +161,7 @@ def extract_tables_from_pdf(pdf_path: str, page_indices: list[int]) -> list[pd.D
         pass
     return dfs
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Attempt to parse Free Cash Flow from a DataFrame
 # ────────────────────────────────────────────────────────────────────────────────
@@ -143,11 +169,11 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
     """
     Searches df for a row containing 'Free Cash Flow' (case-insensitive)
     and returns the first numeric value in that row (USD).
-    Detects if table headers mention millions/billions. Defaults to absolute USD if no scale.
+    Detects if table headers mention millions/billions anywhere in the first 5 rows.
     """
-    # Determine scale by scanning top rows for "in millions" or "in billions"
+    # 1) Determine scale by scanning up to first 5 rows for "in millions"/"in billions"
     scale = 1
-    header_rows = min(3, len(df))
+    header_rows = min(5, len(df))
     for i in range(header_rows):
         row_str = " ".join(str(cell) for cell in df.iloc[i].tolist()).lower()
         if "in millions" in row_str:
@@ -157,9 +183,11 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
             scale = 1_000_000_000
             break
 
+    # 2) Look for "Free Cash Flow" in any row
     for _, row in df.iterrows():
         row_str = " ".join(str(cell) for cell in row.tolist())
         if re.search(r"free\s+cash\s+flow", row_str, re.IGNORECASE):
+            # Once found, grab the first number in that row
             for cell in row.tolist()[1:]:
                 s = str(cell).replace(",", "").replace("$", "").replace("(", "-").replace(")", "")
                 try:
@@ -169,6 +197,7 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
                     continue
     return None
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Attempt to parse Revenue & Net Income from Income Statement DataFrame
 # ────────────────────────────────────────────────────────────────────────────────
@@ -176,14 +205,14 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     """
     Searches df for 'Revenue' and 'Net Income' rows (case-insensitive).
     Returns a tuple (revenue, net_income) in USD.
-    Detects scale by table header.
+    Detects scale by scanning up to first 5 rows.
     """
     rev = None
     ni = None
 
-    # Determine scale
+    # Determine scale by scanning up to first 5 rows
     scale = 1
-    header_rows = min(3, len(df))
+    header_rows = min(5, len(df))
     for i in range(header_rows):
         row_str = " ".join(str(cell) for cell in df.iloc[i].tolist()).lower()
         if "in millions" in row_str:
@@ -217,21 +246,22 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
             break
     return rev, ni
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # HELPER: Attempt to parse Total Debt & Cash from a Balance Sheet DataFrame
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_balance_sheet_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     """
     Searches df for 'Total Debt' and 'Cash and cash equivalents' (case-insensitive).
-    Returns (total_debt, cash) in USD.
-    Detects scale by table header.
+    Returns (total_debt, cash_ce) in USD.
+    Detects scale by scanning up to first 5 rows.
     """
     total_debt = None
     cash_ce = None
 
-    # Determine scale
+    # Determine scale by scanning up to first 5 rows
     scale = 1
-    header_rows = min(3, len(df))
+    header_rows = min(5, len(df))
     for i in range(header_rows):
         row_str = " ".join(str(cell) for cell in df.iloc[i].tolist()).lower()
         if "in millions" in row_str:
@@ -265,6 +295,7 @@ def parse_balance_sheet_from_df(df: pd.DataFrame) -> tuple[float | None, float |
             break
     return total_debt, cash_ce
 
+
 # ────────────────────────────────────────────────────────────────────────────────
 # CORE HELPER: Extract financials (year, revenue, net_income, fcf, debt, cash) from PDF or DOCX
 # ────────────────────────────────────────────────────────────────────────────────
@@ -277,7 +308,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
        b) Find pages with "Cash Flow" → extract tables → parse FCF
        c) Find pages with "Income Statement" → extract tables → parse revenue, net income
        d) Find pages with "Balance Sheet" → extract tables → parse total_debt & cash_ce
-       e) Fallback: search lines for "$" amounts beside "Free Cash Flow", "Revenue", "Net Income", "Total Debt", "Cash and cash equivalents"
+       e) Fallback: search lines for "$" amounts beside "Free Cash Flow", etc.
     2. If DOCX:
        a) Extract full text → same line-based search for year, FCF, revenue, net income, debt, cash
     Returns a dict {
@@ -311,7 +342,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         return None
 
     if not full_text.strip():
-        print(f"[EXTRACT DEBUG] Unsupported extension: {file_path!r}")
+        print(f"[EXTRACT DEBUG] Unsupported extension or empty text: {file_path!r}")
         return None
 
     print(f"[EXTRACT DEBUG]   raw_text[0:300]: {repr(full_text[:300].replace(chr(10), ' '))} …")
@@ -345,7 +376,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 fcf = val
                 break
 
-        # b) Income Statement → parse revenue, net income
+        # b) Income Statement → parse revenue, net_income
         inc_pages = find_pages_with_keyword(
             file_path,
             r"Consolidated\s+Statements\s+of\s+Income|Consolidated\s+Statements\s+of\s+Comprehensive\s+Income|Income\s+Statement"
@@ -360,7 +391,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
             if revenue is not None and net_income is not None:
                 break
 
-        # c) Balance Sheet → parse total debt, cash & equivalents
+        # c) Balance Sheet → parse total_debt, cash_ce
         bs_pages = find_pages_with_keyword(
             file_path,
             r"Consolidated\s+Balance\s+Sheets|Balance\s+Sheet"
@@ -384,7 +415,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         fcf_val = float(m.group(1).replace(",", ""))
-                        fcf = fcf_val  # assume already absolute if not otherwise noted
+                        fcf = fcf_val  # assume already absolute if no scale indicator
                     except:
                         pass
 
@@ -443,6 +474,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         "total_debt": total_debt,
         "cash_ce": cash_ce
     }
+
 
 # ────────────────────────────────────────────────────────────────────────────────
 # MAIN FUNCTION: run_dcf_model (company_name-based)
@@ -511,6 +543,24 @@ def run_dcf_model(
     last_fcf = hist_fcfs[-1]
 
     # ────────────────────────────────────────────────────────────────────────────
+    # 2.5) FCF VALIDATION & FALLBACK
+    # ────────────────────────────────────────────────────────────────────────────
+    # If the extracted FCF is implausibly low (e.g., < $500M for a large-cap), fetch from yfinance.
+    # We assume that if last_fcf < 500 million but company is large, it’s wrong.
+    if last_fcf is None or last_fcf < 500_000_000:
+        print(f"[WARNING] Extracted FCF (${last_fcf}) too low for {ticker}. Attempting fallback via yfinance.")
+        yf_fcf = get_yfinance_fcf(ticker)
+        if yf_fcf is not None and yf_fcf > 0:
+            last_fcf = yf_fcf
+            print(f"[INFO] Using fallback FCF from yfinance: ${last_fcf:,.0f}")
+        else:
+            # If yfinance fails, let user know, and still proceed with the low number (risking inaccuracy)
+            print(f"[WARNING] yfinance FCF lookup failed or returned None. Continuing with extracted FCF = ${last_fcf}")
+
+    print(f"[DEBUG] Base Free Cash Flow used for projection: ${last_fcf:,.0f} (Fiscal Year {last_year})")
+    print(f"[DEBUG] Net Debt used: ${net_debt:,.0f}")
+
+    # ────────────────────────────────────────────────────────────────────────────
     # 3) Scenario assumptions: growth_rates, waccs, terminal_multiples
     # ────────────────────────────────────────────────────────────────────────────
     # 3a) Growth Rates
@@ -534,6 +584,7 @@ def run_dcf_model(
         try:
             growth_rates = json.loads(raw_gr)
         except Exception:
+            print("[WARNING] Failed to parse growth rates from DeepSeek. Using defaults 8%,5%,2%.")
             growth_rates = {"base": 0.05, "bull": 0.08, "bear": 0.02}
 
     for scenario in ["bull", "base", "bear"]:
@@ -580,6 +631,7 @@ def run_dcf_model(
                 "bear": wa_data["bear"]["terminal_multiple"],
             }
         except Exception:
+            print("[WARNING] Failed to parse WACC/terminal multiples from DeepSeek. Using defaults.")
             waccs = {"bull": 0.09, "base": 0.10, "bear": 0.11}
             terminal_mults = {"bull": 14, "base": 12, "bear": 10}
 
@@ -598,14 +650,14 @@ def run_dcf_model(
         wacc = waccs[scenario]
         tm = terminal_mults[scenario]
 
-        # Project 5 years of FCFF
+        # Project 5 years of FCFF (starting from last_fcf)
         projections = []
         for i in range(1, 6):
             year_i = last_year + i
             fcf_i = last_fcf * ((1 + gr) ** i)
             projections.append({"year": year_i, "fcf": fcf_i})
 
-        # Terminal value at year 5 (using last FCFF)
+        # Terminal value at year 5 (using last projected FCFF)
         terminal_value = projections[-1]["fcf"] * tm
 
         # Discount each year's FCFF + terminal → Enterprise Value (PV)
