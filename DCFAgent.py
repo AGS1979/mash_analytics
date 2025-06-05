@@ -347,7 +347,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         for df in tables_cf:
             val = parse_fcf_from_df(df)
             if val is not None:
-                fcf = val
+                fcf = float(val)
                 break
 
         # b) Income Statement → parse revenue, net income
@@ -359,9 +359,9 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         for df in tables_inc:
             r, ni = parse_income_from_df(df)
             if r is not None:
-                revenue = r
+                revenue = float(r)
             if ni is not None:
-                net_income = ni
+                net_income = float(ni)
             if revenue is not None and net_income is not None:
                 break
 
@@ -374,9 +374,9 @@ def extract_financials_from_file(file_path: str) -> dict | None:
         for df in tables_bs:
             td, c = parse_balance_sheet_from_df(df)
             if td is not None:
-                total_debt = td
+                total_debt = float(td)
             if c is not None:
-                cash_ce = c
+                cash_ce = float(c)
             if total_debt is not None and cash_ce is not None:
                 break
 
@@ -389,7 +389,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         fcf_val = float(m.group(1).replace(",", ""))
-                        fcf = fcf_val
+                        fcf = float(fcf_val)
                     except:
                         pass
 
@@ -399,7 +399,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         rev_val = float(m.group(1).replace(",", ""))
-                        revenue = rev_val
+                        revenue = float(rev_val)
                     except:
                         pass
 
@@ -409,7 +409,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         ni_val = float(m.group(1).replace(",", ""))
-                        net_income = ni_val
+                        net_income = float(ni_val)
                     except:
                         pass
 
@@ -419,7 +419,7 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         td_val = float(m.group(1).replace(",", ""))
-                        total_debt = td_val
+                        total_debt = float(td_val)
                     except:
                         pass
 
@@ -429,12 +429,19 @@ def extract_financials_from_file(file_path: str) -> dict | None:
                 if m:
                     try:
                         c_val = float(m.group(1).replace(",", ""))
-                        cash_ce = c_val
+                        cash_ce = float(c_val)
                     except:
                         pass
 
             if fcf is not None and revenue is not None and net_income is not None and total_debt is not None and cash_ce is not None:
                 break
+
+    # If FCF still missing, try yfinance as fallback
+    if fcf is None:
+        yf_fcf = get_yfinance_fcf(os.path.splitext(os.path.basename(file_path))[0])
+        if yf_fcf is not None:
+            fcf = float(yf_fcf)
+            print(f"[INFO] Using yfinance FCF fallback for {file_path}: ${fcf:,.0f}")
 
     # 4) If nothing found, give up
     if year is None and fcf is None and revenue is None and net_income is None and total_debt is None and cash_ce is None:
@@ -499,6 +506,9 @@ def summarize_segment_performance(dfs: list[pd.DataFrame], ticker: str) -> str:
     Given a list of DataFrames (from camelot) that contain segment revenue & margin tables,
     ask DeepSeek to summarize revenue CAGRs and average margins for each segment.
     """
+    if not dfs:
+        return "No segment tables found."
+
     table_strs = []
     for df in dfs:
         # Limit to first 5 rows & 5 columns for prompt brevity
@@ -546,6 +556,8 @@ def extract_mda_text(pdf_path: str, mda_pages: list[int]) -> str:
     """
     Concatenate all the text from the identified MD&A pages.
     """
+    if not mda_pages:
+        return ""
     collected = []
     try:
         reader = PdfReader(pdf_path)
@@ -567,6 +579,17 @@ def summarize_management_guidance(mda_text: str, ticker: str) -> dict:
         "segment_guidance": { "Collins Aerospace": "...", "Pratt & Whitney": "...", "Raytheon": "..." }
       }
     """
+    if not mda_text.strip():
+        return {
+            "next_year_overall_revenue": None,
+            "next_year_fcff": None,
+            "segment_guidance": {
+                "Collins Aerospace": None,
+                "Pratt & Whitney": None,
+                "Raytheon": None
+            }
+        }
+
     prompt = (
         f"You are a financial analyst. Below is the MD&A section from the {ticker} 10-K.\n\n"
         f"{mda_text[:8000]}\n\n"
@@ -581,13 +604,34 @@ def summarize_management_guidance(mda_text: str, ticker: str) -> dict:
     raw = deepseek_chat(prompt, max_tokens=1024)
     try:
         guidance = json.loads(raw)
+        # Ensure keys exist
+        if "next_year_overall_revenue" not in guidance:
+            guidance["next_year_overall_revenue"] = None
+        if "next_year_fcff" not in guidance:
+            guidance["next_year_fcff"] = None
+        if "segment_guidance" not in guidance:
+            guidance["segment_guidance"] = {
+                "Collins Aerospace": None,
+                "Pratt & Whitney": None,
+                "Raytheon": None
+            }
+        else:
+            # Ensure subkeys exist
+            sg = guidance["segment_guidance"]
+            for seg in ("Collins Aerospace", "Pratt & Whitney", "Raytheon"):
+                if seg not in sg:
+                    sg[seg] = None
     except:
         print("[WARNING] Could not parse management guidance JSON. LLM response:")
         print(raw)
         guidance = {
             "next_year_overall_revenue": None,
             "next_year_fcff": None,
-            "segment_guidance": None
+            "segment_guidance": {
+                "Collins Aerospace": None,
+                "Pratt & Whitney": None,
+                "Raytheon": None
+            }
         }
     return guidance
 
@@ -613,17 +657,21 @@ def scrape_yahoo_finance_consensus(ticker: str) -> dict:
                     continue
                 label = cols[0]
                 # Example parsing: actual HTML may differ—adjust selectors accordingly
-                if "Revenue Estimate" in label:
-                    # Assume cols[1]=2024, cols[2]=2025
+                if "Revenue Estimate" in label and len(cols) >= 3:
                     try:
-                        consensus["revenue"]["2024"] = float(cols[1].replace(",", "")) * 1e6
-                        consensus["revenue"]["2025"] = float(cols[2].replace(",", "")) * 1e6
+                        # Assume cols[1]=2024, cols[2]=2025 (in millions); convert to absolute
+                        val24 = float(cols[1].replace(",", "")) * 1e6
+                        val25 = float(cols[2].replace(",", "")) * 1e6
+                        consensus["revenue"]["2024"] = val24
+                        consensus["revenue"]["2025"] = val25
                     except:
                         pass
-                if "Free Cash Flow Estimate" in label or "FCF Estimate" in label:
+                if ("Free Cash Flow Estimate" in label or "FCF Estimate" in label) and len(cols) >= 3:
                     try:
-                        consensus["freeCashFlow"]["2024"] = float(cols[1].replace(",", "")) * 1e6
-                        consensus["freeCashFlow"]["2025"] = float(cols[2].replace(",", "")) * 1e6
+                        val24 = float(cols[1].replace(",", "")) * 1e6
+                        val25 = float(cols[2].replace(",", "")) * 1e6
+                        consensus["freeCashFlow"]["2024"] = val24
+                        consensus["freeCashFlow"]["2025"] = val25
                     except:
                         pass
     except Exception as e:
@@ -654,12 +702,14 @@ def build_fcff_forecast(
         """
         If text = "7.5 to 8.2 billion" or "$7.5B - $8.2B", parse and return midpoint.
         """
+        if not text or not isinstance(text, str):
+            return None
         try:
             nums = re.findall(r"([\d\.]+)\s*(?:billion|B|bn)?", text.replace(",", "").lower())
             if len(nums) >= 2:
                 low = float(nums[0]) * 1e9
                 high = float(nums[1]) * 1e9
-                return (low + high) / 2
+                return (low + high) / 2.0
             elif len(nums) == 1:
                 return float(nums[0]) * 1e9
         except:
@@ -667,64 +717,80 @@ def build_fcff_forecast(
         return None
 
     forecast = {}
-    # Year 1 (hist_year+1)
+    # Year 1 = hist_year + 1
     y1 = hist_year + 1
     fcf_y1 = None
+
     # a) Management guidance
-    if mgmt_guidance.get("next_year_fcff"):
-        fcf_y1 = parse_range_to_midpoint(mgmt_guidance["next_year_fcff"])
-        if fcf_y1:
-            print(f"[INFO] Using management guidance FCFF for {y1}: ${fcf_y1:,.0f}")
+    fcf_guidance = parse_range_to_midpoint(mgmt_guidance.get("next_year_fcff"))
+    if fcf_guidance is not None:
+        fcf_y1 = fcf_guidance
+        print(f"[INFO] Using management guidance FCFF for {y1}: ${fcf_y1:,.0f}")
+
     # b) Yahoo consensus
-    if fcf_y1 is None and yahoo_consensus.get("freeCashFlow", {}).get("2024"):
-        fcf_y1 = yahoo_consensus["freeCashFlow"].get("2024")
-        if fcf_y1:
-            print(f"[INFO] Using Yahoo consensus FCFF for {y1}: ${fcf_y1:,.0f}")
-    # c) Fallback
     if fcf_y1 is None:
-        fcf_y1 = last_historical_fcf * 1.05
+        yc = yahoo_consensus.get("freeCashFlow", {}).get("2024")
+        if yc is not None:
+            fcf_y1 = float(yc)
+            print(f"[INFO] Using Yahoo Finance consensus FCFF for {y1}: ${fcf_y1:,.0f}")
+
+    # c) Fallback to 5% growth
+    if fcf_y1 is None:
+        fcf_y1 = float(last_historical_fcf) * 1.05
         print(f"[WARNING] No explicit FCFF for {y1}, fallback to {last_historical_fcf:,.0f} * 1.05 = ${fcf_y1:,.0f}")
     forecast[y1] = fcf_y1
 
-    # Year 2 (hist_year+2)
+    # Year 2 = hist_year + 2
     y2 = hist_year + 2
     fcf_y2 = None
-    # a) If mgmt provided a separate key for +1, try that (e.g. "next_year_fcff_plus1")
-    if mgmt_guidance.get("next_year_fcff_plus1"):
-        fcf_y2 = parse_range_to_midpoint(mgmt_guidance["next_year_fcff_plus1"])
-        if fcf_y2:
-            print(f"[INFO] Using management guidance FCFF for {y2}: ${fcf_y2:,.0f}")
-    # b) Yahoo
-    if fcf_y2 is None and yahoo_consensus.get("freeCashFlow", {}).get("2025"):
-        fcf_y2 = yahoo_consensus["freeCashFlow"].get("2025")
-        if fcf_y2:
-            print(f"[INFO] Using Yahoo consensus FCFF for {y2}: ${fcf_y2:,.0f}")
-    # c) Fallback
+
+    # a) If management provided a second-year guide (check key "next_year_fcff_plus1")
+    fcf_guidance2 = parse_range_to_midpoint(mgmt_guidance.get("next_year_fcff_plus1"))
+    if fcf_guidance2 is not None:
+        fcf_y2 = fcf_guidance2
+        print(f"[INFO] Using management guidance FCFF for {y2}: ${fcf_y2:,.0f}")
+
+    # b) Yahoo consensus
     if fcf_y2 is None:
-        fcf_y2 = forecast[y1] * 1.05
+        yc2 = yahoo_consensus.get("freeCashFlow", {}).get("2025")
+        if yc2 is not None:
+            fcf_y2 = float(yc2)
+            print(f"[INFO] Using Yahoo Finance consensus FCFF for {y2}: ${fcf_y2:,.0f}")
+
+    # c) Fallback to growing y1 by 5%
+    if fcf_y2 is None:
+        fcf_y2 = float(forecast[y1]) * 1.05
         print(f"[WARNING] No explicit FCFF for {y2}, fallback to {forecast[y1]:,.0f} * 1.05 = ${fcf_y2:,.0f}")
     forecast[y2] = fcf_y2
 
     # Years 3-5: determine a blended segment growth rate via LLM
-    prompt = (
-        f"You are a financial modeler. Based on this segment performance summary:\n\n"
-        f"{segment_summary_text}\n\n"
-        f"Estimate a single blended forward growth rate (as a decimal) for total FCFF over the next 3 years. "
-        f"For example, if Collins is growing 5%, Pratt 8%, Raytheon 7% with revenue weights, return something like 0.066. "
-        f"If you cannot estimate, return 0.05."
-    )
-    raw_rate = deepseek_chat(prompt, max_tokens=64)
-    try:
-        blended_rate = float(re.search(r"0\.\d+", raw_rate).group(0))
-        print(f"[INFO] Blended segment FCFF growth rate from LLM: {blended_rate*100:.1f}%")
-    except:
-        blended_rate = 0.05
-        print(f"[WARNING] Could not parse blended rate. Defaulting to 5%.")
+    blended_rate = 0.05
+    if segment_summary_text and segment_summary_text.strip() != "No segment tables found.":
+        prompt = (
+            f"You are a financial modeler. Based on this segment performance summary:\n\n"
+            f"{segment_summary_text}\n\n"
+            f"Estimate a single blended forward growth rate (as a decimal) for total FCFF over the next 3 years. "
+            f"For example, if Collins is growing 5%, Pratt 8%, Raytheon 7% with revenue weights, return something like 0.066. "
+            f"If you cannot estimate, return 0.05."
+        )
+        try:
+            raw_rate = deepseek_chat(prompt, max_tokens=64)
+            m = re.search(r"0\.\d+", raw_rate)
+            if m:
+                blended_rate = float(m.group(0))
+                print(f"[INFO] Blended segment FCFF growth rate from LLM: {blended_rate*100:.1f}%")
+            else:
+                print("[WARNING] LLM response did not contain a valid decimal growth rate; defaulting to 5%")
+        except Exception as e:
+            print(f"[WARNING] LLM blended rate request failed: {e}; defaulting to 5%")
+    else:
+        print("[WARNING] No segment summary available; using default growth rate of 5% for years 3-5")
 
+    # Project years 3-5
     for i in range(3, 6):
         y = hist_year + i
         prev = forecast[y - 1]
-        forecast[y] = prev * (1 + blended_rate)
+        forecast[y] = float(prev) * (1.0 + blended_rate)
         print(f"[DEBUG] Projected FCFF for {y} = {prev:,.0f} * (1+{blended_rate:.3f}) = ${forecast[y]:,.0f}")
 
     return forecast
@@ -733,7 +799,7 @@ def build_fcff_forecast(
 # ────────────────────────────────────────────────────────────────────────────────
 # 5. Full DCF Agent That Combines All Steps
 # ────────────────────────────────────────────────────────────────────────────────
-def run_dcf_model(
+def run_dcf_model_improved(
     company_name: str,
     assumptions: dict,
     file_paths: list[str]
@@ -796,13 +862,13 @@ def run_dcf_model(
     # 7) Determine net debt (prefer yfinance)
     yfinance_nd = get_yfinance_net_debt(ticker)
     if yfinance_nd is not None:
-        net_debt = yfinance_nd
+        net_debt = float(yfinance_nd)
         print(f"[INFO] Using yfinance net debt for {ticker}: ${net_debt:,.0f}")
     else:
         most_recent = historical_list[-1]
-        total_debt = most_recent.get("total_debt", 0) or 0
-        cash_ce = most_recent.get("cash_ce", 0) or 0
-        net_debt = total_debt - cash_ce
+        total_debt = most_recent.get("total_debt") or 0.0
+        cash_ce = most_recent.get("cash_ce") or 0.0
+        net_debt = float(total_debt) - float(cash_ce)
         print(f"[WARNING] yfinance net debt lookup failed; using PDF parse net debt ({most_recent['year']}): ${net_debt:,.0f}")
 
     # 8) Build FCFF forecast
@@ -815,52 +881,42 @@ def run_dcf_model(
     )
 
     # 9) Scenario assumptions (growth_rates, waccs, terminal_multiples)
-    if "growth_rates" in assumptions:
-        growth_rates = {
-            "bull": assumptions["growth_rates"].get("bull"),
-            "base": assumptions["growth_rates"].get("base"),
-            "bear": assumptions["growth_rates"].get("bear"),
-        }
-    else:
-        # Default values (LLM could generate better ones, but using static defaults here)
-        growth_rates = {"bull": 0.08, "base": 0.06, "bear": 0.03}
-
+    growth_rates = {"bull": None, "base": None, "bear": None}
+    if isinstance(assumptions, dict) and "growth_rates" in assumptions:
+        gr = assumptions["growth_rates"]
+        for s in ("bull", "base", "bear"):
+            growth_rates[s] = gr.get(s, None)
+    # Fill missing with default
     for s in ("bull", "base", "bear"):
-        if growth_rates.get(s) is None:
-            growth_rates[s] = growth_rates.get("base", 0.06)
+        if growth_rates[s] is None:
+            growth_rates[s] = 0.06  # default base growth; user can override
 
-    if "waccs" in assumptions and "terminal_multiples" in assumptions:
-        waccs = {
-            "bull": assumptions["waccs"].get("bull"),
-            "base": assumptions["waccs"].get("base"),
-            "bear": assumptions["waccs"].get("bear"),
-        }
-        terminal_mults = {
-            "bull": assumptions["terminal_multiples"].get("bull"),
-            "base": assumptions["terminal_multiples"].get("base"),
-            "bear": assumptions["terminal_multiples"].get("bear"),
-        }
-    else:
-        waccs = {"bull": 0.09, "base": 0.10, "bear": 0.11}
-        terminal_mults = {"bull": 14, "base": 12, "bear": 10}
-
+    waccs = {"bull": None, "base": None, "bear": None}
+    terminal_mults = {"bull": None, "base": None, "bear": None}
+    if isinstance(assumptions, dict) and "waccs" in assumptions and "terminal_multiples" in assumptions:
+        wa = assumptions["waccs"]
+        tm = assumptions["terminal_multiples"]
+        for s in ("bull", "base", "bear"):
+            waccs[s] = wa.get(s, None)
+            terminal_mults[s] = tm.get(s, None)
+    # Fill missing with defaults
     for s in ("bull", "base", "bear"):
-        if waccs.get(s) is None:
-            waccs[s] = waccs.get("base", 0.10)
-        if terminal_mults.get(s) is None:
-            terminal_mults[s] = terminal_mults.get("base", 12)
+        if waccs[s] is None:
+            waccs[s] = 0.10  # default WACC
+        if terminal_mults[s] is None:
+            terminal_mults[s] = 12  # default terminal multiple
 
     # 10) Run DCF projection for each scenario
     dcf_results = {}
     for scenario in ("bull", "base", "bear"):
-        wacc = waccs[scenario]
-        tm = terminal_mults[scenario]
+        wacc = float(waccs[scenario])
+        tm = float(terminal_mults[scenario])
 
         projections = []
         for i in range(1, 6):
             year_i = last_hist_year + i
-            fcf_i = fcf_proj.get(year_i)
-            projections.append({"year": year_i, "fcf": fcf_i})
+            fcf_i = fcf_proj.get(year_i, 0.0)
+            projections.append({"year": year_i, "fcf": float(fcf_i)})
 
         terminal_value = projections[-1]["fcf"] * tm
 
@@ -872,7 +928,10 @@ def run_dcf_model(
         equity_value = ev - net_debt
         npv_per_share = None
         if shares_outstanding:
-            npv_per_share = equity_value / shares_outstanding
+            try:
+                npv_per_share = float(equity_value) / float(shares_outstanding)
+            except:
+                npv_per_share = None
 
         dcf_results[scenario] = {
             "growth_rate": growth_rates[scenario],
