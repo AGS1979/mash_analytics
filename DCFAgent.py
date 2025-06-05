@@ -1019,5 +1019,14 @@ def run_dcf_model(
             "terminal_multiple": data["terminal_multiple"]
         }
 
+
+    if "scenarios" not in summary or not isinstance(summary["scenarios"], dict):
+        summary["scenarios"] = {"bull": None, "base": None, "bear": None}
+    else:
+        # If scenarios dictionary exists but is missing any key, add it with None.
+        for key in ("bull", "base", "bear"):
+            if key not in summary["scenarios"]:
+                summary["scenarios"][key] = None    
+
     return output_path, summary
 

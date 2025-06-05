@@ -597,8 +597,12 @@ def analyze_dcf_route():
         return jsonify({"error": f"DCF processing failed: {str(e)}"}), 500
 
     # Ensure 'scenarios' key is always present
-    if "scenarios" not in summary_dict:
+    if "scenarios" not in summary_dict or not isinstance(summary_dict["scenarios"], dict):
         summary_dict["scenarios"] = {"bull": None, "base": None, "bear": None}
+    else:
+        for key in ("bull", "base", "bear"):
+            if key not in summary_dict["scenarios"]:
+                summary_dict["scenarios"][key] = None
 
     # 7) Build download URL
     filename = os.path.basename(output_path)
