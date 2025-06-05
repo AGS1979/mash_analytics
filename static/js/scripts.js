@@ -663,13 +663,23 @@ function showDcfModal() {
       method: "POST",
       body: formData,
     })
-      .then(async (resp) => {
-        if (!resp.ok) {
-          const err = await resp.json();
-          throw new Error(err.error || `HTTP ${resp.status}`);
-        }
-        return resp.json();
-      })
+    .then(async (resp) => {
+      const text = await resp.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("❌ Failed to parse JSON. Response was:", text);
+        throw new Error("Server returned invalid JSON. Check backend logs.");
+      }
+
+      if (!resp.ok) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+      }
+
+      return data;
+    })
+
       .then((data) => {
         const pdfAnswers = data.pdf_answers || {};
         const summary = data.dcf_summary || {};
