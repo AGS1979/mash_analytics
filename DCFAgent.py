@@ -733,7 +733,7 @@ def build_fcff_forecast(
 # ────────────────────────────────────────────────────────────────────────────────
 # 5. Full DCF Agent That Combines All Steps
 # ────────────────────────────────────────────────────────────────────────────────
-def run_dcf_model_improved(
+def run_dcf_model(
     company_name: str,
     assumptions: dict,
     file_paths: list[str]
