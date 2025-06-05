@@ -382,7 +382,8 @@ def run_dcf_model(
                         #   'bull_growth_multiplier', 'bull_wacc_adjust', 'bull_terminal_growth_adjust',
                         #   'bear_growth_multiplier', 'bear_wacc_adjust', 'bear_terminal_growth_adjust'
     file_paths: list[str],
-    current_share_price: float | None = None
+    current_share_price: float | None = None,
+    pdf_answers: dict = None
 ) -> tuple[str, dict]:
     """
     Performs a 3-case (Base / Bull / Bear) FCFF-based DCF valuation:
@@ -415,8 +416,14 @@ def run_dcf_model(
     file_context = prepare_pdf_context(file_paths)
 
     # Helper to parse LLM’s numeric answer
+    # Updated get_number_from_pdf
     def get_number_from_pdf(question: str) -> float | None:
-        answer = query_pdf(file_context, question)
+        answer = None
+        if pdf_answers and question in pdf_answers:
+            answer = pdf_answers[question]
+        else:
+            answer = query_pdf(file_context, question)
+
         m = re.search(r"([\d,]+(?:\.\d+)?)\s*(million|billion|M|B)?", answer, re.IGNORECASE)
         if not m:
             return None
@@ -432,6 +439,7 @@ def run_dcf_model(
             elif s in ("million", "m"):
                 num *= 1_000_000
         return num
+
 
     # 3) Query for required financial inputs
     # a) Revenue
