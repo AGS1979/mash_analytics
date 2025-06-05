@@ -31,7 +31,7 @@ if not DEEPSEEK_API_KEY:
 # ────────────────────────────────────────────────────────────────────────────────
 def deepseek_chat(prompt: str, max_tokens: int = 512) -> str:
     """
-    Sends `prompt` to DeepSeek Chat and returns the assistant's reply text.
+    Sends prompt to DeepSeek Chat and returns the assistant's reply text.
     """
     headers = {
         "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
@@ -102,7 +102,7 @@ def extract_text_from_docx(docx_path: str) -> str:
 # ────────────────────────────────────────────────────────────────────────────────
 def find_pages_with_keyword(pdf_path: str, keyword: str) -> list[int]:
     """
-    Returns a list of 0-based page indices where `keyword` appears in the text.
+    Returns a list of 0-based page indices where keyword appears in the text.
     Keyword match is case-insensitive.
     """
     pages = []
@@ -141,7 +141,7 @@ def extract_tables_from_pdf(pdf_path: str, page_indices: list[int]) -> list[pd.D
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
     """
-    Searches `df` for a row containing 'Free Cash Flow' (case-insensitive)
+    Searches df for a row containing 'Free Cash Flow' (case-insensitive)
     and returns the first numeric value in that row (USD).
     Detects if table headers mention millions/billions. Defaults to absolute USD if no scale.
     """
@@ -174,7 +174,7 @@ def parse_fcf_from_df(df: pd.DataFrame) -> float | None:
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     """
-    Searches `df` for 'Revenue' and 'Net Income' rows (case-insensitive).
+    Searches df for 'Revenue' and 'Net Income' rows (case-insensitive).
     Returns a tuple (revenue, net_income) in USD.
     Detects scale by table header.
     """
@@ -222,7 +222,7 @@ def parse_income_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
 # ────────────────────────────────────────────────────────────────────────────────
 def parse_balance_sheet_from_df(df: pd.DataFrame) -> tuple[float | None, float | None]:
     """
-    Searches `df` for 'Total Debt' and 'Cash and cash equivalents' (case-insensitive).
+    Searches df for 'Total Debt' and 'Cash and cash equivalents' (case-insensitive).
     Returns (total_debt, cash) in USD.
     Detects scale by table header.
     """
@@ -453,7 +453,7 @@ def run_dcf_model(
     file_paths: list[str]
 ) -> tuple[str, dict]:
     """
-    Performs a 3-case (Bull / Base / Bear) FCFF-based DCF valuation for the given `company_name`.
+    Performs a 3-case (Bull / Base / Bear) FCFF-based DCF valuation for the given company_name.
     1) Uses DeepSeek to convert company_name → ticker.
     2) Extracts historical financials from each uploaded file via extract_financials_from_file.
     3) Aggregates at most 5 most recent years of financials.
@@ -694,6 +694,10 @@ def run_dcf_model(
         "historical_net_incomes": hist_nis,
         "scenarios": {
             scenario: {
+                # Include an "npv" key so your existing JS (which does sc.npv) still works:
+                "npv": dcf_results[scenario]["equity_value"],
+
+                # Keep the other new fields in case you want to reference them later:
                 "enterprise_value": dcf_results[scenario]["enterprise_value"],
                 "equity_value": dcf_results[scenario]["equity_value"],
                 "npv_per_share": dcf_results[scenario]["npv_per_share"],
