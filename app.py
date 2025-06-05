@@ -55,7 +55,7 @@ from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
-from DCFAgent import run_dcf_model
+from DCFAgent import run_dcf_model, prepare_pdf_context, query_pdf
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -538,12 +538,13 @@ def analyze_dcf_route():
     Expects multipart/form-data:
       • company_name (form field)
       • assumptions (form field, JSON string; optional)
-      • files (one or more PDF/DOCX uploads)
-    Returns JSON:
+      • pdf_questions (form field, JSON array of question strings; optional)
+      • files (one or more PDF/DOCX uploads; required)
+    Returns:
       {
-        "message": "DCF valuation completed successfully",
-        "download_url": "...",
-        "dcf_summary": {...}
+        "message": "...",
+        "pdf_answers": {<question>: <answer>, …},
+        "dcf_summary": { ... }
       }
     """
     # 1) Company name
@@ -551,7 +552,7 @@ def analyze_dcf_route():
     if not company_name:
         return jsonify({"error": "company_name is required"}), 400
 
-    # 2) Parse assumptions if provided
+    # 2) Parse assumptions JSON if provided
     raw_assump = request.form.get("assumptions", "").strip()
     if raw_assump:
         try:
@@ -561,12 +562,25 @@ def analyze_dcf_route():
     else:
         assumptions = {}
 
-    # 3) Ensure files were uploaded
+    # 3) Parse pdf_questions JSON array if provided
+    raw_questions = request.form.get("pdf_questions", "").strip()
+    if raw_questions:
+        try:
+            pdf_questions = json.loads(raw_questions)
+            # Expecting a JSON array of strings
+            if not isinstance(pdf_questions, list) or not all(isinstance(q, str) for q in pdf_questions):
+                raise ValueError
+        except Exception:
+            return jsonify({"error": "`pdf_questions` must be a JSON array of strings"}), 400
+    else:
+        pdf_questions = []
+
+    # 4) Ensure files were uploaded
     uploaded_files = request.files.getlist("files")
     if not uploaded_files or len(uploaded_files) == 0:
-        return jsonify({"error": "Please upload at least one document (PDF or DOCX)."}), 400
+        return jsonify({"error": "Please upload at least one PDF or DOCX."}), 400
 
-    # 4) Save each file under UPLOAD_FOLDER
+    # 5) Save each file under UPLOAD_FOLDER
     temp_paths = []
     for f in uploaded_files:
         if f and allowed_file(f.filename):
@@ -574,62 +588,52 @@ def analyze_dcf_route():
             timestamp = int(time.time() * 1000)
             out_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{timestamp}_{safe_name}")
             f.save(out_path)
-
-            # ────────── DEBUG ────────────────────────────────────────────────────────────
-            print(f"[DCF DEBUG] Saved upload → {out_path!r}")
-            print(f"[DCF DEBUG]    Exists? {os.path.exists(out_path)}, Size: {os.path.getsize(out_path) if os.path.exists(out_path) else 'N/A'} bytes")
-            # ─────────────────────────────────────────────────────────────────────────────
-
             temp_paths.append(out_path)
         else:
             return jsonify({"error": f"Unsupported file type: {f.filename}"}), 400
 
-    # 5) Before running DCF, verify each path again
-    for p in temp_paths:
-        print(f"[DCF DEBUG] Verifying path: {p!r}, exists? {os.path.exists(p)}, size: {os.path.getsize(p) if os.path.exists(p) else 'N/A'}")
-
-    # 6) Run the DCF model
+    # 6) Build a file_context (so that query_pdf can search all PDFs at once)
     try:
-        output_path, summary_dict = run_dcf_model(company_name, assumptions, temp_paths)
+        file_context = prepare_pdf_context(temp_paths)
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        return jsonify({"error": f"Failed to prepare PDF context: {str(e)}"}), 500
+
+    # 7) Run each PDF question through query_pdf(...)
+    pdf_answers = {}
+    for question in pdf_questions:
+        try:
+            ans = query_pdf(file_context, question)
+            pdf_answers[question] = ans
+        except Exception as e:
+            pdf_answers[question] = f"Error: {str(e)}"
+
+    # 8) Now feed those answers into the DCF routine.
+    #     We assume run_dcf_model accepts an extra argument `pdf_answers`
+    #     so that it will use those exact numbers instead of re‐querying.
+    try:
+        message, summary_dict = run_dcf_model(
+            company_name=company_name,
+            assumptions=assumptions,
+            file_paths=temp_paths,
+            pdf_answers=pdf_answers
+        )
+    except Exception as e:
+        # Clean up uploads
+        for p in temp_paths:
+            try: os.remove(p)
+            except: pass
         return jsonify({"error": f"DCF processing failed: {str(e)}"}), 500
 
-    # Ensure 'scenarios' key is always present
-    if "scenarios" not in summary_dict or not isinstance(summary_dict["scenarios"], dict):
-        summary_dict["scenarios"] = {"bull": None, "base": None, "bear": None}
-    else:
-        for key in ("bull", "base", "bear"):
-            if key not in summary_dict["scenarios"]:
-                summary_dict["scenarios"][key] = None
-
-    # 7) Build download URL
-    filename = os.path.basename(output_path)
-    download_url = url_for('download_dcf_report', filename=filename, _external=True)
-
-    # HERE: dump the final JSON for inspection
-    import json
-    print("FINAL DCF JSON →", json.dumps({
-        "message": "DCF valuation completed successfully",
-        "download_url": url_for('download_dcf_report', filename=os.path.basename(output_path), _external=True),
-        "dcf_summary": summary_dict
-    }, indent=2))
+    # 9) Clean up uploaded files (optional)
+    for p in temp_paths:
+        try: os.remove(p)
+        except: pass
 
     return jsonify({
-        "message": "DCF valuation completed successfully",
-        "download_url": download_url,
+        "message": message,
+        "pdf_answers": pdf_answers,
         "dcf_summary": summary_dict
     }), 200
-
-
-@app.route('/download-dcf/<filename>', methods=['GET'])
-def download_dcf_report(filename):
-    reports_dir = os.path.join(os.getcwd(), "reports")
-    full_path = os.path.join(reports_dir, filename)
-    if not os.path.exists(full_path):
-        return jsonify({"error": "File not found"}), 404
-    return send_file(full_path, as_attachment=True)
 
 @app.route('/generate-preipo-memo', methods=['POST'])
 def generate_preipo_memo():
