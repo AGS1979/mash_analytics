@@ -461,21 +461,20 @@ def extract_financials_from_file(file_path: str) -> dict | None:
 # 1. Segment Extraction & Summarization
 # ────────────────────────────────────────────────────────────────────────────────
 def find_segment_pages(pdf_path: str) -> list[int]:
-    """
-    Returns a list of 0-based page indices where 'Segment' or 'MD&A' appears.
-    """
     keywords = [
-        r"Management’s\s+Discussion\s+and\s+Analysis",
-        r"MD&A",
-        r"Segments",
-        r"Business\s+Segments",
-        r"Segment\s+Results"
+        # Allow straight apostrophe, ampersand, or curly
+        r"Management['’]s\s+Discussion\s*(?:&|\band\b)\s*Analysis",
+        r"\bMD&A\b", 
+        r"\bBusiness\s+Segments\b", 
+        r"\bSegment\s+Results\b", 
+        # “Segments” by itself can be too generic, but “Three‐Digit Segments” etc. may appear
+        r"\bSegments?\b"
     ]
     pages = set()
     try:
         reader = PdfReader(pdf_path)
         for idx, page in enumerate(reader.pages):
-            text = page.extract_text() or ""
+            text = (page.extract_text() or "")
             for kw in keywords:
                 if re.search(kw, text, re.IGNORECASE):
                     pages.add(idx)
@@ -485,18 +484,19 @@ def find_segment_pages(pdf_path: str) -> list[int]:
 
 
 def extract_segment_tables(pdf_path: str, segment_pages: list[int]) -> list[pd.DataFrame]:
-    """
-    Uses Camelot to extract every table on the identified Segment/MD&A pages.
-    """
     dfs = []
     if not segment_pages:
         return dfs
     pages_str = ",".join(str(i + 1) for i in segment_pages)
     try:
-        tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor="stream")
+        # First attempt “lattice”; if that fails, fall back to “stream”
+        tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor="lattice")
+        if not tables or all(len(tbl.df)==0 for tbl in tables):
+            tables = camelot.read_pdf(pdf_path, pages=pages_str, flavor="stream")
         for tbl in tables:
-            dfs.append(tbl.df)
-    except:
+            if not tbl.df.empty:
+                dfs.append(tbl.df)
+    except Exception:
         pass
     return dfs
 
