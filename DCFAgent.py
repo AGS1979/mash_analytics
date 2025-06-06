@@ -207,7 +207,6 @@ Terminal {"Growth Rate" if assumptions['model_type'] == "perpetuity" else "Exit 
         raise ValueError("Invalid or incomplete assumptions.")
 
     # Compose final prompt
-        # Add current price to prompt
     cmp_text = f"The current market price (CMP) of the stock is approximately ${cmp} as of today.\n"
 
     prompt = f"""
@@ -232,33 +231,33 @@ Bull Case | 150000 | 130000 | 95
 ...
 """
 
+    # Call DeepSeek
+    try:
+        response = call_deepseek(prompt)
+        print("\n🔎 Raw DeepSeek DCF Response:\n", response)
 
-# Call DeepSeek
-try:
-    response = call_deepseek(prompt)
-    print("\n🔎 Raw DeepSeek DCF Response:\n", response)
+        parsed = {}
+        for line in response.splitlines():
+            if "|" in line and "Scenario" not in line and not line.strip().startswith("---"):
+                parts = [re.sub(r'[\*\$]', '', p.strip()) for p in line.split("|")]
+                if len(parts) == 4:
+                    try:
+                        scenario = parts[0]
+                        ev = float(parts[1].replace(",", "").replace("B", "e9").replace("M", "e6"))
+                        eqv = float(parts[2].replace(",", "").replace("B", "e9").replace("M", "e6"))
+                        ps = float(parts[3].replace(",", "").replace("B", "e9").replace("M", "e6"))
+                        parsed[scenario] = {
+                            "EV": ev,
+                            "Equity Value": eqv,
+                            "Per Share": ps
+                        }
+                    except ValueError:
+                        continue
 
-    parsed = {}
-    for line in response.splitlines():
-        if "|" in line and "Scenario" not in line and not line.strip().startswith("---"):
-            parts = [re.sub(r'[\*\$]', '', p.strip()) for p in line.split("|")]
-            if len(parts) == 4:
-                try:
-                    scenario = parts[0]
-                    ev = float(parts[1].replace(",", "").replace("B", "e9").replace("M", "e6"))
-                    eqv = float(parts[2].replace(",", "").replace("B", "e9").replace("M", "e6"))
-                    ps = float(parts[3].replace(",", "").replace("B", "e9").replace("M", "e6"))
-                    parsed[scenario] = {
-                        "EV": ev,
-                        "Equity Value": eqv,
-                        "Per Share": ps
-                    }
-                except ValueError:
-                    continue
+        if not parsed:
+            raise ValueError(f"DeepSeek returned no valid output. Response:\n{response}")
+        return parsed
 
-    if not parsed:
-        raise ValueError(f"DeepSeek returned no valid output. Response:\n{response}")
-    return parsed
+    except Exception as e:
+        raise RuntimeError(f"LLM-based DCF calculation failed: {e}")
 
-except Exception as e:
-    raise RuntimeError(f"LLM-based DCF calculation failed: {e}")
