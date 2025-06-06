@@ -960,3 +960,136 @@ body {
 /* ───────────────────────────────────────────────────────────────────────── *
    End DCF‐Output Styling
    ───────────────────────────────────────────────────────────────────────── */
+
+
+/* ────── Begin Markdown Styling ────── */
+.markdown-body {
+  /* Optional: give it a slightly lighter background so it stands out */
+  background-color: #1e1e1e;
+  color: #e5e5e5;
+  font-family: Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* Headings */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: #93c5fd; /* a pale blue for headings */
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+/* Paragraphs */
+.markdown-body p {
+  margin: 0.6em 0;
+  line-height: 1.6;
+}
+
+/* Bold/Text Strong */
+.markdown-body strong {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+/* Italic */
+.markdown-body em {
+  font-style: italic;
+  color: #cbd5e1;
+}
+
+/* Lists */
+.markdown-body ul,
+.markdown-body ol {
+  margin-left: 1.2em;
+  margin-bottom: 0.8em;
+}
+.markdown-body ul li::marker {
+  color: #60a5fa; /* bullet color */
+}
+.markdown-body ol li::marker {
+  color: #60a5fa; /* number color */
+}
+
+/* Horizontal rule */
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid #3b82f6;
+  margin: 1.2em 0;
+}
+
+/* Tables */
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.markdown-body table th,
+.markdown-body table td {
+  border: 1px solid #3b82f6;
+  padding: 8px 12px;
+  text-align: left;
+  color: #e5e5e5;
+}
+.markdown-body table th {
+  background-color: #1e293b;
+  color: #93c5fd;
+  font-weight: 600;
+}
+.markdown-body table tr:nth-child(even) td {
+  background-color: #1e1e1e;
+}
+
+/* Code blocks and inline code */
+.markdown-body pre {
+  background-color: #2d2d2d;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.markdown-body code {
+  background-color: #2d2d2d;
+  color: #f8f8f2;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Blockquotes */
+.markdown-body blockquote {
+  border-left: 4px solid #3b82f6;
+  padding-left: 12px;
+  color: #cbd5e1;
+  margin: 1em 0;
+}
+
+/* Links */
+.markdown-body a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
+/* Images (if any) */
+.markdown-body img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+/* Smaller screens (adjust font size) */
+@media (max-width: 768px) {
+  .markdown-body {
+    font-size: 14px;
+  }
+  .markdown-body table th,
+  .markdown-body table td {
+    padding: 6px 8px;
+  }
+}
+/* ────── End Markdown Styling ────── */
