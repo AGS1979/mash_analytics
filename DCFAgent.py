@@ -233,25 +233,32 @@ Bull Case | 150000 | 130000 | 95
 """
 
 
-    # Call DeepSeek
-    try:
-        response = call_deepseek(prompt)
-        print("\n🔎 Raw DeepSeek DCF Response:\n", response)
-        parsed = {}
+# Call DeepSeek
+try:
+    response = call_deepseek(prompt)
+    print("\n🔎 Raw DeepSeek DCF Response:\n", response)
 
-        for line in response.splitlines():
-            if "|" in line and "Scenario" not in line:
-                parts = [p.strip() for p in line.split("|")]
-                if len(parts) == 4:
-                    scenario, ev, eqv, ps = parts
+    parsed = {}
+    for line in response.splitlines():
+        if "|" in line and "Scenario" not in line and not line.strip().startswith("---"):
+            parts = [re.sub(r'[\*\$]', '', p.strip()) for p in line.split("|")]
+            if len(parts) == 4:
+                try:
+                    scenario = parts[0]
+                    ev = float(parts[1].replace(",", "").replace("B", "e9").replace("M", "e6"))
+                    eqv = float(parts[2].replace(",", "").replace("B", "e9").replace("M", "e6"))
+                    ps = float(parts[3].replace(",", "").replace("B", "e9").replace("M", "e6"))
                     parsed[scenario] = {
-                        "EV": float(ev.replace(",", "")),
-                        "Equity Value": float(eqv.replace(",", "")),
-                        "Per Share": float(ps.replace(",", ""))
+                        "EV": ev,
+                        "Equity Value": eqv,
+                        "Per Share": ps
                     }
+                except ValueError:
+                    continue
 
-        if not parsed:
-            raise ValueError(f"DeepSeek returned no valid output. Response:\n{response}")
-        return parsed
-    except Exception as e:
-        raise RuntimeError(f"LLM-based DCF calculation failed: {e}")
+    if not parsed:
+        raise ValueError(f"DeepSeek returned no valid output. Response:\n{response}")
+    return parsed
+
+except Exception as e:
+    raise RuntimeError(f"LLM-based DCF calculation failed: {e}")

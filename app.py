@@ -542,65 +542,43 @@ def get_custom_agents():
 
 @app.route('/analyze-dcf', methods=['POST'])
 def analyze_dcf_route():
-    """
-    Expects multipart/form-data:
-      • company_name (form field)
-      • assumptions (form field, JSON string; optional)
-      • lineitem_query (form field, plain text; required)
-      • files (one or more PDF/DOCX/PPTX uploads; required)
-    Returns:
-      {
-        "message": "...",
-        "dcf_summary": { ... },
-        "extracted_text": "...",  # optional
-        "llm_response": "...",    # optional
-      }
-    """
-    # 1) Company name
-    company_name = request.form.get("company_name", "").strip()
-    if not company_name:
-        return jsonify({"error": "company_name is required"}), 400
+    try:
+        company_name = request.form.get("company_name", "").strip()
+        if not company_name:
+            return jsonify({"error": "company_name is required"}), 400
 
-    # 2) Line item query
-    lineitem_query = request.form.get("pdf_questions", "").strip()
-    if not lineitem_query:
-        return jsonify({"error": "Please enter line item queries (e.g., revenue, EBITDA, FCF etc)."}), 400
+        lineitem_query = request.form.get("pdf_questions", "").strip()
+        if not lineitem_query:
+            return jsonify({"error": "Please enter line item queries (e.g., revenue, EBITDA, FCF etc)."}), 400
 
+        raw_assump = request.form.get("assumptions", "").strip()
+        if raw_assump:
+            try:
+                assumptions = json.loads(raw_assump)
+            except json.JSONDecodeError:
+                return jsonify({"error": "`assumptions` must be valid JSON"}), 400
+        else:
+            assumptions = {}
 
+        uploaded_files = request.files.getlist("files")
+        if not uploaded_files or len(uploaded_files) == 0:
+            return jsonify({"error": "Please upload at least one PDF, DOCX, or PPTX file."}), 400
 
-    # 3) Assumptions (optional)
-    raw_assump = request.form.get("assumptions", "").strip()
-    if raw_assump:
         try:
-            assumptions = json.loads(raw_assump)
-        except json.JSONDecodeError:
-            return jsonify({"error": "`assumptions` must be valid JSON"}), 400
-    else:
-        assumptions = {}
+            temp_paths = save_uploaded_files(uploaded_files)
+            extracted_text = extract_text_from_documents(temp_paths)
+        except Exception as e:
+            return jsonify({"error": f"File processing failed: {str(e)}"}), 500
 
-    # 4) Uploaded files
-    uploaded_files = request.files.getlist("files")
-    if not uploaded_files or len(uploaded_files) == 0:
-        return jsonify({"error": "Please upload at least one PDF, DOCX, or PPTX file."}), 400
+        try:
+            ticker = get_ticker_from_name(company_name)
+            cmp = get_current_share_price(ticker)
+        except Exception as e:
+            return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
 
-    try:
-        # 5) Save and extract text
-        temp_paths = save_uploaded_files(uploaded_files)
-        extracted_text = extract_text_from_documents(temp_paths)
-    except Exception as e:
-        return jsonify({"error": f"File processing failed: {str(e)}"}), 500
-
-    try:
-        # 6) Ticker and price
-        ticker = get_ticker_from_name(company_name)
-        cmp = get_current_share_price(ticker)
-    except Exception as e:
-        return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
-
-    try:
-        # 7) Use the free-form user query to extract line items via DeepSeek
-        text_block = " ".join(extracted_text.values())[:16000]
-        prompt = f"""
+        try:
+            text_block = " ".join(extracted_text.values())[:16000]
+            prompt = f"""
 Extract the requested financial data based on the user input below.
 Respond only with what is found in the text.
 
@@ -610,34 +588,40 @@ User Request:
 Company Text:
 {text_block}
 """
-        llm_response = call_deepseek(prompt)
-        line_item_data = {"LLM Extracted Block": llm_response}
-    except Exception as e:
-        return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
+            llm_response = call_deepseek(prompt)
+            line_item_data = {"LLM Extracted Block": llm_response}
+        except Exception as e:
+            return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
 
-    try:
-        # 8) Resolve assumptions
-        assumption_source = assumptions.get("source", "llm") or "llm"
-        resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
-    except Exception as e:
-        return jsonify({"error": f"Assumption resolution failed: {str(e)}"}), 500
+        try:
+            assumption_source = assumptions.get("source", "llm") or "llm"
+            resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
+        except Exception as e:
+            return jsonify({"error": f"Assumption resolution failed: {str(e)}"}), 500
 
-    try:
-        # 9) Run DCF
-        dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
+        try:
+            dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
+        except Exception as e:
+            return jsonify({"error": f"DCF model execution failed: {str(e)}"}), 500
+
+        return jsonify({
+            "message": f"DCF completed for {company_name} (Ticker: {ticker})",
+            "dcf_summary": dcf_summary,
+            "llm_response": llm_response
+        }), 200
+
     except Exception as e:
-        return jsonify({"error": f"DCF model execution failed: {str(e)}"}), 500
+        # Final safety net for unexpected errors
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
     finally:
-        # 10) Clean up files
-        for p in temp_paths:
-            try: os.remove(p)
-            except: pass
-
-    return jsonify({
-        "message": f"DCF completed for {company_name} (Ticker: {ticker})",
-        "dcf_summary": dcf_summary,
-        "llm_response": llm_response
-    }), 200
+        # Always clean up temp files
+        if 'temp_paths' in locals():
+            for p in temp_paths:
+                try:
+                    os.remove(p)
+                except:
+                    pass
 
 
 @app.route('/generate-preipo-memo', methods=['POST'])
