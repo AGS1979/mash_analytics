@@ -55,7 +55,7 @@ from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
-from DCFAgent import run_dcf_model, prepare_pdf_context, query_pdf
+from DCFAgent import run_dcf_model, prepare_pdf_context, query_pdf_with_context
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -598,11 +598,11 @@ def analyze_dcf_route():
     except Exception as e:
         return jsonify({"error": f"Failed to prepare PDF context: {str(e)}"}), 500
 
-    # 7) Run each PDF question through query_pdf(...)
+    # 7) Run each PDF question through query_pdf_with_context(...)
     pdf_answers = {}
     for question in pdf_questions:
         try:
-            ans = query_pdf(file_context, question)
+            ans = query_pdf_with_context(file_context, question)
             pdf_answers[question] = ans
         except Exception as e:
             pdf_answers[question] = f"Error: {str(e)}"

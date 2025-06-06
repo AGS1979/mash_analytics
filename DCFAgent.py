@@ -398,7 +398,7 @@ def run_dcf_model(
     print(f"🚀 Starting DCF analysis for {company_name}...")
 
     # 1) Determine ticker via LLM
-    ticker_prompt = f"You are a stock ticker lookup assistant. For the company name \"{company_name}\", provide the primary U.S. stock ticker symbol (just the ticker)."
+    ticker_prompt = f"You are a stock ticker lookup assistant. For the company name \"{company_name}\", provide the stock ticker symbol (just the ticker)."
     raw_ticker = deepseek_chat(ticker_prompt, max_tokens=8, temperature=0.0).strip().upper()
     if not raw_ticker:
         return "❌ Error: Could not determine ticker symbol for the company.", {}
