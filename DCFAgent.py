@@ -24,37 +24,27 @@ if not DEEPSEEK_API_KEY:
     raise RuntimeError("❌ DEEPSEEK_API_KEY is not set in the environment.")
 
 
-# ─────────────────────────────────────────
-# DEEPSEEK CHAT CALL
-# ─────────────────────────────────────────
-def call_deepseek(prompt, temperature=0.2, max_tokens=1000):
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
-    }
-    body = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": temperature,
-        "max_tokens": max_tokens
-    }
-    response = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=body)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
-
+    
 
 # ─────────────────────────────────────────
 # 1. Get Stock Ticker from Name
 # ─────────────────────────────────────────
 def get_ticker_from_name(company_name: str) -> str:
     prompt = f"What is the primary US stock ticker for {company_name}? Only respond with the ticker symbol. For example: 'RTX'"
-    response = call_deepseek(prompt)
 
-    # Fallback regex extraction in case LLM still responds with extra text
-    match = re.search(r'\b[A-Z]{1,5}\b', response)
+    messages = [{"role": "user", "content": prompt}]
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+    payload = {"model": "deepseek-chat", "messages": messages}
+
+    response = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload)
+    response.raise_for_status()
+    text = response.json()["choices"][0]["message"]["content"]
+
+    match = re.search(r'\b[A-Z]{1,5}\b', text)
     if match:
         return match.group(0)
-    raise ValueError(f"Could not extract a valid ticker from: {response}")
+    raise ValueError(f"Could not extract a valid ticker from: {text}")
+
 
 
 def get_current_share_price(ticker: str) -> float:
@@ -115,7 +105,17 @@ Avoid follow-up suggestions like "Let me know if you'd like help" or "You may re
 Text:
 {combined_text}"""
         try:
-            results[item] = call_deepseek(prompt)
+            messages = [{"role": "user", "content": prompt}]
+            headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+            payload = {"model": "deepseek-chat", "messages": messages}
+            try:
+                response = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload)
+                response.raise_for_status()
+                result = response.json()["choices"][0]["message"]["content"]
+                results[item] = result.strip()
+            except Exception as e:
+                results[item] = f"Error: {e}"
+
         except Exception as e:
             results[item] = f"Error: {e}"
     return results
@@ -133,51 +133,75 @@ def resolve_assumptions(source, user_inputs, extracted_text):
 
     elif source == "management":
         prompt = """
-    From the following management commentary, extract forward-looking guidance that can inform a DCF model. Prioritize any references to:
-    - Free Cash Flow (FCF or FCFF) targets for upcoming years
-    - Revenue or EBITDA guidance
-    - Operating margin targets
-    - Capital expenditure plans
-    - Growth assumptions
-    - Terminal value guidance (exit multiples or perpetuity growth)
-    - Forecast horizon
-    - Management's expected macro assumptions (e.g., interest rates, inflation, defense budgets)
+From the following management commentary, extract forward-looking guidance that can inform a DCF model. Prioritize any references to:
+- Free Cash Flow (FCF or FCFF) targets for upcoming years
+- Revenue or EBITDA guidance
+- Operating margin targets
+- Capital expenditure plans
+- Growth assumptions
+- Terminal value guidance (exit multiples or perpetuity growth)
+- Forecast horizon
+- Management's expected macro assumptions (e.g., interest rates, inflation, defense budgets)
 
-    Respond in a structured format like:
+Respond in a structured format like:
 
-    Free Cash Flow Forecast:
-    Year | FCFF ($B)
-    2024 | X.X
-    2025 | X.X
-    ...
+Free Cash Flow Forecast:
+Year | FCFF ($B)
+2024 | X.X
+2025 | X.X
+...
 
-    Other DCF Inputs:
-    - WACC estimate (if any): X%
-    - Terminal growth (if any): X%
-    - Forecast period: N years
-    - Capex trend: ...
-    - Revenue CAGR: ...
+Other DCF Inputs:
+- WACC estimate (if any): X%
+- Terminal growth (if any): X%
+- Forecast period: N years
+- Capex trend: ...
+- Revenue CAGR: ...
 
-    If guidance is only qualitative (e.g., "double FCF by 2026"), provide a narrative but attempt to estimate figures reasonably.
+If guidance is only qualitative (e.g., "double FCF by 2026"), provide a narrative but attempt to estimate figures reasonably.
 
-    Here is the extracted text:
-    """ + " ".join(extracted_text.values())[:16000]
+Here is the extracted text:
+""" + " ".join(extracted_text.values())[:16000]
 
         try:
-            guidance = call_deepseek(prompt)
+            headers = {
+                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            response = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload)
+            response.raise_for_status()
+            guidance = response.json()["choices"][0]["message"]["content"]
             if any(kw in guidance.lower() for kw in ["not found", "no guidance", "unknown"]):
-                return None  # fallback
+                return None
             return {"source": "mgmt", "response": guidance}
         except Exception as e:
             return None
 
-
     elif source == "llm":
         prompt = "Suggest reasonable DCF assumptions (WACC, terminal growth/multiple, forecast period) for a typical public company in its industry."
-        return {"source": "llm", "response": call_deepseek(prompt)}
+        try:
+            headers = {
+                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            response = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload)
+            response.raise_for_status()
+            text = response.json()["choices"][0]["message"]["content"]
+            return {"source": "llm", "response": text}
+        except Exception as e:
+            return None
 
     else:
         raise ValueError("Invalid assumption source.")
+
 
 
 # ─────────────────────────────────────────
@@ -235,7 +259,14 @@ Bull Case | 150000 | 130000 | 95
 
     # Call DeepSeek
     try:
-        response = call_deepseek(prompt)
+        messages = [{"role": "user", "content": prompt}]
+        headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
+        payload = {"model": "deepseek-chat", "messages": messages}
+
+        response = requests.post(DEEPSEEK_CHAT_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        text = response.json()["choices"][0]["message"]["content"]
+
         print("\n🔎 Raw DeepSeek DCF Response:\n", response)
         parsed = {}
 
