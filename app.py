@@ -561,9 +561,11 @@ def analyze_dcf_route():
         return jsonify({"error": "company_name is required"}), 400
 
     # 2) Line item query
-    lineitem_query = request.form.get("lineitem_query", "").strip()
+    lineitem_query = request.form.get("pdf_questions", "").strip()
     if not lineitem_query:
-        return jsonify({"error": "lineitem_query is required"}), 400
+        return jsonify({"error": "Please enter line item queries (e.g., revenue, EBITDA, FCF etc)."}), 400
+
+
 
     # 3) Assumptions (optional)
     raw_assump = request.form.get("assumptions", "").strip()
