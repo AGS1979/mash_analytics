@@ -594,46 +594,57 @@ Company Text:
 {text_block}
 """
             llm_response = call_deepseek(prompt).strip()
+            # Always store the raw LLM block, in case we need it
             line_item_data = {"LLM Extracted Block": llm_response}
         except Exception as e:
             return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
 
-        # ── 5) Resolve DCF assumptions (may be user‐provided or from LLM) ──
+        # ── 5) If DeepSeek’s output clearly already contains a 3‐scenario table, skip parsing ──
+        # We look for the Markdown table header “| Scenario” or the “### **DCF Valuation Output**”
+        # or any signature part of a 3‐scenario block. Adjust the detection logic if your table starts differently.
+        raw_md = llm_response.lower()
+        if "| scenario" in raw_md and "bull case" in raw_md and "base case" in raw_md and "bear case" in raw_md:
+            # We assume this is already a complete DCF Markdown. Return it directly.
+            return jsonify({
+                "message": f"DCF (Markdown) returned for {company_name} (Ticker: {ticker})",
+                "dcf_markdown": llm_response,
+                "pdf_answers": line_item_data
+            }), 200
+
+        # ── 6) Otherwise, resolve assumptions and run the DCF parser ────────
         try:
             assumption_source = assumptions.get("source", "llm") or "llm"
             resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
         except Exception as e:
+            # Return the raw LLM block, since we at least got LLM output
             return jsonify({
                 "message": f"Could not resolve assumptions: {str(e)}",
                 "dcf_summary": {},
                 "pdf_answers": line_item_data
             }), 200
 
-        # ── 6) Run the DCF model and capture any exception traceback ───────
+        # ── 7) Now try to parse the LLM output into a JSON summary ─────────
         try:
             dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp) or {}
+            # If parsing succeeded, return the structured summary
+            return jsonify({
+                "message": f"DCF completed for {company_name} (Ticker: {ticker})",
+                "dcf_summary": dcf_summary,
+                "pdf_answers": line_item_data
+            }), 200
         except Exception as e:
-            # Print full traceback to console
+            # If parsing fails, log and return the raw markdown along with the traceback
             traceback.print_exc()
-
-            # Capture full traceback as a string
             full_tb = traceback.format_exc()
             return jsonify({
-                "message": "LLM returned output, but DCF parsing failed—see error_details for full traceback.",
+                "message": "LLM returned a DCF table, but parsing into JSON failed. See 'error_details'.",
                 "error_details": full_tb,
+                "dcf_markdown": llm_response,
                 "dcf_summary": {},
                 "pdf_answers": line_item_data
             }), 200
 
-        # ── 7) If we reach here, DCF succeeded ─────────────────────────────
-        return jsonify({
-            "message": f"DCF completed for {company_name} (Ticker: {ticker})",
-            "dcf_summary": dcf_summary,
-            "pdf_answers": line_item_data
-        }), 200
-
     except Exception as e:
-        # Catch‐all for any other unexpected error (that occurred before DeepSeek)
         traceback.print_exc()
         return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
 
