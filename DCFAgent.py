@@ -194,7 +194,7 @@ def prepare_pdf_context(file_paths: list[str]) -> dict:
 # ────────────────────────────────────────────────────────────────────────────────
 # (B) Query the PDF context for a specific financial figure or table‐based answer
 # ────────────────────────────────────────────────────────────────────────────────
-def query_pdf(file_context: dict, question: str) -> str:
+def query_pdf_with_context(file_context: dict, question: str) -> str:
     """
     Ask a natural-language question about the user's uploaded files.
     file_context = { "all_text": str, "tables": [csv_snippet, ...] }
@@ -422,7 +422,7 @@ def run_dcf_model(
         if pdf_answers and question in pdf_answers:
             answer = pdf_answers[question]
         else:
-            answer = query_pdf(file_context, question)
+            answer = query_pdf_with_context(file_context, question)
 
         m = re.search(r"([\d,]+(?:\.\d+)?)\s*(million|billion|M|B)?", answer, re.IGNORECASE)
         if not m:
@@ -498,7 +498,7 @@ def run_dcf_model(
 
     # 4) Query PDF for segment margins text (to feed into forecast)
     seg_q = "For each business segment, what is the most recent operating margin (in %) reported?"
-    segment_margins_text = query_pdf(file_context, seg_q)
+    segment_margins_text = query_pdf_with_context(file_context, seg_q)
     print(f"✅ Segment margins text:\n{segment_margins_text}")
 
     # 5) Build a 5-year FCFF forecast
