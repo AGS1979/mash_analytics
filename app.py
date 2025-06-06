@@ -542,49 +542,50 @@ def get_custom_agents():
 
 @app.route('/analyze-dcf', methods=['POST'])
 def analyze_dcf_route():
-    # 1) Validate basic inputs
-    company_name = request.form.get("company_name", "").strip()
-    if not company_name:
-        return jsonify({"error": "company_name is required"}), 400
-
-    lineitem_query = request.form.get("pdf_questions", "").strip()
-    if not lineitem_query:
-        return jsonify({"error": "Please enter line item queries (e.g., revenue, EBITDA, FCF etc)."}), 400
-
-    raw_assump = request.form.get("assumptions", "").strip()
-    if raw_assump:
-        try:
-            assumptions = json.loads(raw_assump)
-        except json.JSONDecodeError:
-            return jsonify({"error": "`assumptions` must be valid JSON"}), 400
-    else:
-        assumptions = {}
-
-    uploaded_files = request.files.getlist("files")
-    if not uploaded_files or len(uploaded_files) == 0:
-        return jsonify({"error": "Please upload at least one PDF, DOCX, or PPTX file."}), 400
-
     temp_paths = []
     try:
-        # 2) Save & extract text from uploaded documents
-        temp_paths = save_uploaded_files(uploaded_files)
-        extracted_text = extract_text_from_documents(temp_paths)
-    except Exception as e:
-        # This is a true “fatal” error: we never got any LLM output to show.
-        return jsonify({"error": f"File processing failed: {str(e)}"}), 500
+        # ── 1) Validate basic inputs ────────────────────────────────────
+        company_name = request.form.get("company_name", "").strip()
+        if not company_name:
+            return jsonify({"error": "company_name is required"}), 400
 
-    try:
-        # 3) Get ticker and current share price
-        ticker = get_ticker_from_name(company_name)
-        cmp = get_current_share_price(ticker)
-    except Exception as e:
-        # We still haven’t called DeepSeek yet, so nothing to display.
-        return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
+        lineitem_query = request.form.get("pdf_questions", "").strip()
+        if not lineitem_query:
+            return jsonify({"error": "Please enter line item queries (e.g., revenue, EBITDA, FCF etc)."}), 400
 
-    try:
-        # 4) Build LLM prompt and call DeepSeek
-        text_block = " ".join(extracted_text.values())[:16000]
-        prompt = f"""
+        raw_assump = request.form.get("assumptions", "").strip()
+        if raw_assump:
+            try:
+                assumptions = json.loads(raw_assump)
+            except json.JSONDecodeError:
+                return jsonify({"error": "`assumptions` must be valid JSON"}), 400
+        else:
+            assumptions = {}
+
+        uploaded_files = request.files.getlist("files")
+        if not uploaded_files or len(uploaded_files) == 0:
+            return jsonify({"error": "Please upload at least one PDF, DOCX, or PPTX file."}), 400
+
+        # ── 2) Save & extract text from uploaded documents ────────────────
+        try:
+            temp_paths = save_uploaded_files(uploaded_files)
+            extracted_text = extract_text_from_documents(temp_paths)
+        except Exception as e:
+            # True “fatal” error – we never had a chance to call DeepSeek
+            return jsonify({"error": f"File processing failed: {str(e)}"}), 500
+
+        # ── 3) Get ticker and current share price ────────────────────────
+        try:
+            ticker = get_ticker_from_name(company_name)
+            cmp = get_current_share_price(ticker)
+        except Exception as e:
+            # True “fatal” error – we can’t proceed if we can’t fetch price
+            return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
+
+        # ── 4) Build LLM prompt and call DeepSeek ────────────────────────
+        try:
+            text_block = " ".join(extracted_text.values())[:16000]
+            prompt = f"""
 Extract the requested financial data based on the user input below.
 Respond only with what is found in the text.
 
@@ -594,50 +595,53 @@ User Request:
 Company Text:
 {text_block}
 """
-        llm_response = call_deepseek(prompt).strip()
-        # Wrap the raw LLM block in a dictionary so JS can pick it up as “pdf_answers”
-        line_item_data = {"LLM Extracted Block": llm_response}
-    except Exception as e:
-        # If DeepSeek itself fails, there is no LLM output to render.
-        return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
+            llm_response = call_deepseek(prompt).strip()
+            line_item_data = {"LLM Extracted Block": llm_response}
+        except Exception as e:
+            # True “fatal” error – DeepSeek never ran or returned something invalid
+            return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
 
-    # 5) Resolve DCF assumptions (may be user‐provided or from LLM)
-    try:
-        assumption_source = assumptions.get("source", "llm") or "llm"
-        resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
-    except Exception as e:
-        # We did get LLM output, though—even if assumptions fail, show the raw block.
+        # ── 5) Resolve DCF assumptions (may be user‐provided or from LLM) ──
+        try:
+            assumption_source = assumptions.get("source", "llm") or "llm"
+            resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
+        except Exception as e:
+            # We did get LLM output, so return HTTP 200 with that raw block
+            return jsonify({
+                "message": f"Could not resolve assumptions: {str(e)}",
+                "dcf_summary": {},
+                "pdf_answers": line_item_data
+            }), 200
+
+        # ── 6) Run the DCF model. If parsing fails, still return the LLM block ─
+        try:
+            dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp) or {}
+        except Exception as e:
+            return jsonify({
+                "message": f"LLM returned output, but DCF parsing failed: {str(e)}",
+                "dcf_summary": {},            # no numeric summary available
+                "pdf_answers": line_item_data  # still show raw LLM block
+            }), 200
+
+        # ── 7) If we reach here, DCF succeeded ─────────────────────────────
         return jsonify({
-            "message": f"Could not resolve assumptions: {str(e)}",
-            "dcf_summary": {},
+            "message": f"DCF completed for {company_name} (Ticker: {ticker})",
+            "dcf_summary": dcf_summary,
             "pdf_answers": line_item_data
         }), 200
 
-    # 6) Run the DCF model. If it fails, we still want to return the LLM block.
-    try:
-        dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp) or {}
     except Exception as e:
-        # DCF parsing failed; return 200 but with an informational message
-        return jsonify({
-            "message": f"LLM returned output, but DCF parsing failed: {str(e)}",
-            "dcf_summary": {},               # no numeric summary available
-            "pdf_answers": line_item_data    # still show the raw LLM block
-        }), 200
+        # Catch‐all for any other unexpected error (that occurred before DeepSeek)
+        return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
 
-    # 7) If we reach here, DCF succeeded and we have a non-empty summary
-    return jsonify({
-        "message": f"DCF completed for {company_name} (Ticker: {ticker})",
-        "dcf_summary": dcf_summary,
-        "pdf_answers": line_item_data
-    }), 200
-
-    # 8) Clean up temp files regardless of outcome
     finally:
+        # ── 8) Clean up temp files regardless of outcome ───────────────────
         for p in temp_paths:
             try:
                 os.remove(p)
             except:
                 pass
+
 
 
 
