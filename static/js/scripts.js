@@ -681,9 +681,25 @@ function showDcfModal() {
       resultDiv.innerHTML = html;
 
     } catch (err) {
-      console.error(err);
-      resultDiv.innerHTML = `<p class="error-text">❌ Error: ${err.message}</p>`;
-    } finally {
+  console.error(err);
+
+  // Try to extract LLM markdown block from message if available
+  const fullText = err.message || "";
+  const [shortMsg, ...rest] = fullText.split("Response:");
+
+  let html = `<p class="error-text">❌ ${shortMsg.trim()}</p>`;
+
+  if (rest.length > 0) {
+    html += `
+      <details style="margin-top: 10px; background: #1e1e1e; color: #ddd; padding: 10px; border-radius: 5px;">
+        <summary style="cursor: pointer;">📋 Show Full LLM Output</summary>
+        <pre style="white-space: pre-wrap; font-size: 0.85em; margin-top: 10px;">${rest.join("Response:").trim()}</pre>
+      </details>
+    `;
+  }
+
+  resultDiv.innerHTML = html;
+} finally {
       submitBtn.disabled = false;
       resultDiv.scrollIntoView({ behavior: "smooth" });
     }
