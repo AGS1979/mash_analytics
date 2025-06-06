@@ -552,21 +552,23 @@ function showDcfModal() {
 
       <form id="dcf-form" enctype="multipart/form-data">
         <label for="dcf-company">Company Name:</label><br>
-        <input type="text" id="dcf-company" name="company_name" required placeholder="e.g. Apple Inc." /><br><br>
+        <input type="text" id="dcf-company" name="company_name" required placeholder="e.g. Apple Inc." style="width: 100%; padding: 8px; margin-top: 4px;" /><br><br>
 
         <label for="dcf-questions">Enter Line Item Queries (one per line):</label><br>
-        <textarea id="dcf-questions" name="pdf_questions" rows="4" placeholder="Extract revenue, EBITDA, FCF from 2020–2024" required></textarea><br><br>
+        <textarea id="dcf-questions" name="pdf_questions" rows="4" placeholder="Extract revenue, EBITDA, FCF from 2020–2024" required style="width: 100%; padding: 8px; margin-top: 4px;"></textarea><br><br>
 
         <label for="dcf-assumptions">Optional DCF Assumptions (JSON):</label><br>
-        <textarea id="dcf-assumptions" name="assumptions" rows="4" placeholder='{"source":"own", "WACC":"9.5", "terminal_rate_or_multiple":"2.5", "model_type":"perpetuity", "forecast_years":"5"}'></textarea><br><br>
+        <textarea id="dcf-assumptions" name="assumptions" rows="4" placeholder='{"source":"own", "WACC":"9.5", "terminal_rate_or_multiple":"2.5", "model_type":"perpetuity", "forecast_years":"5"}' style="width: 100%; padding: 8px; margin-top: 4px;"></textarea><br><br>
 
         <label for="dcf-files">Upload PDFs or DOCX files:</label><br>
-        <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required /><br><br>
+        <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required style="margin-top: 4px;" /><br><br>
 
-        <button type="submit">Run DCF</button>
+        <button type="submit" style="background-color:#3b82f6; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">
+          Run DCF
+        </button>
       </form>
 
-      <div id="dcf-result" class="dcf-result"></div>
+      <div id="dcf-result" class="dcf-result" style="margin-top: 20px;"></div>
     </div>
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
@@ -595,8 +597,6 @@ function showDcfModal() {
 
     const formData = new FormData();
     formData.append("company_name", companyInput);
-
-    // ─── Send the raw multiline text directly ─────────────────
     formData.append("pdf_questions", rawQuestions);
 
     if (assumptionsInput) {
@@ -627,87 +627,106 @@ function showDcfModal() {
 
       const { dcf_summary = {}, message = "", pdf_answers = {} } = data;
 
+      // Build header and summary section
       let html = `
-        <div class="dcf-container">
-          <div class="dcf-header">
-            ✅ DCF completed!<br>
-            <span class="dcf-subtitle">${message}</span>
+        <div class="dcf-container" style="background-color:#1e1e1e; border:1px solid #3b82f6; border-radius:8px; padding:20px; color:#e5e5e5; font-family:Inter, sans-serif;">
+          <div class="dcf-header" style="margin-bottom:16px;">
+            <h3 style="margin:0; color:#93c5fd;">✅ DCF completed!</h3>
+            <p style="margin:4px 0 0;">${message}</p>
           </div>
-          <div class="dcf-body">
+          <div class="dcf-body" style="margin-top: 12px;">
       `;
 
-      if (Object.keys(pdf_answers).length > 0) {
+      // If LLM produced extracted answers, render them as formatted HTML
+      if (pdf_answers["LLM Extracted Block"]) {
+        const mdOutput = pdf_answers["LLM Extracted Block"];
+        const htmlFromMd = marked.parse(mdOutput);
+
         html += `
-          <div class="dcf-section">
-            <h4>📄 Extracted Answers</h4>
-            <ul>
-              ${Object.entries(pdf_answers)
-                .map(([q, a]) => `<li><strong>${q}</strong>: ${a}</li>`)
-                .join("")}
-            </ul>
-          </div>
-          <hr>
+          <section class="dcf-section" style="margin-bottom:24px;">
+            <h4 style="color:#60a5fa; margin-bottom:8px;">📄 Extracted Answers</h4>
+            <div class="markdown-body" style="margin-top:4px; line-height:1.6;">
+              ${htmlFromMd}
+            </div>
+          </section>
+          <hr style="border:none; border-top:1px solid #3b82f6; margin:24px 0;" />
         `;
       }
 
+      // Render each DCF scenario as a table
       for (const [scenario, values] of Object.entries(dcf_summary)) {
         html += `
-          <div class="dcf-scenario">
-            <h4>${scenario}</h4>
-            <table class="dcf-table">
+          <section class="dcf-scenario" style="background-color:#2b2b2b; border:1px solid #3b82f6; border-radius:8px; padding:16px; margin-bottom:20px;">
+            <h4 style="margin-top:0; color:#93c5fd;">${scenario}</h4>
+            <table class="dcf-table" style="width:100%; border-collapse:collapse; margin-top:12px;">
               <thead>
-                <tr><th>Metric</th><th>Value</th></tr>
+                <tr>
+                  <th style="background-color:#1e293b; color:#93c5fd; border:1px solid #3b82f6; padding:8px 12px; text-align:left;">Metric</th>
+                  <th style="background-color:#1e293b; color:#93c5fd; border:1px solid #3b82f6; padding:8px 12px; text-align:left;">Value</th>
+                </tr>
               </thead>
               <tbody>
         `;
 
+        let rowIndex = 0;
         for (const [metric, val] of Object.entries(values)) {
           if (val === undefined) continue;
           const formatted =
             typeof val === "number"
-              ? `$${val.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2
-                })}`
+              ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : val;
-          html += `<tr><td>${metric}</td><td>${formatted}</td></tr>`;
+          const bgColor = rowIndex % 2 === 0 ? "#1e1e1e" : "transparent";
+          html += `
+            <tr style="background-color:${bgColor};">
+              <td style="border:1px solid #3b82f6; padding:8px 12px; color:#e5e5e5;">${metric}</td>
+              <td style="border:1px solid #3b82f6; padding:8px 12px; color:#e5e5e5;">${formatted}</td>
+            </tr>
+          `;
+          rowIndex++;
         }
 
         html += `
               </tbody>
             </table>
-          </div>
+          </section>
         `;
       }
 
-      html += `</div></div>`;
-      resultDiv.innerHTML = html;
+      html += `
+          </div> <!-- end .dcf-body -->
+        </div> <!-- end .dcf-container -->
+      `;
 
+      resultDiv.innerHTML = html;
     } catch (err) {
       console.error(err);
 
-      // ─── Extract the “short” message and any Markdown after "Response:" ───
       const fullText = err.message || "";
       const [shortMsg, ...rest] = fullText.split("Response:");
 
-      let html = `<p class="error-text">❌ ${shortMsg.trim()}</p>`;
+      let html = `
+        <div class="dcf-container" style="background-color:#1e1e1e; border:1px solid #f87171; border-radius:8px; padding:20px; color:#e5e5e5; font-family:Inter, sans-serif;">
+          <div class="dcf-header" style="margin-bottom:16px;">
+            <h3 style="margin:0; color:#f87171;">❌ Error</h3>
+            <p style="margin:4px 0 0;">${shortMsg.trim()}</p>
+          </div>
+      `;
 
       if (rest.length > 0) {
-        // Join the Markdown lines back together
         const mdOutput = rest.join("Response:").trim();
-        // Convert the Markdown into HTML using marked.parse()
         const htmlFromMd = marked.parse(mdOutput);
 
         html += `
-          <details style="margin-top: 10px; background: #1e1e1e; color: #ddd; padding: 10px; border-radius: 5px;">
-            <summary style="cursor: pointer;">📋 Show Full LLM Output</summary>
-            <div class="markdown-body" style="margin-top: 10px; line-height: 1.5;">
+          <section class="dcf-section" style="margin-top:16px;">
+            <h4 style="color:#60a5fa; margin-bottom:8px;">📄 LLM Response</h4>
+            <div class="markdown-body" style="margin-top:4px; line-height:1.6;">
               ${htmlFromMd}
             </div>
-          </details>
+          </section>
         `;
       }
 
+      html += `</div>`; // close container
       resultDiv.innerHTML = html;
     } finally {
       submitBtn.disabled = false;
@@ -715,6 +734,7 @@ function showDcfModal() {
     }
   });
 }
+
 
 
 

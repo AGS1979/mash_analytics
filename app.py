@@ -571,7 +571,6 @@ def analyze_dcf_route():
             temp_paths = save_uploaded_files(uploaded_files)
             extracted_text = extract_text_from_documents(temp_paths)
         except Exception as e:
-            # True “fatal” error – we never had a chance to call DeepSeek
             return jsonify({"error": f"File processing failed: {str(e)}"}), 500
 
         # ── 3) Get ticker and current share price ────────────────────────
@@ -579,7 +578,6 @@ def analyze_dcf_route():
             ticker = get_ticker_from_name(company_name)
             cmp = get_current_share_price(ticker)
         except Exception as e:
-            # True “fatal” error – we can’t proceed if we can’t fetch price
             return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
 
         # ── 4) Build LLM prompt and call DeepSeek ────────────────────────
@@ -598,7 +596,6 @@ Company Text:
             llm_response = call_deepseek(prompt).strip()
             line_item_data = {"LLM Extracted Block": llm_response}
         except Exception as e:
-            # True “fatal” error – DeepSeek never ran or returned something invalid
             return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
 
         # ── 5) Resolve DCF assumptions (may be user‐provided or from LLM) ──
@@ -606,21 +603,26 @@ Company Text:
             assumption_source = assumptions.get("source", "llm") or "llm"
             resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
         except Exception as e:
-            # We did get LLM output, so return HTTP 200 with that raw block
             return jsonify({
                 "message": f"Could not resolve assumptions: {str(e)}",
                 "dcf_summary": {},
                 "pdf_answers": line_item_data
             }), 200
 
-        # ── 6) Run the DCF model. If parsing fails, still return the LLM block ─
+        # ── 6) Run the DCF model and capture any exception traceback ───────
         try:
             dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp) or {}
         except Exception as e:
+            # Print full traceback to console
+            traceback.print_exc()
+
+            # Capture full traceback as a string
+            full_tb = traceback.format_exc()
             return jsonify({
-                "message": f"LLM returned output, but DCF parsing failed: {str(e)}",
-                "dcf_summary": {},            # no numeric summary available
-                "pdf_answers": line_item_data  # still show raw LLM block
+                "message": "LLM returned output, but DCF parsing failed—see error_details for full traceback.",
+                "error_details": full_tb,
+                "dcf_summary": {},
+                "pdf_answers": line_item_data
             }), 200
 
         # ── 7) If we reach here, DCF succeeded ─────────────────────────────
@@ -632,6 +634,7 @@ Company Text:
 
     except Exception as e:
         # Catch‐all for any other unexpected error (that occurred before DeepSeek)
+        traceback.print_exc()
         return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
 
     finally:
@@ -1235,7 +1238,7 @@ def get_10k():
         return send_file(output_file, as_attachment=True)
 
     except Exception as e:
-        import traceback
+        
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
