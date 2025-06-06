@@ -33,5 +33,6 @@ tiktoken
 python-pptx
 xlrd
 camelot-py[cv]
+pdfplumber
 
 
