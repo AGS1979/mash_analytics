@@ -552,23 +552,23 @@ function showDcfModal() {
 
       <form id="dcf-form" enctype="multipart/form-data">
         <label for="dcf-company">Company Name:</label><br>
-        <input type="text" id="dcf-company" name="company_name" required placeholder="e.g. Apple Inc." style="width: 100%; padding: 8px; margin-top: 4px;" /><br><br>
+        <input type="text" id="dcf-company" name="company_name" required placeholder="e.g. Apple Inc." style="width:100%; padding:8px; margin-top:4px;" /><br><br>
 
         <label for="dcf-questions">Enter Line Item Queries (one per line):</label><br>
-        <textarea id="dcf-questions" name="pdf_questions" rows="4" placeholder="Extract revenue, EBITDA, FCF from 2020–2024" required style="width: 100%; padding: 8px; margin-top: 4px;"></textarea><br><br>
+        <textarea id="dcf-questions" name="pdf_questions" rows="4" placeholder="Extract revenue, EBITDA, FCF from 2020–2024" required style="width:100%; padding:8px; margin-top:4px;"></textarea><br><br>
 
         <label for="dcf-assumptions">Optional DCF Assumptions (JSON):</label><br>
-        <textarea id="dcf-assumptions" name="assumptions" rows="4" placeholder='{"source":"own", "WACC":"9.5", "terminal_rate_or_multiple":"2.5", "model_type":"perpetuity", "forecast_years":"5"}' style="width: 100%; padding: 8px; margin-top: 4px;"></textarea><br><br>
+        <textarea id="dcf-assumptions" name="assumptions" rows="4" placeholder='{"source":"own","WACC":"9.5","terminal_rate_or_multiple":"2.5","model_type":"perpetuity","forecast_years":"5"}' style="width:100%; padding:8px; margin-top:4px;"></textarea><br><br>
 
         <label for="dcf-files">Upload PDFs or DOCX files:</label><br>
-        <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required style="margin-top: 4px;" /><br><br>
+        <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required style="margin-top:4px;" /><br><br>
 
         <button type="submit" style="background-color:#3b82f6; color:white; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">
           Run DCF
         </button>
       </form>
 
-      <div id="dcf-result" class="dcf-result" style="margin-top: 20px;"></div>
+      <div id="dcf-result" class="dcf-result" style="margin-top:20px;"></div>
     </div>
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
@@ -625,19 +625,24 @@ function showDcfModal() {
         throw new Error(data.error || `HTTP ${resp.status}`);
       }
 
-      const { dcf_summary = {}, message = "", pdf_answers = {} } = data;
+      const { dcf_summary = {}, message = "", pdf_answers = {}, error_details = "" } = data;
 
-      // Build header and summary section
+      // Build subtitle only if there is a non-empty dcf_summary and a non-empty message
+      let subtitleHtml = "";
+      if (Object.keys(dcf_summary).length > 0 && message.trim() !== "") {
+        subtitleHtml = `<p style="margin:4px 0 0; font-style:italic; color:#ccc;">${message}</p>`;
+      }
+
       let html = `
         <div class="dcf-container" style="background-color:#1e1e1e; border:1px solid #3b82f6; border-radius:8px; padding:20px; color:#e5e5e5; font-family:Inter, sans-serif;">
           <div class="dcf-header" style="margin-bottom:16px;">
             <h3 style="margin:0; color:#93c5fd;">✅ DCF completed!</h3>
-            <p style="margin:4px 0 0;">${message}</p>
+            ${subtitleHtml}
           </div>
-          <div class="dcf-body" style="margin-top: 12px;">
+          <div class="dcf-body" style="margin-top:12px;">
       `;
 
-      // If LLM produced extracted answers, render them as formatted HTML
+      // Show extracted answers (DeepSeek markdown parsed as HTML)
       if (pdf_answers["LLM Extracted Block"]) {
         const mdOutput = pdf_answers["LLM Extracted Block"];
         const htmlFromMd = marked.parse(mdOutput);
@@ -649,11 +654,22 @@ function showDcfModal() {
               ${htmlFromMd}
             </div>
           </section>
-          <hr style="border:none; border-top:1px solid #3b82f6; margin:24px 0;" />
         `;
       }
 
-      // Render each DCF scenario as a table
+      // If there is a traceback, render it here for debugging
+      if (error_details) {
+        html += `
+          <section class="dcf-section" style="margin-bottom:24px;">
+            <h4 style="color:#f87171; margin-bottom:8px;">🛠️ DCF Parsing Traceback (Debug)</h4>
+            <pre style="background-color:#2d2d2d; color:#e5e5e5; padding:12px; border-radius:6px; overflow-x:auto; font-family:Courier, monospace; font-size:13px;">
+${error_details}
+            </pre>
+          </section>
+        `;
+      }
+
+      // Render DCF summary tables if available
       for (const [scenario, values] of Object.entries(dcf_summary)) {
         html += `
           <section class="dcf-scenario" style="background-color:#2b2b2b; border:1px solid #3b82f6; border-radius:8px; padding:16px; margin-bottom:20px;">
@@ -702,7 +718,7 @@ function showDcfModal() {
       console.error(err);
 
       const fullText = err.message || "";
-      const [shortMsg, ...rest] = fullText.split("Response:");
+      const [shortMsg] = fullText.split("Response:");
 
       let html = `
         <div class="dcf-container" style="background-color:#1e1e1e; border:1px solid #f87171; border-radius:8px; padding:20px; color:#e5e5e5; font-family:Inter, sans-serif;">
@@ -710,35 +726,15 @@ function showDcfModal() {
             <h3 style="margin:0; color:#f87171;">❌ Error</h3>
             <p style="margin:4px 0 0;">${shortMsg.trim()}</p>
           </div>
+        </div>
       `;
-
-      if (rest.length > 0) {
-        const mdOutput = rest.join("Response:").trim();
-        const htmlFromMd = marked.parse(mdOutput);
-
-        html += `
-          <section class="dcf-section" style="margin-top:16px;">
-            <h4 style="color:#60a5fa; margin-bottom:8px;">📄 LLM Response</h4>
-            <div class="markdown-body" style="margin-top:4px; line-height:1.6;">
-              ${htmlFromMd}
-            </div>
-          </section>
-        `;
-      }
-
-      html += `</div>`; // close container
       resultDiv.innerHTML = html;
     } finally {
       submitBtn.disabled = false;
       resultDiv.scrollIntoView({ behavior: "smooth" });
     }
   });
-}
-
-
-
-
- else {
+} else {
                         // Default cards for other agents
                         card.innerHTML = `
                             <h3>${agent.name}</h3>
