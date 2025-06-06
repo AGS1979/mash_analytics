@@ -62,7 +62,8 @@ from DCFAgent import (
     get_ticker_from_name,
     get_current_share_price,
     resolve_assumptions,
-    run_dcf_model
+    run_dcf_model,
+    call_deepseek
 )
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
