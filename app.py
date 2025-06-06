@@ -55,8 +55,15 @@ from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
-from DCFAgent import run_dcf_model, prepare_pdf_context, query_pdf_with_context
-
+from DCFAgent import (
+    save_uploaded_files,
+    extract_text_from_documents,
+    extract_line_items_from_text,
+    get_ticker_from_name,
+    get_current_share_price,
+    resolve_assumptions,
+    run_dcf_model
+)
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
@@ -538,13 +545,14 @@ def analyze_dcf_route():
     Expects multipart/form-data:
       • company_name (form field)
       • assumptions (form field, JSON string; optional)
-      • pdf_questions (form field, JSON array of question strings; optional)
-      • files (one or more PDF/DOCX uploads; required)
+      • lineitem_query (form field, plain text; required)
+      • files (one or more PDF/DOCX/PPTX uploads; required)
     Returns:
       {
         "message": "...",
-        "pdf_answers": {<question>: <answer>, …},
-        "dcf_summary": { ... }
+        "dcf_summary": { ... },
+        "extracted_text": "...",  # optional
+        "llm_response": "...",    # optional
       }
     """
     # 1) Company name
@@ -552,7 +560,12 @@ def analyze_dcf_route():
     if not company_name:
         return jsonify({"error": "company_name is required"}), 400
 
-    # 2) Parse assumptions JSON if provided
+    # 2) Line item query
+    lineitem_query = request.form.get("lineitem_query", "").strip()
+    if not lineitem_query:
+        return jsonify({"error": "lineitem_query is required"}), 400
+
+    # 3) Assumptions (optional)
     raw_assump = request.form.get("assumptions", "").strip()
     if raw_assump:
         try:
@@ -562,78 +575,67 @@ def analyze_dcf_route():
     else:
         assumptions = {}
 
-    # 3) Parse pdf_questions JSON array if provided
-    raw_questions = request.form.get("pdf_questions", "").strip()
-    if raw_questions:
-        try:
-            pdf_questions = json.loads(raw_questions)
-            # Expecting a JSON array of strings
-            if not isinstance(pdf_questions, list) or not all(isinstance(q, str) for q in pdf_questions):
-                raise ValueError
-        except Exception:
-            return jsonify({"error": "`pdf_questions` must be a JSON array of strings"}), 400
-    else:
-        pdf_questions = []
-
-    # 4) Ensure files were uploaded
+    # 4) Uploaded files
     uploaded_files = request.files.getlist("files")
     if not uploaded_files or len(uploaded_files) == 0:
-        return jsonify({"error": "Please upload at least one PDF or DOCX."}), 400
+        return jsonify({"error": "Please upload at least one PDF, DOCX, or PPTX file."}), 400
 
-    # 5) Save each file under UPLOAD_FOLDER
-    temp_paths = []
-    for f in uploaded_files:
-        if f and allowed_file(f.filename):
-            safe_name = secure_filename(f.filename)
-            timestamp = int(time.time() * 1000)
-            out_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{timestamp}_{safe_name}")
-            f.save(out_path)
-            temp_paths.append(out_path)
-        else:
-            return jsonify({"error": f"Unsupported file type: {f.filename}"}), 400
-
-    # 6) Build a file_context (so that query_pdf can search all PDFs at once)
     try:
-        file_context = prepare_pdf_context(temp_paths)
+        # 5) Save and extract text
+        temp_paths = save_uploaded_files(uploaded_files)
+        extracted_text = extract_text_from_documents(temp_paths)
     except Exception as e:
-        return jsonify({"error": f"Failed to prepare PDF context: {str(e)}"}), 500
+        return jsonify({"error": f"File processing failed: {str(e)}"}), 500
 
-    # 7) Run each PDF question through query_pdf_with_context(...)
-    pdf_answers = {}
-    for question in pdf_questions:
-        try:
-            ans = query_pdf_with_context(file_context, question)
-            pdf_answers[question] = ans
-        except Exception as e:
-            pdf_answers[question] = f"Error: {str(e)}"
-
-    # 8) Now feed those answers into the DCF routine.
-    #     We assume run_dcf_model accepts an extra argument `pdf_answers`
-    #     so that it will use those exact numbers instead of re‐querying.
     try:
-        message, summary_dict = run_dcf_model(
-            company_name=company_name,
-            assumptions=assumptions,
-            file_paths=temp_paths,
-            pdf_answers=pdf_answers
-        )
+        # 6) Ticker and price
+        ticker = get_ticker_from_name(company_name)
+        cmp = get_current_share_price(ticker)
     except Exception as e:
-        # Clean up uploads
+        return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
+
+    try:
+        # 7) Use the free-form user query to extract line items via DeepSeek
+        text_block = " ".join(extracted_text.values())[:16000]
+        prompt = f"""
+Extract the requested financial data based on the user input below.
+Respond only with what is found in the text.
+
+User Request:
+{lineitem_query}
+
+Company Text:
+{text_block}
+"""
+        llm_response = call_deepseek(prompt)
+        line_item_data = {"LLM Extracted Block": llm_response}
+    except Exception as e:
+        return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
+
+    try:
+        # 8) Resolve assumptions
+        assumption_source = assumptions.get("source", "llm") or "llm"
+        resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
+    except Exception as e:
+        return jsonify({"error": f"Assumption resolution failed: {str(e)}"}), 500
+
+    try:
+        # 9) Run DCF
+        dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
+    except Exception as e:
+        return jsonify({"error": f"DCF model execution failed: {str(e)}"}), 500
+    finally:
+        # 10) Clean up files
         for p in temp_paths:
             try: os.remove(p)
             except: pass
-        return jsonify({"error": f"DCF processing failed: {str(e)}"}), 500
-
-    # 9) Clean up uploaded files (optional)
-    for p in temp_paths:
-        try: os.remove(p)
-        except: pass
 
     return jsonify({
-        "message": message,
-        "pdf_answers": pdf_answers,
-        "dcf_summary": summary_dict
+        "message": f"DCF completed for {company_name} (Ticker: {ticker})",
+        "dcf_summary": dcf_summary,
+        "llm_response": llm_response
     }), 200
+
 
 @app.route('/generate-preipo-memo', methods=['POST'])
 def generate_preipo_memo():

@@ -540,7 +540,6 @@ function showDcfModal() {
   `;
   grid.appendChild(card);
 
-  // Create and append the modal
   const modal = document.createElement("div");
   modal.id = `modal-${agent.id}`;
   modal.className = "modal";
@@ -552,60 +551,17 @@ function showDcfModal() {
       <p><strong>Description:</strong> ${agent.description}</p>
 
       <form id="dcf-form" enctype="multipart/form-data">
-        <!-- Company Name -->
-        <label for="dcf-company">Company Name (e.g. Apple Inc.):</label><br>
-        <input
-          type="text"
-          id="dcf-company"
-          name="company_name"
-          required
-          placeholder="Enter the full company name"
-        /><br><br>
+        <label for="dcf-company">Company Name:</label><br>
+        <input type="text" id="dcf-company" name="company_name" required placeholder="e.g. Apple Inc." /><br><br>
 
-        <!-- PDF Questions (new) -->
-        <label for="dcf-pdf-questions">
-          PDF Questions (JSON array of strings, optional)<br>
-          e.g.: ["What was 2023 revenue?", "What was 2023 free cash flow?"]
-        </label><br>
-        <textarea
-          id="dcf-pdf-questions"
-          name="pdf_questions"
-          rows="3"
-          placeholder='["What was 2023 revenue?", "What was 2023 free cash flow?"]'
-        ></textarea><br><br>
+        <label for="dcf-questions">Enter Line Item Queries (one per line):</label><br>
+        <textarea id="dcf-questions" name="pdf_questions" rows="4" placeholder="Extract revenue, EBITDA, FCF from 2020–2024" required></textarea><br><br>
 
-        <!-- DCF Assumptions -->
-        <label for="dcf-assumptions">
-          DCF Assumptions (JSON, optional)<br>
-          e.g.:
-          {
-            "base_wacc": 0.10,
-            "base_terminal_growth_rate": 0.02,
-            "bull_growth_multiplier": 1.10,
-            "bull_wacc_adjust": -0.005,
-            "bull_terminal_growth_adjust": 0.005,
-            "bear_growth_multiplier": 0.90,
-            "bear_wacc_adjust": 0.005,
-            "bear_terminal_growth_adjust": -0.005
-          }
-        </label><br>
-        <textarea
-          id="dcf-assumptions"
-          name="assumptions"
-          rows="4"
-          placeholder='{"base_wacc":0.10,"base_terminal_growth_rate":0.02,"bull_growth_multiplier":1.10,"bull_wacc_adjust":-0.005,"bull_terminal_growth_adjust":0.005,"bear_growth_multiplier":0.90,"bear_wacc_adjust":0.005,"bear_terminal_growth_adjust":-0.005}'
-        ></textarea><br><br>
+        <label for="dcf-assumptions">Optional DCF Assumptions (JSON):</label><br>
+        <textarea id="dcf-assumptions" name="assumptions" rows="4" placeholder='{"source":"own", "WACC":"9.5", "terminal_rate_or_multiple":"2.5", "model_type":"perpetuity", "forecast_years":"5"}'></textarea><br><br>
 
-        <!-- File Upload -->
-        <label for="dcf-files">Upload Documents (PDF or DOCX) *</label><br>
-        <input
-          type="file"
-          id="dcf-files"
-          name="files"
-          accept=".pdf,.docx"
-          multiple
-          required
-        /><br><br>
+        <label for="dcf-files">Upload PDFs or DOCX files:</label><br>
+        <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required /><br><br>
 
         <button type="submit">Run DCF</button>
       </form>
@@ -615,182 +571,126 @@ function showDcfModal() {
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
 
-  // Attach the submit listener
-  modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
+  modal.querySelector("#dcf-form").addEventListener("submit", async function (e) {
     e.preventDefault();
+
     const form = e.target;
-    const companyInput = form.querySelector("#dcf-company").value.trim();
-    const questionsInput = form.querySelector("#dcf-pdf-questions").value.trim();
-    const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
-    const fileInput = form.querySelector("#dcf-files");
     const resultDiv = document.getElementById("dcf-result");
     const submitBtn = form.querySelector("button");
 
-    // Basic validation
-    if (!companyInput) {
-      resultDiv.innerHTML = `<p class="error-text">Please enter a valid company name.</p>`;
-      return;
-    }
-    if (fileInput.files.length === 0) {
-      resultDiv.innerHTML = `<p class="error-text">Please upload at least one PDF or DOCX.</p>`;
+    const companyInput = form.querySelector("#dcf-company").value.trim();
+    const rawQuestions = form.querySelector("#dcf-questions").value.trim();
+    const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
+    const fileInput = form.querySelector("#dcf-files");
+
+    if (!companyInput || !rawQuestions) {
+      resultDiv.innerHTML = `<p class="error-text">Please enter both company name and line item questions.</p>`;
       return;
     }
 
-    // Build FormData for the POST
+    if (fileInput.files.length === 0) {
+      resultDiv.innerHTML = `<p class="error-text">Please upload at least one document.</p>`;
+      return;
+    }
+
     const formData = new FormData();
     formData.append("company_name", companyInput);
 
-    // Attach PDF questions if provided
-    if (questionsInput) {
-      formData.append("pdf_questions", questionsInput);
-    }
+    // Split queries by line, remove blanks, and stringify as JSON array
+    const questionLines = rawQuestions
+      .split("\n")
+      .map(q => q.trim())
+      .filter(q => q.length > 0);
 
-    // Attach assumptions if provided
+    formData.append("pdf_questions", JSON.stringify(questionLines));
+
     if (assumptionsInput) {
       formData.append("assumptions", assumptionsInput);
     }
 
-    // Attach all files
     for (let i = 0; i < fileInput.files.length; i++) {
       formData.append("files", fileInput.files[i]);
     }
 
-    // Show loading message
-    resultDiv.innerHTML = `<p class="loading-text">⏳ Running DCF (including PDF queries)… please wait…</p>`;
+    resultDiv.innerHTML = `<p class="loading-text">⏳ Running DCF analysis…</p>`;
     submitBtn.disabled = true;
 
-    fetch("/analyze-dcf", {
-      method: "POST",
-      body: formData,
-    })
-    .then(async (resp) => {
+    try {
+      const resp = await fetch("/analyze-dcf", { method: "POST", body: formData });
       const text = await resp.text();
+
       let data;
       try {
         data = JSON.parse(text);
-      } catch (e) {
-        console.error("❌ Failed to parse JSON. Response was:", text);
-        throw new Error("Server returned invalid JSON. Check backend logs.");
+      } catch {
+        throw new Error("Server returned invalid JSON.");
       }
 
       if (!resp.ok) {
         throw new Error(data.error || `HTTP ${resp.status}`);
       }
 
-      return data;
-    })
+      const { dcf_summary = {}, message = "", pdf_answers = {} } = data;
 
-      .then((data) => {
-        const pdfAnswers = data.pdf_answers || {};
-        const summary = data.dcf_summary || {};
-        const message = data.message || "";
+      let html = `
+        <div class="dcf-container">
+          <div class="dcf-header">
+            ✅ DCF completed!<br>
+            <span class="dcf-subtitle">${message}</span>
+          </div>
+          <div class="dcf-body">
+      `;
 
-        let html = `
-          <div class="dcf-container">
-            <div class="dcf-header">
-              ✅ DCF completed!<br>
-              <span class="dcf-subtitle">${message}</span>
-            </div>
-            <div class="dcf-body">
+      if (Object.keys(pdf_answers).length > 0) {
+        html += `
+          <div class="dcf-section">
+            <h4>📄 Extracted Answers</h4>
+            <ul>
+              ${Object.entries(pdf_answers).map(([q, a]) => `<li><strong>${q}</strong>: ${a}</li>`).join("")}
+            </ul>
+          </div>
+          <hr>
+        `;
+      }
+
+      for (const [scenario, values] of Object.entries(dcf_summary)) {
+        html += `
+          <div class="dcf-scenario">
+            <h4>${scenario}</h4>
+            <table class="dcf-table">
+              <thead>
+                <tr><th>Metric</th><th>Value</th></tr>
+              </thead>
+              <tbody>
         `;
 
-        // 1) Display any PDF answers
-        if (Object.keys(pdfAnswers).length > 0) {
-          html += `
-            <div class="dcf-section">
-              <h4>Extracted PDF Answers</h4>
-              <ul>
-          `;
-          for (const [q, ans] of Object.entries(pdfAnswers)) {
-            html += `<li><strong>${q}</strong> → ${ans}</li>`;
-          }
-          html += `
-              </ul>
-            </div>
-            <hr>
-          `;
+        for (const [metric, val] of Object.entries(values)) {
+          if (val === undefined) continue;
+          const formatted = typeof val === "number" ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : val;
+          html += `<tr><td>${metric}</td><td>${formatted}</td></tr>`;
         }
 
-        // 2) Render each DCF scenario (bear_case, base_case, bull_case)
-        ["bear_case", "base_case", "bull_case"].forEach((key) => {
-          const sc = summary[key];
-          if (!sc) return;
-
-          html += `
-            <div class="dcf-scenario">
-              <h4>${key.replace("_", " ").toUpperCase()}</h4>
-              <table class="dcf-table">
-                <thead>
-                  <tr class="dcf-table-header">
-                    <th>Metric</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-          `;
-
-          const fields = [
-            ["Present Value of FCFF", sc.present_value_of_explicit_fcff],
-            ["Terminal Value", sc.terminal_value],
-            ["Present Value of Terminal", sc.present_value_of_terminal_value],
-            ["Enterprise Value", sc.enterprise_value],
-            ["Net Debt", sc.net_debt],
-            ["Equity Value", sc.equity_value],
-            ["Shares Outstanding", sc.shares_outstanding],
-            ["Intrinsic Value/Share", sc.intrinsic_value_per_share],
-          ];
-
-          fields.forEach(([label, val]) => {
-            if (val === undefined) return;
-            const formatted =
-              label === "Intrinsic Value/Share"
-                ? `$${val.toFixed(2)}`
-                : `$${Number(val).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`;
-            html += `
-                  <tr>
-                    <td>${label}</td>
-                    <td>${formatted}</td>
-                  </tr>
-            `;
-          });
-
-          // If deviation from current price exists, show it
-          if (sc.deviation_from_current_price_pct !== undefined) {
-            html += `
-                  <tr>
-                    <td>Deviation from Price</td>
-                    <td>${sc.deviation_from_current_price_pct.toFixed(2)}%</td>
-                  </tr>
-            `;
-          }
-
-          html += `
-                </tbody>
-              </table>
-            </div> <!-- /.dcf-scenario -->
-          `;
-        });
-
         html += `
-            </div> <!-- /.dcf-body -->
-          </div> <!-- /.dcf-container -->
+              </tbody>
+            </table>
+          </div>
         `;
+      }
 
-        resultDiv.innerHTML = html;
-      })
-      .catch((err) => {
-        console.error(err);
-        resultDiv.innerHTML = `<p class="error-text">❌ Error: ${err.message}</p>`;
-      })
-      .finally(() => {
-        submitBtn.disabled = false;
-        resultDiv.scrollIntoView({ behavior: "smooth" });
-      });
+      html += `</div></div>`;
+      resultDiv.innerHTML = html;
+
+    } catch (err) {
+      console.error(err);
+      resultDiv.innerHTML = `<p class="error-text">❌ Error: ${err.message}</p>`;
+    } finally {
+      submitBtn.disabled = false;
+      resultDiv.scrollIntoView({ behavior: "smooth" });
+    }
   });
 }
+
+
  else {
                         // Default cards for other agents
                         card.innerHTML = `
