@@ -596,13 +596,8 @@ function showDcfModal() {
     const formData = new FormData();
     formData.append("company_name", companyInput);
 
-    // Split queries by line, remove blanks, and stringify as JSON array
-    const questionLines = rawQuestions
-      .split("\n")
-      .map(q => q.trim())
-      .filter(q => q.length > 0);
-
-    formData.append("pdf_questions", JSON.stringify(questionLines));
+    // ─── Send the raw multiline text directly ─────────────────
+    formData.append("pdf_questions", rawQuestions);
 
     if (assumptionsInput) {
       formData.append("assumptions", assumptionsInput);
@@ -646,7 +641,9 @@ function showDcfModal() {
           <div class="dcf-section">
             <h4>📄 Extracted Answers</h4>
             <ul>
-              ${Object.entries(pdf_answers).map(([q, a]) => `<li><strong>${q}</strong>: ${a}</li>`).join("")}
+              ${Object.entries(pdf_answers)
+                .map(([q, a]) => `<li><strong>${q}</strong>: ${a}</li>`)
+                .join("")}
             </ul>
           </div>
           <hr>
@@ -666,7 +663,13 @@ function showDcfModal() {
 
         for (const [metric, val] of Object.entries(values)) {
           if (val === undefined) continue;
-          const formatted = typeof val === "number" ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : val;
+          const formatted =
+            typeof val === "number"
+              ? `$${val.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2
+                })}`
+              : val;
           html += `<tr><td>${metric}</td><td>${formatted}</td></tr>`;
         }
 
@@ -681,30 +684,38 @@ function showDcfModal() {
       resultDiv.innerHTML = html;
 
     } catch (err) {
-  console.error(err);
+      console.error(err);
 
-  // Try to extract LLM markdown block from message if available
-  const fullText = err.message || "";
-  const [shortMsg, ...rest] = fullText.split("Response:");
+      // ─── Extract the “short” message and any Markdown after "Response:" ───
+      const fullText = err.message || "";
+      const [shortMsg, ...rest] = fullText.split("Response:");
 
-  let html = `<p class="error-text">❌ ${shortMsg.trim()}</p>`;
+      let html = `<p class="error-text">❌ ${shortMsg.trim()}</p>`;
 
-  if (rest.length > 0) {
-    html += `
-      <details style="margin-top: 10px; background: #1e1e1e; color: #ddd; padding: 10px; border-radius: 5px;">
-        <summary style="cursor: pointer;">📋 Show Full LLM Output</summary>
-        <pre style="white-space: pre-wrap; font-size: 0.85em; margin-top: 10px;">${rest.join("Response:").trim()}</pre>
-      </details>
-    `;
-  }
+      if (rest.length > 0) {
+        // Join the Markdown lines back together
+        const mdOutput = rest.join("Response:").trim();
+        // Convert the Markdown into HTML using marked.parse()
+        const htmlFromMd = marked.parse(mdOutput);
 
-  resultDiv.innerHTML = html;
-} finally {
+        html += `
+          <details style="margin-top: 10px; background: #1e1e1e; color: #ddd; padding: 10px; border-radius: 5px;">
+            <summary style="cursor: pointer;">📋 Show Full LLM Output</summary>
+            <div class="markdown-body" style="margin-top: 10px; line-height: 1.5;">
+              ${htmlFromMd}
+            </div>
+          </details>
+        `;
+      }
+
+      resultDiv.innerHTML = html;
+    } finally {
       submitBtn.disabled = false;
       resultDiv.scrollIntoView({ behavior: "smooth" });
     }
   });
 }
+
 
 
  else {
