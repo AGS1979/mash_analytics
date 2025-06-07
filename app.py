@@ -87,6 +87,9 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
+# Allow up to 100 MB uploads
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+
 
 
 # Set a secret key for session management (use a secure random key in production)
