@@ -543,6 +543,16 @@ def get_custom_agents():
     return jsonify(agents)
 
 
+def parse_llm_output(llm_response: str) -> dict:
+    """
+    Temporary fallback parser if DeepSeek returns non-Markdown content.
+    Simply wraps the raw text into a dictionary.
+    """
+    return {
+        "LLM Extracted Block": llm_response
+    }
+
+
 @app.route('/analyze-dcf', methods=['POST'])
 def analyze_dcf_route():
     temp_paths = []
