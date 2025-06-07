@@ -676,6 +676,13 @@ function showDcfModal() {
               </div>
             </section>
           `;
+          // ✅ Inject into chat bubble and display
+          const responseBubble = document.createElement("div");
+          responseBubble.className = "chat-bubble ai-response";
+          responseBubble.innerHTML = html;
+
+          document.getElementById("chat-box").appendChild(responseBubble);
+          responseBubble.scrollIntoView({ behavior: "smooth" });
         }
 
 
