@@ -606,22 +606,18 @@ Company Text:
 
         # ── 7) Run DCF model ───────────────────────────────────────
         try:
+            # ✅ Parse the DeepSeek LLM response into structured line item data
+            line_item_data = parse_llm_output(llm_response)
+
             dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
-            dcf_markdown = line_item_data.get("LLM Extracted Block", "")
+            dcf_markdown = line_item_data.get("LLM Extracted Block", "")  # fallback if needed
 
             return jsonify({
                 "message": f"DCF completed for {company_name} (Ticker: {ticker})",
                 "dcf_summary": dcf_summary,
                 "dcf_markdown": dcf_markdown
             }), 200
-        except Exception as e:
-            traceback.print_exc()
-            return jsonify({
-                "message": "DCF parsing failed. Returning raw output.",
-                "error_details": traceback.format_exc(),
-                "dcf_summary": {},
-                "dcf_markdown": llm_response
-            }), 200
+
 
     except Exception as e:
         traceback.print_exc()
