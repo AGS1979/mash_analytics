@@ -617,6 +617,14 @@ Company Text:
                 "dcf_summary": dcf_summary,
                 "dcf_markdown": dcf_markdown
             }), 200
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({
+                "message": "DCF parsing failed. Returning raw output.",
+                "error_details": traceback.format_exc(),
+                "dcf_summary": {},
+                "dcf_markdown": llm_response
+            }), 200
 
 
     except Exception as e:
