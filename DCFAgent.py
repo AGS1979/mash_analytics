@@ -32,24 +32,32 @@ HEADERS_OPENAI = {
 
 def get_ticker(company_name: str) -> str:
     """
-    Extracts the most likely ticker from the company name using LLM,
-    and validates it via Yahoo Finance.
+    Extract the most likely ticker from LLM response and validate it via yfinance.
     """
-    prompt = f"What is the most likely publicly traded stock ticker for the company named '{company_name}'?"
+    prompt = (
+      f"Please provide only the stock ticker symbol (e.g., GD, AAPL) for the company named '{company_name}', "
+      "with no explanation or extra text."
+    )
+
     response = call_llm(prompt)
-    print("🔍 Raw LLM response for ticker:", response)  # ← ✅ Add this line
-    
-    # Try to extract a valid-looking ticker symbol
-    matches = re.findall(r"\b[A-Z]{1,6}(?:\.[A-Z]{1,2})?\b", response)
+    print("🔍 Raw LLM response for ticker:", response)
+
+    # Extract possible tickers (uppercase 1–5 letters optionally with .AX etc.)
+    matches = re.findall(r"\b[A-Z]{1,5}(?:\.[A-Z]{1,2})?\b", response)
+
+    tried = []
     for candidate in matches:
+        tried.append(candidate)
         try:
-            price = yf.download(candidate, period="1d")["Close"]
-            if not price.empty:
-                return candidate  # ✅ Valid ticker
-        except Exception:
+            df = yf.download(candidate, period="1d", progress=False)
+            if not df.empty and "Close" in df.columns:
+                print(f"✅ Validated ticker: {candidate}")
+                return candidate
+        except Exception as e:
+            print(f"❌ {candidate} failed with error: {e}")
             continue
 
-    raise ValueError(f"❌ No valid ticker found for company: {company_name}")
+    raise ValueError(f"❌ No valid ticker found for company: {company_name}. Tried: {tried}")
 
 
 
