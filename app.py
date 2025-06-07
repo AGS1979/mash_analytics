@@ -629,7 +629,9 @@ Company Text:
             return jsonify({
                 "message": f"DCF completed for {company_name} (Ticker: {ticker})",
                 "dcf_summary": dcf_summary,
-                "pdf_answers": line_item_data
+                "pdf_answers": line_item_data,
+                "dcf_markdown": line_item_data.get("LLM Extracted Block", "")  # ← raw markdown injected
+
             }), 200
         except Exception as e:
             # Parsing failed—capture full traceback, but still return the Markdown
