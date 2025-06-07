@@ -580,91 +580,60 @@ function showDcfModal() {
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
 
-  modal.querySelector("#dcf-form").addEventListener("submit", async function (e) {
-    e.preventDefault();
-    console.log("📨 Sending request to /analyze-dcf...");
+  // ✅ Refactored JS submission handler
+    modal.querySelector("#dcf-form").addEventListener("submit", async function (e) {
+      e.preventDefault();
 
+      const form = e.target;
+      const resultDiv = document.getElementById("dcf-result");
+      const submitBtn = form.querySelector("button");
 
+      const companyInput = form.querySelector("#dcf-company").value.trim();
+      const rawQuestions = form.querySelector("#dcf-questions").value.trim();
+      const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
+      const fileInput = form.querySelector("#dcf-files");
 
-    const form = e.target;
-    const resultDiv = document.getElementById("dcf-result");
-    const submitBtn = form.querySelector("button");
+      if (!companyInput || !rawQuestions || fileInput.files.length === 0) {
+        resultDiv.innerHTML = `<p class="error-text">Please fill all required fields and upload at least one file.</p>`;
+        return;
+      }
 
-    const companyInput = form.querySelector("#dcf-company").value.trim();
-    const rawQuestions = form.querySelector("#dcf-questions").value.trim();
-    const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
-    const fileInput = form.querySelector("#dcf-files");
+      const formData = new FormData();
+      formData.append("company_name", companyInput);
+      formData.append("pdf_questions", rawQuestions);
+      if (assumptionsInput) formData.append("assumptions", assumptionsInput);
+      for (let i = 0; i < fileInput.files.length; i++) formData.append("files", fileInput.files[i]);
 
-    if (!companyInput || !rawQuestions) {
-      resultDiv.innerHTML = `<p class="error-text">Please enter both company name and line item questions.</p>`;
-      return;
-    }
+      resultDiv.innerHTML = `<p class="loading-text">⏳ Running DCF analysis…</p>`;
+      submitBtn.disabled = true;
 
-    if (fileInput.files.length === 0) {
-      resultDiv.innerHTML = `<p class="error-text">Please upload at least one document.</p>`;
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("company_name", companyInput);
-    formData.append("pdf_questions", rawQuestions);
-    if (assumptionsInput) {
-      formData.append("assumptions", assumptionsInput);
-    }
-    for (let i = 0; i < fileInput.files.length; i++) {
-      formData.append("files", fileInput.files[i]);
-    }
-
-    resultDiv.innerHTML = `<p class="loading-text">⏳ Running DCF analysis…</p>`;
-    submitBtn.disabled = true;
-
-    try {
-      const resp = await fetch("/analyze-dcf", { method: "POST", body: formData });
-      const text = await resp.text();
-      console.log("📨 DCF response received. Raw text:");
-      console.log(text);
-
-
-      let data;
       try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error("Server returned invalid JSON.");
-      }
+        const resp = await fetch("/analyze-dcf", { method: "POST", body: formData });
+        const text = await resp.text();
+        console.log("📨 DCF raw response:", text);
 
-      if (!resp.ok) {
-        throw new Error(data.error || `HTTP ${resp.status}`);
-      }
+        let data = {};
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error("Server returned invalid JSON.");
+        }
 
-      const {
-        dcf_summary = {},
-        dcf_markdown = "",
-        message = "",
-        error_details = ""
-      } = data;
+        const { dcf_summary = {}, dcf_markdown = "", message = "", error_details = "" } = data;
 
-      let subtitleHtml = message.trim() !== "" ? `<p class="dcf-subtitle">${message}</p>` : "";
-
-
-      // Begin DCF container
-      let html = `
-        <div class="dcf-container">
+        let html = `<div class="dcf-container">
           <div class="dcf-header">
             <h3 class="dcf-title">✅ DCF completed!</h3>
-            ${subtitleHtml}
+            ${message ? `<p class="dcf-subtitle">${message}</p>` : ""}
           </div>
           <div class="dcf-body">
-      `;
+        `;
 
-      if (dcf_markdown) {
-          console.log("✅ DCF Markdown Raw Output:", dcf_markdown);
-          
+        if (dcf_markdown) {
           let htmlFromMd = "";
           try {
             htmlFromMd = marked.parse(dcf_markdown);
-            console.log("✅ HTML from Markdown:", htmlFromMd);
           } catch (err) {
-            console.error("⚠️ Markdown parse error:", err);
             htmlFromMd = `<pre>${dcf_markdown}</pre>`;
           }
 
@@ -676,102 +645,61 @@ function showDcfModal() {
               </div>
             </section>
           `;
-          // ✅ Inject into chat bubble and display
-          const responseBubble = document.createElement("div");
-          responseBubble.className = "chat-bubble ai-response";
-          responseBubble.innerHTML = html;
-
-          document.getElementById("chat-box").appendChild(responseBubble);
-          responseBubble.scrollIntoView({ behavior: "smooth" });
         }
 
+        if (dcf_summary && typeof dcf_summary === 'object' && Object.keys(dcf_summary).length > 0) {
+          for (const [scenario, values] of Object.entries(dcf_summary)) {
+            html += `<section class="dcf-scenario">
+                <h4>${scenario}</h4>
+                <table class="dcf-table">
+                  <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                  <tbody>`;
 
-      // 2) If there's a JSON dcf_summary, render those tables
-      if (dcf_summary && typeof dcf_summary === 'object' && Object.keys(dcf_summary).length > 0) {
-        for (const [scenario, values] of Object.entries(dcf_summary)) {
-          html += `
-            <section class="dcf-scenario">
-              <h4>${scenario}</h4>
-              <table class="dcf-table">
-                <thead>
-                  <tr>
-                    <th>Metric</th>
-                    <th>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-          `;
+            for (const [metric, val] of Object.entries(values)) {
+              if (val === undefined) continue;
+              const formatted = typeof val === "number" ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : val;
+              html += `<tr><td>${metric}</td><td>${formatted}</td></tr>`;
+            }
 
-          let rowIndex = 0;
-          for (const [metric, val] of Object.entries(values)) {
-            if (val === undefined) continue;
-            const formatted =
-              typeof val === "number"
-                ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : val;
-            // alternating row background is handled by CSS (.dcf-table tr:nth-child(even))
-            html += `
-              <tr>
-                <td>${metric}</td>
-                <td>${formatted}</td>
-              </tr>
-            `;
-            rowIndex++;
+            html += `</tbody></table></section>`;
           }
+        }
 
+        if (error_details) {
           html += `
-                </tbody>
-              </table>
+            <section class="dcf-section">
+              <h4 class="dcf-title" style="color:#f87171;">🛠️ DCF Parsing Traceback (Debug)</h4>
+              <pre class="debug-traceback">${error_details}</pre>
             </section>
           `;
         }
-      }
 
-      // 3) If there is traceback info, show it under a debug section
-      if (error_details) {
-        html += `
-          <section class="dcf-section">
-            <h4 class="dcf-title" style="color:#f87171;">🛠️ DCF Parsing Traceback (Debug)</h4>
-            <pre style="
-              background-color:#2d2d2d;
-              color:#e5e5e5;
-              padding:12px;
-              border-radius:6px;
-              overflow-x:auto;
-              font-family:Courier, monospace;
-              font-size:13px;
-            ">
-${error_details}
-            </pre>
-          </section>
-        `;
-      }
+        html += `</div></div>`;
 
-      html += `
-          </div> <!-- end .dcf-body -->
-        </div> <!-- end .dcf-container -->
-      `;
+        // Inject into chat bubble
+        const responseBubble = document.createElement("div");
+        responseBubble.className = "chat-bubble ai-response";
+        responseBubble.innerHTML = html;
+        document.getElementById("chat-box").appendChild(responseBubble);
+        responseBubble.scrollIntoView({ behavior: "smooth" });
 
-      resultDiv.innerHTML = html;
-    } catch (err) {
-      console.error(err);
-      const fullText = err.message || "";
-      const [shortMsg] = fullText.split("Response:");
-
-      // Show generic error box
-      resultDiv.innerHTML = `
-        <div class="dcf-container">
-          <div class="dcf-header">
-            <h3 class="dcf-title" style="color:#f87171;">❌ Error</h3>
-            <p class="error-text">${shortMsg.trim()}</p>
+        resultDiv.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        resultDiv.innerHTML = `
+          <div class="dcf-container">
+            <div class="dcf-header">
+              <h3 class="dcf-title" style="color:#f87171;">❌ Error</h3>
+              <p class="error-text">${err.message}</p>
+            </div>
           </div>
-        </div>
-      `;
-    } finally {
-      submitBtn.disabled = false;
-      resultDiv.scrollIntoView({ behavior: "smooth" });
-    }
-  });
+        `;
+      } finally {
+        submitBtn.disabled = false;
+        resultDiv.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+
 }
  else {
                         // Default cards for other agents

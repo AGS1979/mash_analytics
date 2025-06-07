@@ -544,20 +544,13 @@ def get_custom_agents():
 
 
 def parse_llm_output(llm_response: str) -> dict:
-    """
-    Temporary fallback parser if DeepSeek returns non-Markdown content.
-    Simply wraps the raw text into a dictionary.
-    """
-    return {
-        "LLM Extracted Block": llm_response
-    }
-
+    return {"LLM Extracted Block": llm_response}
 
 @app.route('/analyze-dcf', methods=['POST'])
 def analyze_dcf_route():
     temp_paths = []
     try:
-        # ── 1) Basic input validation ──────────────────────────────
+        # ── 1) Validate form inputs ─────────────────────────────
         company_name = request.form.get("company_name", "").strip()
         if not company_name:
             return jsonify({"error": "company_name is required"}), 400
@@ -573,16 +566,16 @@ def analyze_dcf_route():
         if not uploaded_files:
             return jsonify({"error": "Upload at least one file."}), 400
 
-        # ── 2) Extract text from files ─────────────────────────────
+        # ── 2) Extract content ──────────────────────────────────
         temp_paths = save_uploaded_files(uploaded_files)
         extracted_text = extract_text_from_documents(temp_paths)
 
-        # ── 3) Get ticker and current price ────────────────────────
+        # ── 3) Determine ticker and price ───────────────────────
         ticker = get_ticker_from_name(company_name)
         cmp = get_current_share_price(ticker)
 
-        # ── 4) Initial LLM extraction ──────────────────────────────
-        text_block = " ".join(extracted_text.values())[:16000]
+        # ── 4) Extract LLM financial block ──────────────────────
+        full_text = " ".join(extracted_text.values())[:16000]
         prompt = f"""
 Extract the requested financial data based on the user input below.
 Respond only with what is found in the text.
@@ -591,11 +584,10 @@ User Request:
 {lineitem_query}
 
 Company Text:
-{text_block}
+{full_text}
 """
         llm_response = call_deepseek(prompt).strip()
 
-        # ── 5) If DCF already returned (raw Markdown) ──────────────
         if "3-scenario" in llm_response.lower():
             return jsonify({
                 "message": f"DCF completed for {company_name} (Ticker: {ticker})",
@@ -603,9 +595,9 @@ Company Text:
                 "dcf_summary": {}
             }), 200
 
-        # ── 6) Attempt to resolve assumptions ──────────────────────
-        assumption_source = assumptions.get("source", "llm") or "llm"
+        # ── 5) Resolve assumptions ─────────────────────────────
         try:
+            assumption_source = assumptions.get("source", "llm") or "llm"
             resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
         except Exception as e:
             return jsonify({
@@ -614,19 +606,18 @@ Company Text:
                 "dcf_markdown": ""
             }), 200
 
-        # ── 7) Run DCF model ───────────────────────────────────────
+        # ── 6) Run DCF model ───────────────────────────────────
         try:
-            # ✅ Parse the DeepSeek LLM response into structured line item data
             line_item_data = parse_llm_output(llm_response)
-
             dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
-            dcf_markdown = line_item_data.get("LLM Extracted Block", "")  # fallback if needed
+            dcf_markdown = line_item_data.get("LLM Extracted Block", "")
 
             return jsonify({
                 "message": f"DCF completed for {company_name} (Ticker: {ticker})",
                 "dcf_summary": dcf_summary,
                 "dcf_markdown": dcf_markdown
             }), 200
+
         except Exception as e:
             traceback.print_exc()
             return jsonify({
@@ -635,7 +626,6 @@ Company Text:
                 "dcf_summary": {},
                 "dcf_markdown": llm_response
             }), 200
-
 
     except Exception as e:
         traceback.print_exc()
@@ -647,6 +637,7 @@ Company Text:
                 os.remove(p)
             except:
                 pass
+
 
 
 
