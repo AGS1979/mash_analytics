@@ -680,7 +680,7 @@ function showDcfModal() {
 
 
       // 2) If there's a JSON dcf_summary, render those tables
-      if (Object.keys(dcf_summary).length > 0) {
+      if (dcf_summary && typeof dcf_summary === 'object' && Object.keys(dcf_summary).length > 0) {
         for (const [scenario, values] of Object.entries(dcf_summary)) {
           html += `
             <section class="dcf-scenario">
