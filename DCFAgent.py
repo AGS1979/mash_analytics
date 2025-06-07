@@ -62,8 +62,22 @@ def get_ticker(company_name: str) -> str:
 
 
 def get_current_price(ticker: str) -> float:
-    data = yf.download(ticker, period="1d", interval="1d")
-    return round(data["Close"][-1], 2)
+
+    try:
+        print(f"📈 Fetching current price for ticker: {ticker}")
+        df = yf.download(ticker, period="5d", interval="1d", progress=False)
+
+        if df.empty or "Close" not in df.columns:
+            print("❌ yfinance returned empty data or missing 'Close' column.")
+            raise ValueError(f"No valid price data found for ticker {ticker}.")
+
+        latest_close = df["Close"].dropna().iloc[-1]
+        print(f"💲 Latest closing price for {ticker}: {latest_close}")
+        return round(latest_close, 2)
+
+    except Exception as e:
+        print(f"❌ Failed to fetch price for {ticker}: {e}")
+        raise ValueError("-1")  # Let the calling function handle it
 
 
 def call_llm(prompt: str, temperature=0.2, max_tokens=1000, provider="deepseek") -> str:
