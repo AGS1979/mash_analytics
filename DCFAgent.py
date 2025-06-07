@@ -1,155 +1,156 @@
 import os
 import re
-import time
 import json
+import time
 import requests
-import traceback
-import yfinance as yf
+import tempfile
+
 import pandas as pd
+import numpy as np
+import yfinance as yf
 
 from PyPDF2 import PdfReader
 from docx import Document
+from pptx import Presentation
 
-# ─────────────────────────────────────────────────────────────
-# CONFIGURATION
-# ─────────────────────────────────────────────────────────────
+
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_CHAT_URL = os.getenv("DEEPSEEK_CHAT_URL", "https://api.deepseek.com/v1/chat/completions")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
-if not DEEPSEEK_API_KEY:
-    raise RuntimeError("Please set DEEPSEEK_API_KEY in your environment.")
-
-HEADERS = {
+HEADERS_DEEPSEEK = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
 }
 
-# ─────────────────────────────────────────────────────────────
-# TICKER + PRICE
-# ─────────────────────────────────────────────────────────────
-def get_ticker_from_name(company_name):
-    prompt = f"""Return only the stock ticker for this public company in Yahoo Finance format:\n{company_name}\nExample: AAPL"""
-    resp = requests.post(DEEPSEEK_CHAT_URL, headers=HEADERS, json={
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}]
-    })
-    return resp.json()["choices"][0]["message"]["content"].strip()
+HEADERS_OPENAI = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {OPENAI_API_KEY}"
+}
 
-def get_current_share_price(ticker):
-    try:
-        data = yf.Ticker(ticker).history(period="1d")
-        return round(data['Close'].iloc[-1], 2)
-    except Exception:
-        return None
 
-# ─────────────────────────────────────────────────────────────
-# FILE HANDLING
-# ─────────────────────────────────────────────────────────────
-def save_uploaded_files(files):
-    paths = []
-    for f in files:
-        path = f"/tmp/{int(time.time() * 1000)}_{f.filename}"
-        f.save(path)
-        paths.append(path)
-    return paths
+def get_ticker(company_name: str) -> str:
+    prompt = f"What is the US or global stock ticker for the company named '{company_name}'?"
+    response = call_llm(prompt)
+    match = re.search(r'\b([A-Z]{1,5})(?:\.[A-Z]{1,2})?\b', response)
+    return match.group(1) if match else None
 
-def extract_text_from_documents(paths):
-    content = {}
-    for path in paths:
-        try:
-            if path.endswith(".pdf"):
-                reader = PdfReader(path)
-                text = "\n".join([page.extract_text() or "" for page in reader.pages])
-            elif path.endswith(".docx"):
-                doc = Document(path)
-                text = "\n".join([para.text for para in doc.paragraphs])
-            else:
-                text = ""
-        except:
-            text = ""
-        content[os.path.basename(path)] = text.strip()
-    return content
 
-# ─────────────────────────────────────────────────────────────
-# LLM WRAPPERS
-# ─────────────────────────────────────────────────────────────
-def call_deepseek(prompt, temperature=0.2, max_tokens=2000):
+def get_current_price(ticker: str) -> float:
+    data = yf.download(ticker, period="1d", interval="1d")
+    return round(data["Close"][-1], 2)
+
+
+def call_llm(prompt: str, temperature=0.2, max_tokens=1000, provider="deepseek") -> str:
     body = {
         "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": temperature,
-        "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": prompt}]
+        "max_tokens": max_tokens
+    } if provider == "deepseek" else {
+        "model": "gpt-4o",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": temperature,
+        "max_tokens": max_tokens
     }
-    resp = requests.post(DEEPSEEK_CHAT_URL, headers=HEADERS, json=body)
-    if resp.status_code != 200:
-        raise RuntimeError(f"DeepSeek API error {resp.status_code}: {resp.text}")
-    return resp.json()['choices'][0]['message']['content'].strip()
 
-# ─────────────────────────────────────────────────────────────
-# LINE ITEM + DCF EXTRACTION
-# ─────────────────────────────────────────────────────────────
-def extract_line_items(prompt, extracted_text):
-    full_text = "\n".join(extracted_text.values())[:18000]
-    q = f"""
-You are a financial analyst. Extract only the requested historical financial line items using exact values from the provided text.
+    headers = HEADERS_DEEPSEEK if provider == "deepseek" else HEADERS_OPENAI
+    url = DEEPSEEK_CHAT_URL if provider == "deepseek" else OPENAI_CHAT_URL
+    response = requests.post(url, headers=headers, data=json.dumps(body))
+    return response.json()["choices"][0]["message"]["content"]
 
-If something is not present, write "Not Found".
 
-Line Items:
-{prompt}
+def extract_text_from_documents(filepaths):
+    text = ""
+    for path in filepaths:
+        if path.endswith(".pdf"):
+            with open(path, "rb") as f:
+                reader = PdfReader(f)
+                for page in reader.pages:
+                    text += page.extract_text() or ""
+        elif path.endswith(".docx"):
+            doc = Document(path)
+            text += "\n".join(p.text for p in doc.paragraphs)
+        elif path.endswith(".pptx"):
+            prs = Presentation(path)
+            for slide in prs.slides:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text"):
+                        text += shape.text + "\n"
+    return text
 
-Raw Filing Text:
-{full_text}
-"""
-    return call_deepseek(q)
 
-def resolve_assumptions(source, user_assumptions, extracted_text):
-    if source == "own":
-        return user_assumptions
+def extract_financial_data(text, line_items):
+    prompt = (
+        "Extract the following line items from the financial documents text below:\n"
+        f"{', '.join(line_items)}\n"
+        "Return results in JSON format with line item as key and year-wise values as nested dictionary."
+        "\n\nTEXT:\n" + text[:8000]
+    )
+    response = call_llm(prompt, provider="deepseek")
+    try:
+        return json.loads(response)
+    except:
+        return {}
 
-    elif source == "management":
-        prompt = "Extract WACC, terminal growth or terminal multiple, and forecast period from the company's filings."
-        _ = extract_line_items(prompt, extracted_text)  # fallback to user if DeepSeek fails
-        return {
-            "WACC": user_assumptions.get("WACC") or "9.0",
-            "terminal_rate_or_multiple": user_assumptions.get("terminal_rate_or_multiple") or "2.5",
-            "model_type": user_assumptions.get("model_type") or "perpetuity",
-            "forecast_years": user_assumptions.get("forecast_years") or "5"
+
+def generate_forecast_scenarios(text, financials, assumptions):
+    prompt = (
+        "Based on the following financial data and document excerpts, generate 3 financial scenarios "
+        "(bull, base, bear) of Free Cash Flow to Firm (FCFF) over the next "
+        f"{assumptions.get('forecast_years', 5)} years.\n"
+        "You should consider trends, segment outlooks, industry guidance, and recent news.\n"
+        "Output should include FCFF per year and a one-line justification per case.\n"
+        f"FINANCIALS:\n{json.dumps(financials)}\n\nTEXT:\n{text[:10000]}"
+    )
+    return call_llm(prompt, provider="openai")
+
+
+def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp):
+    if isinstance(forecast_json, str):
+        forecast_json = json.loads(forecast_json)
+
+    wacc = float(assumptions["WACC"])
+    terminal_growth = float(assumptions["terminal_rate_or_multiple"])
+    years = int(assumptions["forecast_years"])
+
+    def discount_fcffs(fcffs):
+        return sum(f / ((1 + wacc/100) ** (i+1)) for i, f in enumerate(fcffs))
+
+    output = {}
+    for scenario in ["bull", "base", "bear"]:
+        fcffs = forecast_json[scenario]["fcff"]
+        terminal_fcff = fcffs[-1] * (1 + terminal_growth/100) / ((wacc - terminal_growth)/100)
+        dcf_value = discount_fcffs(fcffs) + terminal_fcff / ((1 + wacc/100) ** years)
+        equity_value = dcf_value + cash - debt
+        fair_value = equity_value / shares
+        output[scenario] = {
+            "fcff": fcffs,
+            "dcf_value": round(dcf_value, 2),
+            "equity_value": round(equity_value, 2),
+            "fair_value": round(fair_value, 2),
+            "cmp": cmp,
+            "justification": forecast_json[scenario].get("justification", "")
         }
+    return output
 
-    else:
-        return {
-            "WACC": "9.0",
-            "terminal_rate_or_multiple": "2.5",
-            "model_type": "perpetuity",
-            "forecast_years": "5"
-        }
 
-def run_dcf_model(line_item_block, assumptions, cmp):
-    prompt = f"""
-You are a valuation analyst. Use the historical line items and DCF assumptions below to compute a 3-scenario DCF valuation (Bull, Base, Bear).
+def format_html_output(dcf_result, financials, ticker, cmp):
+    html = f"<h2>📊 DCF Valuation for {ticker}</h2><p>Current Market Price: <strong>${cmp}</strong></p><table border='1' cellpadding='8' cellspacing='0'><tr><th>Scenario</th><th>Fair Value</th><th>Upside</th><th>Justification</th></tr>"
+    for k, v in dcf_result.items():
+        upside = round((v['fair_value'] - cmp)/cmp * 100, 2)
+        html += f"<tr><td>{k.title()}</td><td>${v['fair_value']}</td><td>{upside}%</td><td>{v['justification']}</td></tr>"
+    html += "</table>"
+    return html
 
----
-Line Items:
-{line_item_block}
 
-Assumptions:
-WACC: {assumptions.get("WACC")}%
-Forecast Years: {assumptions.get("forecast_years")}
-Terminal Value Method: {assumptions.get("model_type")}
-Terminal Rate or Multiple: {assumptions.get("terminal_rate_or_multiple")}
-Current Share Price: ${cmp}
----
-
-Return the output as a markdown-formatted table with these fields:
-- Scenario
-- Enterprise Value
-- Net Debt
-- Equity Value
-- Shares Outstanding
-- Fair Value Per Share
-- Upside or Downside vs Current Price
-
-Keep it professional. Avoid casual language. Do not offer suggestions.
-"""
-    return call_deepseek(prompt, temperature=0.1, max_tokens=1800)
+def generate_excel_output(dcf_result):
+    from io import BytesIO
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine="openpyxl")
+    df = pd.DataFrame(dcf_result).T
+    df.to_excel(writer, sheet_name="DCF Scenarios")
+    writer.close()
+    output.seek(0)
+    return output.read()

@@ -532,6 +532,7 @@ function showDcfModal() {
                         });
 
                     } else if (agent.id === "dcf_analyzer") {
+  // 1) Create the card
   card.innerHTML = `
     <h3>${agent.name}</h3>
     <p><strong>Category:</strong> ${agent.category}</p>
@@ -540,6 +541,7 @@ function showDcfModal() {
   `;
   grid.appendChild(card);
 
+  // 2) Create modal container
   const modal = document.createElement("div");
   modal.id = `modal-${agent.id}`;
   modal.className = "modal";
@@ -548,159 +550,90 @@ function showDcfModal() {
       <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
       <h2>${agent.name}</h2>
       <p><strong>Category:</strong> ${agent.category}</p>
-      <p>${agent.description}</p>
+      <p><strong>Description:</strong> ${agent.description}</p>
 
+      <!-- FORM START -->
       <form id="dcf-form" enctype="multipart/form-data">
-        <label for="dcf-company">Company Name:</label><br>
-        <input type="text" id="dcf-company" name="company_name" required
-               placeholder="e.g. Apple Inc." style="width:100%; padding:8px; margin-top:4px;" /><br><br>
+        <label>Company Name:</label><br>
+        <input type="text" name="company_name" placeholder="e.g. Apple Inc." required /><br><br>
 
-        <label for="dcf-questions">Enter Line Item Queries (one per line):</label><br>
-        <textarea id="dcf-questions" name="pdf_questions" rows="4"
-                  placeholder="Extract revenue, EBITDA, FCF from 2020–2024" required
-                  style="width:100%; padding:8px; margin-top:4px;"></textarea><br><br>
+        <label>Enter Line Item Queries (one per line):</label><br>
+        <textarea name="line_item_queries" rows="4" required placeholder="e.g.\nrevenue from 2020–2024\nFCF\nEBITDA"></textarea><br><br>
 
-        <label for="dcf-assumptions">Optional DCF Assumptions (JSON):</label><br>
-        <textarea id="dcf-assumptions" name="assumptions" rows="4"
-                  placeholder='{"source":"own","WACC":"9.5","terminal_rate_or_multiple":"2.5","model_type":"perpetuity","forecast_years":"5"}'
-                  style="width:100%; padding:8px; margin-top:4px;"></textarea><br><br>
+        <label>Optional DCF Assumptions (JSON format):</label><br>
+        <textarea name="assumptions" rows="4" placeholder='{"source":"own","WACC":"9.5","terminal_rate_or_multiple":"2.5","model_type":"perpetuity","forecast_years":"5"}'></textarea><br><br>
 
-        <label for="dcf-files">Upload PDFs or DOCX files:</label><br>
-        <input type="file" id="dcf-files" name="files" accept=".pdf,.docx" multiple required
-               style="margin-top:4px;" /><br><br>
+        <label>Upload PDFs, PPTs, DOCX:</label><br>
+        <input type="file" name="files" multiple accept=".pdf,.pptx,.docx" required /><br><br>
 
-        <button type="submit" style="background-color:#3b82f6; color:white; padding:10px 20px;
-               border:none; border-radius:4px; cursor:pointer;">
-          Run DCF
-        </button>
+        <button type="submit">Run DCF Analysis</button>
       </form>
+      <!-- FORM END -->
 
-      <div id="dcf-result" class="dcf-result" style="margin-top:20px;"></div>
+      <hr style="margin:24px 0;" />
+      <div id="dcf-result" style="max-height: 60vh; overflow-y: auto;"></div>
     </div>
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
 
-  // ✅ Refactored JS submission handler
-    modal.querySelector("#dcf-form").addEventListener("submit", async function (e) {
-      e.preventDefault();
+  // 3) Handle form submission
+  modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const resultDiv = document.getElementById("dcf-result");
+    const submitBtn = form.querySelector("button");
 
-      const form = e.target;
-      const resultDiv = document.getElementById("dcf-result");
-      const submitBtn = form.querySelector("button");
+    const formData = new FormData(form);
+    const assumptions = form.querySelector("textarea[name='assumptions']").value.trim();
+    if (!assumptions) {
+      formData.set("assumptions", JSON.stringify({
+        source: "llm",
+        WACC: "9.0",
+        terminal_rate_or_multiple: "2.0",
+        model_type: "perpetuity",
+        forecast_years: "5"
+      }));
+    }
 
-      const companyInput = form.querySelector("#dcf-company").value.trim();
-      const rawQuestions = form.querySelector("#dcf-questions").value.trim();
-      const assumptionsInput = form.querySelector("#dcf-assumptions").value.trim();
-      const fileInput = form.querySelector("#dcf-files");
+    // Show loading message
+    resultDiv.innerHTML = "<p>⏳ Running DCF analysis, please wait...</p>";
+    submitBtn.disabled = true;
 
-      if (!companyInput || !rawQuestions || fileInput.files.length === 0) {
-        resultDiv.innerHTML = `<p class="error-text">Please fill all required fields and upload at least one file.</p>`;
-        return;
+    fetch("/analyze-dcf", {
+      method: "POST",
+      body: formData
+    })
+    .then(async (resp) => {
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || `HTTP ${resp.status}`);
+      }
+      return resp.json();
+    })
+    .then((data) => {
+      let html = "";
+
+      if (data.html) {
+        html += `<div class="dcf-html">${data.html}</div>`;
       }
 
-      const formData = new FormData();
-      formData.append("company_name", companyInput);
-      formData.append("pdf_questions", rawQuestions);
-      if (assumptionsInput) formData.append("assumptions", assumptionsInput);
-      for (let i = 0; i < fileInput.files.length; i++) formData.append("files", fileInput.files[i]);
-
-      resultDiv.innerHTML = `<p class="loading-text">⏳ Running DCF analysis…</p>`;
-      submitBtn.disabled = true;
-
-      try {
-        const resp = await fetch("/analyze-dcf", { method: "POST", body: formData });
-        const text = await resp.text();
-        console.log("📨 DCF raw response:", text);
-
-        let data = {};
-        try {
-          data = JSON.parse(text);
-        } catch {
-          throw new Error("Server returned invalid JSON.");
-        }
-
-        const { dcf_summary = {}, dcf_markdown = "", message = "", error_details = "" } = data;
-
-        let html = `<div class="dcf-container">
-          <div class="dcf-header">
-            <h3 class="dcf-title">✅ DCF completed!</h3>
-            ${message ? `<p class="dcf-subtitle">${message}</p>` : ""}
-          </div>
-          <div class="dcf-body">
-        `;
-
-        if (dcf_markdown) {
-          let htmlFromMd = "";
-          try {
-            htmlFromMd = marked.parse(dcf_markdown);
-          } catch (err) {
-            htmlFromMd = `<pre>${dcf_markdown}</pre>`;
-          }
-
-          html += `
-            <section class="dcf-section">
-              <h4>📊 Full DCF Output (Markdown)</h4>
-              <div class="markdown-body">
-                ${htmlFromMd}
-              </div>
-            </section>
-          `;
-        }
-
-        if (dcf_summary && typeof dcf_summary === 'object' && Object.keys(dcf_summary).length > 0) {
-          for (const [scenario, values] of Object.entries(dcf_summary)) {
-            html += `<section class="dcf-scenario">
-                <h4>${scenario}</h4>
-                <table class="dcf-table">
-                  <thead><tr><th>Metric</th><th>Value</th></tr></thead>
-                  <tbody>`;
-
-            for (const [metric, val] of Object.entries(values)) {
-              if (val === undefined) continue;
-              const formatted = typeof val === "number" ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : val;
-              html += `<tr><td>${metric}</td><td>${formatted}</td></tr>`;
-            }
-
-            html += `</tbody></table></section>`;
-          }
-        }
-
-        if (error_details) {
-          html += `
-            <section class="dcf-section">
-              <h4 class="dcf-title" style="color:#f87171;">🛠️ DCF Parsing Traceback (Debug)</h4>
-              <pre class="debug-traceback">${error_details}</pre>
-            </section>
-          `;
-        }
-
-        html += `</div></div>`;
-
-        // Inject into chat bubble
-        const responseBubble = document.createElement("div");
-        responseBubble.className = "chat-bubble ai-response";
-        responseBubble.innerHTML = html;
-        document.getElementById("chat-box").appendChild(responseBubble);
-        responseBubble.scrollIntoView({ behavior: "smooth" });
-
-        resultDiv.innerHTML = html;
-      } catch (err) {
-        console.error(err);
-        resultDiv.innerHTML = `
-          <div class="dcf-container">
-            <div class="dcf-header">
-              <h3 class="dcf-title" style="color:#f87171;">❌ Error</h3>
-              <p class="error-text">${err.message}</p>
-            </div>
-          </div>
-        `;
-      } finally {
-        submitBtn.disabled = false;
-        resultDiv.scrollIntoView({ behavior: "smooth" });
+      if (data.excel_url) {
+        html += `<p><a href="${data.excel_url}" target="_blank" download class="button">⬇️ Download Excel</a></p>`;
       }
+
+      resultDiv.innerHTML = html || "<p>No results returned.</p>";
+    })
+    .catch((err) => {
+      console.error(err);
+      resultDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
+    })
+    .finally(() => {
+      submitBtn.disabled = false;
+      resultDiv.scrollIntoView({ behavior: "smooth" });
     });
-
+  });
 }
+
  else {
                         // Default cards for other agents
                         card.innerHTML = `

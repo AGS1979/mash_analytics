@@ -56,14 +56,14 @@ from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
 from DCFAgent import (
-    save_uploaded_files,
+    get_ticker,
+    get_current_price,
     extract_text_from_documents,
-    extract_line_items,
-    get_ticker_from_name,
-    get_current_share_price,
-    resolve_assumptions,
-    run_dcf_model,
-    call_deepseek
+    extract_financial_data,
+    generate_forecast_scenarios,
+    calculate_dcf_scenarios,
+    format_html_output,
+    generate_excel_output
 )
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -543,106 +543,6 @@ def get_custom_agents():
     return jsonify(agents)
 
 
-def parse_llm_output(llm_response: str) -> dict:
-    return {"LLM Extracted Block": llm_response}
-
-@app.route('/analyze-dcf', methods=['POST'])
-def analyze_dcf_route():
-    temp_paths = []
-    try:
-        # ── 1) Validate form inputs ─────────────────────────────
-        company_name = request.form.get("company_name", "").strip()
-        if not company_name:
-            return jsonify({"error": "company_name is required"}), 400
-
-        lineitem_query = request.form.get("pdf_questions", "").strip()
-        if not lineitem_query:
-            return jsonify({"error": "Please enter line item queries."}), 400
-
-        raw_assump = request.form.get("assumptions", "").strip()
-        assumptions = json.loads(raw_assump) if raw_assump else {}
-
-        uploaded_files = request.files.getlist("files")
-        if not uploaded_files:
-            return jsonify({"error": "Upload at least one file."}), 400
-
-        # ── 2) Extract content ──────────────────────────────────
-        temp_paths = save_uploaded_files(uploaded_files)
-        extracted_text = extract_text_from_documents(temp_paths)
-
-        # ── 3) Determine ticker and price ───────────────────────
-        ticker = get_ticker_from_name(company_name)
-        cmp = get_current_share_price(ticker)
-
-        # ── 4) Extract LLM financial block ──────────────────────
-        full_text = " ".join(extracted_text.values())[:16000]
-        prompt = f"""
-Extract the requested financial data based on the user input below.
-Respond only with what is found in the text.
-
-User Request:
-{lineitem_query}
-
-Company Text:
-{full_text}
-"""
-        llm_response = call_deepseek(prompt).strip()
-
-        if "3-scenario" in llm_response.lower():
-            return jsonify({
-                "message": f"DCF completed for {company_name} (Ticker: {ticker})",
-                "dcf_markdown": llm_response,
-                "dcf_summary": {}
-            }), 200
-
-        # ── 5) Resolve assumptions ─────────────────────────────
-        try:
-            assumption_source = assumptions.get("source", "llm") or "llm"
-            resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
-        except Exception as e:
-            return jsonify({
-                "message": f"Could not resolve assumptions: {str(e)}",
-                "dcf_summary": {},
-                "dcf_markdown": ""
-            }), 200
-
-        # ── 6) Run DCF model ───────────────────────────────────
-        try:
-            line_item_data = parse_llm_output(llm_response)
-            dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
-            dcf_markdown = line_item_data.get("LLM Extracted Block", "")
-
-            return jsonify({
-                "message": f"DCF completed for {company_name} (Ticker: {ticker})",
-                "dcf_summary": dcf_summary,
-                "dcf_markdown": dcf_markdown
-            }), 200
-
-        except Exception as e:
-            traceback.print_exc()
-            return jsonify({
-                "message": "DCF parsing failed. Returning raw output.",
-                "error_details": traceback.format_exc(),
-                "dcf_summary": {},
-                "dcf_markdown": llm_response
-            }), 200
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
-
-    finally:
-        for p in temp_paths:
-            try:
-                os.remove(p)
-            except:
-                pass
-
-
-
-
-
-
 @app.route('/generate-preipo-memo', methods=['POST'])
 def generate_preipo_memo():
     try:
@@ -694,6 +594,74 @@ def chat():
     )
 
 
+@app.route("/analyze-dcf", methods=["POST"])
+def analyze_dcf():
+    try:
+        company_name = request.form.get("company_name")
+        line_item_queries = request.form.get("line_item_queries", "").splitlines()
+        assumptions_json = request.form.get("assumptions")
+        uploaded_files = request.files.getlist("files")
+
+        if not company_name or not uploaded_files:
+            return jsonify({"error": "Company name and files are required."}), 400
+
+        assumptions = json.loads(assumptions_json)
+
+        # Save uploaded files to /uploads
+        filepaths = []
+        for file in uploaded_files:
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            file.save(filepath)
+            filepaths.append(filepath)
+
+        # 1. Get ticker and CMP
+        ticker = get_ticker(company_name)
+        if not ticker:
+            return jsonify({"error": "Unable to extract ticker."}), 400
+        cmp = get_current_price(ticker)
+
+        # 2. Extract all text
+        text = extract_text_from_documents(filepaths)
+
+        # 3. Extract historicals
+        financials = extract_financial_data(text, line_item_queries)
+
+        # Ensure required values for DCF
+        cash = financials.get("cash", {}).get("2024", 0)
+        debt = financials.get("debt", {}).get("2024", 0)
+        shares = financials.get("diluted_shares_outstanding", {}).get("2024", 0)
+
+        if not (cash and debt and shares):
+            return jsonify({"error": "Missing required financials like cash, debt, or shares."}), 400
+
+        # 4. Forecast scenarios
+        forecast_json = generate_forecast_scenarios(text, financials, assumptions)
+
+        # 5. Calculate DCF
+        dcf_result = calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
+
+        # 6. Format HTML + Excel
+        html_output = format_html_output(dcf_result, financials, ticker, cmp)
+        excel_bytes = generate_excel_output(dcf_result)
+
+        # 7. Save Excel for download
+        timestamp = int(time.time())
+        excel_filename = f"{ticker}_DCF_{timestamp}.xlsx"
+        excel_path = os.path.join(app.config["UPLOAD_FOLDER"], excel_filename)
+        with open(excel_path, "wb") as f:
+            f.write(excel_bytes)
+
+        download_url = url_for("download_report", filename=excel_filename, _external=True)
+
+        return jsonify({
+            "html": html_output,
+            "excel_url": download_url
+        })
+
+    except Exception as e:
+        print(f"🔥 DCF ERROR: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # Redirect root to /chat if logged in, else to /login
