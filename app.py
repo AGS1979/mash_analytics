@@ -597,72 +597,104 @@ def chat():
 @app.route("/analyze-dcf", methods=["POST"])
 def analyze_dcf():
     try:
+        print("📡 [STEP 1] Receiving request...")
+
+        # Extract inputs from form
         company_name = request.form.get("company_name")
         line_item_queries = request.form.get("line_item_queries", "").splitlines()
         assumptions_json = request.form.get("assumptions")
         uploaded_files = request.files.getlist("files")
 
+        print("🧾 Received company_name:", company_name)
+        print("📝 Line items:", line_item_queries)
+        print("📦 Number of uploaded files:", len(uploaded_files))
+
         if not company_name or not uploaded_files:
+            print("❌ Missing company name or files.")
             return jsonify({"error": "Company name and files are required."}), 400
 
         assumptions = json.loads(assumptions_json)
+        print("⚙️  Assumptions parsed successfully.")
 
-        # Save uploaded files to /uploads
+        # Save uploaded files
         filepaths = []
         for file in uploaded_files:
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
             file.save(filepath)
             filepaths.append(filepath)
+        print("💾 Saved files to disk:", filepaths)
 
-        # 1. Get ticker and CMP
+        # Get ticker and current share price
         try:
+            print("🔎 [STEP 2] Resolving ticker and CMP...")
             ticker = get_ticker(company_name)
+            print("✅ Ticker identified:", ticker)
             cmp = get_current_price(ticker)
+            print("💲 Current Market Price (CMP):", cmp)
         except Exception as e:
+            print("❌ Ticker/CMP lookup failed:", str(e))
             return jsonify({"error": str(e)}), 400
 
-        # 2. Extract all text
+        # Extract full text from documents
+        print("📚 [STEP 3] Extracting text from uploaded documents...")
         text = extract_text_from_documents(filepaths)
+        print("📄 Text extraction complete. Length:", len(text))
 
-        # 3. Extract historicals
+        # Extract historical financial data
+        print("📈 [STEP 4] Extracting financials using line items...")
         financials = extract_financial_data(text, line_item_queries)
+        print("📊 Extracted financials:", json.dumps(financials, indent=2))
 
-        # Ensure required values for DCF
+        # Ensure core items are available
         cash = financials.get("cash", {}).get("2024", 0)
         debt = financials.get("debt", {}).get("2024", 0)
         shares = financials.get("diluted_shares_outstanding", {}).get("2024", 0)
+        print(f"🔍 Cash: {cash}, Debt: {debt}, Shares: {shares}")
 
         if not (cash and debt and shares):
+            print("❌ Missing key financials: cash, debt, or shares")
             return jsonify({"error": "Missing required financials like cash, debt, or shares."}), 400
 
-        # 4. Forecast scenarios
+        # Generate forecasts from LLM
+        print("🧠 [STEP 5] Generating bull-base-bear forecast scenarios...")
         forecast_json = generate_forecast_scenarios(text, financials, assumptions)
+        print("📈 Forecast JSON:", forecast_json)
 
-        # 5. Calculate DCF
+        # Calculate DCF based on forecasts
+        print("🧮 [STEP 6] Calculating DCF...")
         dcf_result = calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
+        print("📉 DCF Results:", dcf_result)
 
-        # 6. Format HTML + Excel
+        # Format HTML output
+        print("🎨 Formatting HTML output...")
         html_output = format_html_output(dcf_result, financials, ticker, cmp)
+
+        # Generate Excel output
+        print("📤 Generating Excel output...")
         excel_bytes = generate_excel_output(dcf_result)
 
-        # 7. Save Excel for download
+        # Save Excel file
         timestamp = int(time.time())
         excel_filename = f"{ticker}_DCF_{timestamp}.xlsx"
         excel_path = os.path.join(app.config["UPLOAD_FOLDER"], excel_filename)
         with open(excel_path, "wb") as f:
             f.write(excel_bytes)
+        print("📁 Excel saved to:", excel_path)
 
         download_url = url_for("download_report", filename=excel_filename, _external=True)
 
+        # Respond with HTML + Excel download
+        print("✅ Returning DCF output.")
         return jsonify({
             "html": html_output,
             "excel_url": download_url
         })
 
     except Exception as e:
-        print(f"🔥 DCF ERROR: {str(e)}")
+        print(f"🔥 [FATAL] DCF ERROR: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 
 # Redirect root to /chat if logged in, else to /login
