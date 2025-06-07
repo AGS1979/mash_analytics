@@ -31,10 +31,26 @@ HEADERS_OPENAI = {
 
 
 def get_ticker(company_name: str) -> str:
-    prompt = f"What is the US or global stock ticker for the company named '{company_name}'?"
+    """
+    Extracts the most likely ticker from the company name using LLM,
+    and validates it via Yahoo Finance.
+    """
+    prompt = f"What is the most likely publicly traded stock ticker for the company named '{company_name}'?"
     response = call_llm(prompt)
-    match = re.search(r'\b([A-Z]{1,5})(?:\.[A-Z]{1,2})?\b', response)
-    return match.group(1) if match else None
+    print("🔍 Raw LLM response for ticker:", response)  # ← ✅ Add this line
+    
+    # Try to extract a valid-looking ticker symbol
+    matches = re.findall(r"\b[A-Z]{1,6}(?:\.[A-Z]{1,2})?\b", response)
+    for candidate in matches:
+        try:
+            price = yf.download(candidate, period="1d")["Close"]
+            if not price.empty:
+                return candidate  # ✅ Valid ticker
+        except Exception:
+            continue
+
+    raise ValueError(f"❌ No valid ticker found for company: {company_name}")
+
 
 
 def get_current_price(ticker: str) -> float:

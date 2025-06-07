@@ -616,10 +616,11 @@ def analyze_dcf():
             filepaths.append(filepath)
 
         # 1. Get ticker and CMP
-        ticker = get_ticker(company_name)
-        if not ticker:
-            return jsonify({"error": "Unable to extract ticker."}), 400
-        cmp = get_current_price(ticker)
+        try:
+            ticker = get_ticker(company_name)
+            cmp = get_current_price(ticker)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
 
         # 2. Extract all text
         text = extract_text_from_documents(filepaths)
