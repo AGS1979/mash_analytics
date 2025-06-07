@@ -58,7 +58,7 @@ from PrivateTransactionAnalyzer import analyze_transaction_doc
 from DCFAgent import (
     save_uploaded_files,
     extract_text_from_documents,
-    extract_line_items_from_text,
+    extract_line_items,
     get_ticker_from_name,
     get_current_share_price,
     resolve_assumptions,
