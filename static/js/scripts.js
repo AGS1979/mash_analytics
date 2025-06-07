@@ -640,7 +640,6 @@ function showDcfModal() {
         dcf_summary = {},
         dcf_markdown = "",
         message = "",
-        pdf_answers = {},
         error_details = ""
       } = data;
 

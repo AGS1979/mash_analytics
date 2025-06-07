@@ -547,46 +547,33 @@ def get_custom_agents():
 def analyze_dcf_route():
     temp_paths = []
     try:
-        # ── 1) Validate basic inputs ────────────────────────────────────
+        # ── 1) Basic input validation ──────────────────────────────
         company_name = request.form.get("company_name", "").strip()
         if not company_name:
             return jsonify({"error": "company_name is required"}), 400
 
         lineitem_query = request.form.get("pdf_questions", "").strip()
         if not lineitem_query:
-            return jsonify({"error": "Please enter line item queries (e.g., revenue, EBITDA, FCF etc)."}), 400
+            return jsonify({"error": "Please enter line item queries."}), 400
 
         raw_assump = request.form.get("assumptions", "").strip()
-        if raw_assump:
-            try:
-                assumptions = json.loads(raw_assump)
-            except json.JSONDecodeError:
-                return jsonify({"error": "`assumptions` must be valid JSON"}), 400
-        else:
-            assumptions = {}
+        assumptions = json.loads(raw_assump) if raw_assump else {}
 
         uploaded_files = request.files.getlist("files")
-        if not uploaded_files or len(uploaded_files) == 0:
-            return jsonify({"error": "Please upload at least one PDF, DOCX, or PPTX file."}), 400
+        if not uploaded_files:
+            return jsonify({"error": "Upload at least one file."}), 400
 
-        # ── 2) Save & extract text from uploaded documents ────────────────
-        try:
-            temp_paths = save_uploaded_files(uploaded_files)
-            extracted_text = extract_text_from_documents(temp_paths)
-        except Exception as e:
-            return jsonify({"error": f"File processing failed: {str(e)}"}), 500
+        # ── 2) Extract text from files ─────────────────────────────
+        temp_paths = save_uploaded_files(uploaded_files)
+        extracted_text = extract_text_from_documents(temp_paths)
 
-        # ── 3) Get ticker and current share price ────────────────────────
-        try:
-            ticker = get_ticker_from_name(company_name)
-            cmp = get_current_share_price(ticker)
-        except Exception as e:
-            return jsonify({"error": f"Failed to get ticker or share price: {str(e)}"}), 500
+        # ── 3) Get ticker and current price ────────────────────────
+        ticker = get_ticker_from_name(company_name)
+        cmp = get_current_share_price(ticker)
 
-        # ── 4) Build LLM prompt and call DeepSeek ────────────────────────
-        try:
-            text_block = " ".join(extracted_text.values())[:16000]
-            prompt = f"""
+        # ── 4) Initial LLM extraction ──────────────────────────────
+        text_block = " ".join(extracted_text.values())[:16000]
+        prompt = f"""
 Extract the requested financial data based on the user input below.
 Respond only with what is found in the text.
 
@@ -596,53 +583,44 @@ User Request:
 Company Text:
 {text_block}
 """
-            llm_response = call_deepseek(prompt).strip()
-            line_item_data = {"LLM Extracted Block": llm_response}
-        except Exception as e:
-            return jsonify({"error": f"LLM extraction failed: {str(e)}"}), 500
+        llm_response = call_deepseek(prompt).strip()
 
-        # ── 5) If DeepSeek’s output clearly already contains a 3-scenario DCF, skip parsing ──
-        lower_md = llm_response.lower()
-        if "3-scenario" in lower_md or "3-scenario" in lower_md:
-            # Return the raw Markdown directly
+        # ── 5) If DCF already returned (raw Markdown) ──────────────
+        if "3-scenario" in llm_response.lower():
             return jsonify({
-                "message": f"DCF (Markdown) returned for {company_name} (Ticker: {ticker})",
+                "message": f"DCF completed for {company_name} (Ticker: {ticker})",
                 "dcf_markdown": llm_response,
-                "pdf_answers": line_item_data
+                "dcf_summary": {}
             }), 200
 
-        # ── 6) Otherwise, resolve assumptions and attempt to parse JSON ───────────
+        # ── 6) Attempt to resolve assumptions ──────────────────────
+        assumption_source = assumptions.get("source", "llm") or "llm"
         try:
-            assumption_source = assumptions.get("source", "llm") or "llm"
             resolved_assumptions = resolve_assumptions(assumption_source, assumptions, extracted_text)
         except Exception as e:
-            # We at least have LLM output—show that
             return jsonify({
                 "message": f"Could not resolve assumptions: {str(e)}",
                 "dcf_summary": {},
-                "pdf_answers": line_item_data
+                "dcf_markdown": ""
             }), 200
 
-        # ── 7) Now try run_dcf_model on the LLM block ───────────────────────
+        # ── 7) Run DCF model ───────────────────────────────────────
         try:
-            dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp) or {}
+            dcf_summary, dcf_markdown = run_dcf_model(
+                {"LLM Extracted Block": llm_response}, resolved_assumptions, cmp, return_markdown=True
+            )
             return jsonify({
                 "message": f"DCF completed for {company_name} (Ticker: {ticker})",
                 "dcf_summary": dcf_summary,
-                "pdf_answers": line_item_data,
-                "dcf_markdown": line_item_data.get("LLM Extracted Block", "")  # ← raw markdown injected
-
+                "dcf_markdown": dcf_markdown
             }), 200
         except Exception as e:
-            # Parsing failed—capture full traceback, but still return the Markdown
             traceback.print_exc()
-            full_tb = traceback.format_exc()
             return jsonify({
-                "message": "LLM returned a DCF table, but parsing to JSON failed. See 'error_details'.",
-                "error_details": full_tb,
-                "dcf_markdown": llm_response,
+                "message": "DCF parsing failed. Returning raw output.",
+                "error_details": traceback.format_exc(),
                 "dcf_summary": {},
-                "pdf_answers": line_item_data
+                "dcf_markdown": llm_response
             }), 200
 
     except Exception as e:
@@ -650,12 +628,12 @@ Company Text:
         return jsonify({"error": f"Unexpected server error: {str(e)}"}), 500
 
     finally:
-        # ── 8) Clean up temp files regardless of outcome ───────────────────
         for p in temp_paths:
             try:
                 os.remove(p)
             except:
                 pass
+
 
 
 
