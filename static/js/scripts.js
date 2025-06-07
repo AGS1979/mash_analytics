@@ -654,18 +654,18 @@ function showDcfModal() {
           <div class="dcf-body">
       `;
 
-      // 1) If raw Markdown DCF is present, render it first
-      if (dcf_markdown) {
-        const htmlFromMd = marked.parse(dcf_markdown);
-        html += `
-          <section class="dcf-section">
-            <h4>📊 DCF (from Markdown)</h4>
-            <div class="markdown-body">
-              ${htmlFromMd}
-            </div>
-          </section>
-        `;
-      }
+      // 1) If raw Markdown DCF is present, render it always (even if parsing succeeded)
+        if (dcf_markdown) {
+          const htmlFromMd = marked.parse(dcf_markdown);
+          html += `
+            <section class="dcf-section">
+              <h4>📊 Full DCF Output (Markdown)</h4>
+              <div class="markdown-body">
+                ${htmlFromMd}
+              </div>
+            </section>
+          `;
+        }
 
       // 2) If there's a JSON dcf_summary, render those tables
       if (Object.keys(dcf_summary).length > 0) {
