@@ -606,9 +606,9 @@ Company Text:
 
         # ── 7) Run DCF model ───────────────────────────────────────
         try:
-            dcf_summary, dcf_markdown = run_dcf_model(
-                {"LLM Extracted Block": llm_response}, resolved_assumptions, cmp, return_markdown=True
-            )
+            dcf_summary = run_dcf_model(line_item_data, resolved_assumptions, cmp)
+            dcf_markdown = line_item_data.get("LLM Extracted Block", "")
+
             return jsonify({
                 "message": f"DCF completed for {company_name} (Ticker: {ticker})",
                 "dcf_summary": dcf_summary,
