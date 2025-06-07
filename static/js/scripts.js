@@ -582,6 +582,9 @@ function showDcfModal() {
 
   modal.querySelector("#dcf-form").addEventListener("submit", async function (e) {
     e.preventDefault();
+    console.log("📨 Sending request to /analyze-dcf...");
+
+
 
     const form = e.target;
     const resultDiv = document.getElementById("dcf-result");
@@ -618,6 +621,9 @@ function showDcfModal() {
     try {
       const resp = await fetch("/analyze-dcf", { method: "POST", body: formData });
       const text = await resp.text();
+      console.log("📨 DCF response received. Raw text:");
+      console.log(text);
+
 
       let data;
       try {
@@ -638,11 +644,8 @@ function showDcfModal() {
         error_details = ""
       } = data;
 
-      // Only show subtitle when there's a real JSON summary and a non-empty message
-      let subtitleHtml = "";
-      if (Object.keys(dcf_summary).length > 0 && message.trim() !== "") {
-        subtitleHtml = `<p class="dcf-subtitle">${message}</p>`;
-      }
+      let subtitleHtml = message.trim() !== "" ? `<p class="dcf-subtitle">${message}</p>` : "";
+
 
       // Begin DCF container
       let html = `
@@ -654,9 +657,18 @@ function showDcfModal() {
           <div class="dcf-body">
       `;
 
-      // 1) If raw Markdown DCF is present, render it always (even if parsing succeeded)
-        if (dcf_markdown) {
-          const htmlFromMd = marked.parse(dcf_markdown);
+      if (dcf_markdown) {
+          console.log("✅ DCF Markdown Raw Output:", dcf_markdown);
+          
+          let htmlFromMd = "";
+          try {
+            htmlFromMd = marked.parse(dcf_markdown);
+            console.log("✅ HTML from Markdown:", htmlFromMd);
+          } catch (err) {
+            console.error("⚠️ Markdown parse error:", err);
+            htmlFromMd = `<pre>${dcf_markdown}</pre>`;
+          }
+
           html += `
             <section class="dcf-section">
               <h4>📊 Full DCF Output (Markdown)</h4>
@@ -666,6 +678,7 @@ function showDcfModal() {
             </section>
           `;
         }
+
 
       // 2) If there's a JSON dcf_summary, render those tables
       if (Object.keys(dcf_summary).length > 0) {
