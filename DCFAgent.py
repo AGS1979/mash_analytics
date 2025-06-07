@@ -238,8 +238,11 @@ Bull Case | 150000 | 130000 | 95
 
         parsed = {}
         for line in response.splitlines():
-            if "|" in line and "Scenario" not in line and not line.strip().startswith("---"):
-                parts = [re.sub(r'[\*\$]', '', p.strip()) for p in line.split("|")]
+            if "|" in line and "scenario" not in line.lower() and not line.strip().startswith("---"):
+                # Remove markdown characters and split cleanly
+                line = re.sub(r"[\*\$]", "", line)  # remove **bold**, $ signs
+                parts = [p.strip() for p in line.split("|") if p.strip()]
+                
                 if len(parts) == 4:
                     try:
                         scenario = parts[0]
@@ -254,9 +257,12 @@ Bull Case | 150000 | 130000 | 95
                     except ValueError:
                         continue
 
+
         if not parsed:
-            raise ValueError(f"DeepSeek returned no valid output. Response:\n{response}")
+            print("⚠️ Could not parse structured DCF summary, but returning raw Markdown instead.")
+            return None  # So Flask can still return the markdown
         return parsed
+
 
     except Exception as e:
         raise RuntimeError(f"LLM-based DCF calculation failed: {e}")
