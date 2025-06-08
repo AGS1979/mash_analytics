@@ -74,6 +74,34 @@ def extract_financials_with_pdfquery(filepaths):
     engine.chunk_texts = [text for _, text in engine.chunks]
     engine.embeddings = engine.embed_texts(engine.chunk_texts)
     engine.index = engine.build_faiss_index(engine.embeddings)
+    
+    from types import MethodType
+
+    def answer_query_bound(self, query: str) -> str:
+        query_embedding = self.embedder.encode([query], convert_to_numpy=True)
+        distances, indices = self.index.search(query_embedding, 5)
+        retrieved_chunks = [self.chunk_texts[i] for i in indices[0]]
+        context = "\n\n".join(retrieved_chunks)
+
+        prompt = {
+            "model": "gpt-4o",
+            "messages": [
+                {"role": "system", "content": "You are a financial analyst."},
+                {"role": "user", "content": f"Based only on the context below, answer this: {query}\n\nContext:\n{context}"}
+            ],
+            "temperature": 0,
+            "max_tokens": 300
+        }
+
+        response = requests.post(
+            OPENAI_CHAT_URL,
+            headers=HEADERS_OPENAI,
+            data=json.dumps(prompt)
+        )
+
+        return response.json()["choices"][0]["message"]["content"].strip()
+
+    engine.answer_query = MethodType(answer_query_bound, engine)
 
     print("📄 Using PDFQueryEngine for financial extraction...")
 
