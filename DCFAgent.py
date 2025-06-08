@@ -12,6 +12,7 @@ import yfinance as yf
 from PyPDF2 import PdfReader
 from docx import Document
 from pptx import Presentation
+import html as html_lib
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
@@ -340,7 +341,9 @@ def format_html_output(dcf_result, financials, ticker, cmp):
 
     for k, v in dcf_result.items():
         upside = round((v['fair_value'] - cmp_value) / cmp_value * 100, 2)
-        html += f"<tr><td>{k.title()}</td><td>${v['fair_value']}</td><td>{upside}%</td><td>{v['justification']}</td></tr>"
+        justification = html_lib.escape(v['justification'])
+        html += f"<tr><td>{k.title()}</td><td>${v['fair_value']}</td><td>{upside}%</td><td>{justification}</td></tr>"
+
 
     html += "</table>"
     return html
