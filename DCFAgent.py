@@ -184,10 +184,11 @@ def extract_financial_data(text, line_item_queries, ticker=None):
                 normalized.setdefault(key_to_use, {}).update(val)
 
         # Check if we need fallback
+        # Check completeness – only require cash and debt now
         required = ["cash", "debt"]
         missing = [k for k in required if k not in normalized]
         if missing and ticker and "." not in ticker:
-            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback for {ticker}")
+            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback for US ticker: {ticker}")
 
             def fetch_fmp(endpoint):
                 url = f"{FMP_BASE_URL}/{endpoint}/{ticker}?limit=1&apikey={FMP_API_KEY}"
@@ -196,6 +197,7 @@ def extract_financial_data(text, line_item_queries, ticker=None):
 
             bs = fetch_fmp("balance-sheet-statement")
             is_ = fetch_fmp("income-statement")
+
             print("🧾 Raw FMP balance sheet:", bs)
             print("🧾 Raw FMP income statement:", is_)
 
@@ -212,6 +214,7 @@ def extract_financial_data(text, line_item_queries, ticker=None):
 
         print("✅ Final normalized financials:\n", json.dumps(normalized, indent=2))
         return normalized
+
 
     except Exception as e:
         print(f"❌ Extraction error: {e}")
@@ -248,8 +251,6 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, cmp, financi
     try:
         if isinstance(forecast_json, str):
             forecast_json = forecast_json.strip()
-
-            # Clean markdown-style code block if present
             if forecast_json.startswith("```json"):
                 forecast_json = forecast_json[len("```json"):].strip()
             elif forecast_json.startswith("```"):
@@ -258,44 +259,43 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, cmp, financi
                 forecast_json = forecast_json[:-3].strip()
 
             forecast_json = json.loads(forecast_json)
-
     except Exception as e:
         print("🔥 [FATAL] Failed to parse forecast JSON:", str(e))
         print("🧾 Forecast response was:\n", forecast_json)
         raise
 
-    # Extract WACC and terminal growth assumptions
+    # Assumptions
     wacc = float(assumptions["WACC"])
     terminal_growth = float(assumptions["terminal_rate_or_multiple"])
     years = int(assumptions["forecast_years"])
 
-    # Discounting helper
     def discount_fcffs(fcffs):
         return sum(f / ((1 + wacc / 100) ** (i + 1)) for i, f in enumerate(fcffs))
 
-    # Compute shares = net_income / EPS
+    # 🔁 Compute shares from net_income and EPS
     try:
         if not financials:
-            raise ValueError("Missing `financials` for computing shares")
+            raise ValueError("`financials` dict is required to compute shares dynamically.")
 
         ni_years = financials.get("net_income", {})
         eps_years = financials.get("diluted_eps", {})
         common_years = set(ni_years.keys()) & set(eps_years.keys())
 
         if not common_years:
-            raise ValueError("No common year between net income and EPS")
+            raise ValueError("No common year between net income and EPS.")
 
         latest_year = max(common_years)
         net_income = financials["net_income"][latest_year]
         eps = financials["diluted_eps"][latest_year]
-
         shares = round(net_income / eps, 2)
-        print(f"🧠 Computed shares = {net_income} / {eps} = {shares}")
+
+        print(f"🧠 Computed shares from {latest_year}: Net Income = {net_income}, EPS = {eps} → Shares = {shares}")
+
     except Exception as e:
-        print(f"❌ Could not compute shares from EPS and Net Income: {e}")
+        print(f"❌ Failed to compute shares: {e}")
         raise
 
-    # Build DCF output
+    # Build DCF valuation
     output = {}
     for scenario in ["bull", "base", "bear"]:
         fcffs = forecast_json[scenario]["fcff"]
