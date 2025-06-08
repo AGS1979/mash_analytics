@@ -312,13 +312,22 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
 
 
 def format_html_output(dcf_result, financials, ticker, cmp):
-    html = f"<h2>📊 DCF Valuation for {ticker}</h2><p>Current Market Price: <strong>${cmp}</strong></p><table border='1' cellpadding='8' cellspacing='0'><tr><th>Scenario</th><th>Fair Value</th><th>Upside</th><th>Justification</th></tr>"
+    # Ensure cmp is a scalar float (not a Series)
+    if isinstance(cmp, (pd.Series, np.ndarray)):
+        cmp_value = float(cmp.dropna().iloc[-1])
+    else:
+        cmp_value = float(cmp)
+
+    html = f"<h2>📊 DCF Valuation for {ticker}</h2><p>Current Market Price: <strong>${cmp_value}</strong></p>"
+    html += "<table border='1' cellpadding='8' cellspacing='0'><tr><th>Scenario</th><th>Fair Value</th><th>Upside</th><th>Justification</th></tr>"
+
     for k, v in dcf_result.items():
-        upside = round((v['fair_value'] - cmp)/cmp * 100, 2)
+        upside = round((v['fair_value'] - cmp_value) / cmp_value * 100, 2)
         html += f"<tr><td>{k.title()}</td><td>${v['fair_value']}</td><td>{upside}%</td><td>{v['justification']}</td></tr>"
+
     html += "</table>"
     return html
-
+    
 
 def generate_excel_output(dcf_result):
     from io import BytesIO
