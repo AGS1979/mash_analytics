@@ -162,20 +162,34 @@ def extract_financial_data(text, line_item_queries, ticker=None):
         print("✅ Parsed JSON from OpenAI.")
 
         # Normalize synonymous keys
+        # Normalize synonymous keys
         synonyms = {
+            "total_cash": "cash",
             "total_cash_and_cash_equivalents": "cash",
             "cash_and_cash_equivalents": "cash",
             "cashandshortterminvestments": "cash",
+            "net_cash": "cash",
+            "available_cash": "cash",
+
             "total_debt": "debt",
             "total_borrowings": "debt",
+            "borrowings": "debt",
+
             "shares_outstanding": "diluted_shares_outstanding",
-            "weighted_average_shares": "diluted_shares_outstanding"
+            "weighted_average_shares": "diluted_shares_outstanding",
+            "diluted_shares": "diluted_shares_outstanding",
+            "basic_shares": "diluted_shares_outstanding"
         }
+
         for k in list(parsed_data.keys()):
             norm_k = k.lower().strip().replace(" ", "_")
-            if norm_k in synonyms:
-                new_key = synonyms[norm_k]
-                parsed_data[new_key] = parsed_data.get(new_key, {}) | parsed_data.pop(k)
+            key_to_use = synonyms.get(norm_k, norm_k)
+            if isinstance(parsed_data[k], dict):
+                if key_to_use not in normalized:
+                    normalized[key_to_use] = parsed_data[k]
+                else:
+                    normalized[key_to_use].update(parsed_data[k])
+
 
         normalized = {}
         for key, val in parsed_data.items():
@@ -202,8 +216,12 @@ def extract_financial_data(text, line_item_queries, ticker=None):
         # Check completeness
         # Check completeness
         required = ["cash", "debt", "diluted_shares_outstanding"]
-        print("🔁 Normalized financials keys:", list(normalized.keys()))
+        
         missing = [k for k in required if k not in normalized]
+        if missing and ticker and "." not in ticker:
+            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback...")
+            # FMP logic here
+
 
         # Attempt FMP fallback if anything is missing and it's a US ticker
         if missing and ticker and "." not in ticker:
