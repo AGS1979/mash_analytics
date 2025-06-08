@@ -18,6 +18,10 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_CHAT_URL = os.getenv("DEEPSEEK_CHAT_URL", "https://api.deepseek.com/v1/chat/completions")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+FMP_API_KEY = os.getenv("FMP_API_KEY", "")
+FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
+HEADERS_FMP = {"User-Agent": "Avinash Singh <avinashg.singh@aranca.com>"}
+
 
 HEADERS_DEEPSEEK = {
     "Content-Type": "application/json",
@@ -119,7 +123,7 @@ def extract_text_from_documents(filepaths):
     return text
 
 
-def extract_financial_data(text, line_item_queries):
+def extract_financial_data(text, line_item_queries, ticker=None):
     try:
         print("📊 [STEP 4] Extracting financial data using OpenAI...")
 
@@ -145,14 +149,9 @@ def extract_financial_data(text, line_item_queries):
             f"Company Filing Excerpt (first 8000 characters):\n{text[:8000]}"
         )
 
-        print("📤 Sending prompt to OpenAI...")
         response = call_llm(prompt, provider="openai", max_tokens=1600)
         print("📥 Raw OpenAI response (first 1000 chars):\n", response[:1000])
-
-        # Clean out triple backticks if present
         cleaned = re.sub(r"```json|```", "", response).strip()
-
-        # Attempt to extract JSON object
         json_match = re.search(r"{.*}", cleaned, re.DOTALL)
         if not json_match:
             print("❌ No valid JSON object found in OpenAI response.")
@@ -162,50 +161,57 @@ def extract_financial_data(text, line_item_queries):
         parsed_data = json.loads(raw_json)
         print("✅ Parsed JSON from OpenAI.")
 
-        # Normalize keys
         normalized = {}
-        key_mapping = {
-            "cash_and_cash_equivalents": "cash",
-            "total_cash": "cash",
-            "total_cash_and_equivalents": "cash",
-            "cash": "cash",
-            "debt": "debt",
-            "total_debt": "debt",
-            "borrowings": "debt",
-            "total_borrowings": "debt",
-            "long_term_debt": "debt",
-            "short_term_debt": "debt",
-            "diluted_shares_outstanding": "diluted_shares_outstanding",
-            "diluted_shares": "diluted_shares_outstanding",
-            "shares_outstanding": "diluted_shares_outstanding",
-        }
-
         for key, val in parsed_data.items():
-            lower_key = key.lower().strip()
-            norm_key = key_mapping.get(lower_key, lower_key)
+            norm_key = key.lower().strip().replace(" ", "_")
+            if isinstance(val, dict):
+                if norm_key not in normalized:
+                    normalized[norm_key] = val
+                else:
+                    normalized[norm_key].update(val)
 
-            if norm_key not in normalized:
-                normalized[norm_key] = val
-            else:
-                # Merge if duplicate key
-                for year, v in val.items():
-                    normalized[norm_key][year] = v
-
-        # 🧠 Try to infer diluted shares outstanding if missing
-        try:
-            if "diluted_shares_outstanding" not in normalized:
+        # Try to infer shares
+        if "diluted_shares_outstanding" not in normalized:
+            try:
                 if "eps" in normalized and "net_income" in normalized:
-                    years = set(normalized["eps"].keys()) & set(normalized["net_income"].keys())
-                    if years:
-                        latest_year = max(years)
-                        eps = normalized["eps"][latest_year]
-                        ni = normalized["net_income"][latest_year]
-                        if eps and ni:
-                            inferred = round(ni / eps, 2)
-                            normalized["diluted_shares_outstanding"] = {latest_year: inferred}
-                            print(f"🧠 Inferred diluted shares outstanding for {latest_year}: {inferred}")
-        except Exception as e:
-            print("⚠️ Could not infer shares outstanding:", e)
+                    common_years = set(normalized["eps"].keys()) & set(normalized["net_income"].keys())
+                    if common_years:
+                        y = max(common_years)
+                        inferred = round(normalized["net_income"][y] / normalized["eps"][y], 2)
+                        normalized["diluted_shares_outstanding"] = {y: inferred}
+                        print(f"🧠 Inferred diluted shares outstanding for {y}: {inferred}")
+            except Exception as e:
+                print("⚠️ Could not infer shares:", e)
+
+        # Check completeness
+        required = ["cash", "debt", "diluted_shares_outstanding"]
+        if all(k in normalized for k in required):
+            print("✅ OpenAI provided all required financials.")
+            return normalized
+
+        # Use FMP fallback for US stocks
+        if ticker and "." not in ticker:
+            print("⚠️ Missing fields — attempting FMP fallback for US ticker:", ticker)
+            def fetch_fmp(endpoint):
+                url = f"{FMP_BASE_URL}/{endpoint}/{ticker}?limit=1&apikey={FMP_API_KEY}"
+                res = requests.get(url, headers=HEADERS_FMP)
+                return res.json()[0] if res.ok else {}
+
+            bs = fetch_fmp("balance-sheet-statement")
+            is_ = fetch_fmp("income-statement")
+
+            if "cash" not in normalized and "cashAndShortTermInvestments" in bs:
+                normalized["cash"] = {"2024": round(bs["cashAndShortTermInvestments"] / 1e6, 2)}
+            if "debt" not in normalized:
+                total_debt = (bs.get("shortTermDebt", 0) or 0) + (bs.get("longTermDebt", 0) or 0)
+                if total_debt > 0:
+                    normalized["debt"] = {"2024": round(total_debt / 1e6, 2)}
+            if "diluted_shares_outstanding" not in normalized and "weightedAverageShsOutDil" in is_:
+                normalized["diluted_shares_outstanding"] = {"2024": round(is_["weightedAverageShsOutDil"] / 1e6, 2)}
+
+            print("✅ FMP fallback completed. Final keys:", list(normalized.keys()))
+        else:
+            print("🌐 Non-US stock or no ticker — skipping FMP fallback.")
 
         print("✅ Final normalized financials:\n", json.dumps(normalized, indent=2))
         return normalized
@@ -213,6 +219,7 @@ def extract_financial_data(text, line_item_queries):
     except Exception as e:
         print("🔥 extract_financial_data() failed:", str(e))
         return {}
+
 
 
 
