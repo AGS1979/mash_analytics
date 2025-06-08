@@ -58,8 +58,6 @@ from PrivateTransactionAnalyzer import analyze_transaction_doc
 from DCFAgent import (
     get_ticker,
     get_current_price,
-    extract_text_from_documents,
-    extract_financial_data,
     generate_forecast_scenarios,
     calculate_dcf_scenarios,
     format_html_output,
