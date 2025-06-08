@@ -181,18 +181,39 @@ def extract_financial_data(text, line_item_queries):
         }
 
         for key, val in parsed_data.items():
-            norm_key = key_mapping.get(key.lower(), key.lower())
+            lower_key = key.lower().strip()
+            norm_key = key_mapping.get(lower_key, lower_key)
+
             if norm_key not in normalized:
                 normalized[norm_key] = val
             else:
-                normalized[norm_key].update(val)
+                # Merge if duplicate key
+                for year, v in val.items():
+                    normalized[norm_key][year] = v
 
-        print("🧹 Normalized financial data:\n", json.dumps(normalized, indent=2))
+        # 🧠 Try to infer diluted shares outstanding if missing
+        try:
+            if "diluted_shares_outstanding" not in normalized:
+                if "eps" in normalized and "net_income" in normalized:
+                    years = set(normalized["eps"].keys()) & set(normalized["net_income"].keys())
+                    if years:
+                        latest_year = max(years)
+                        eps = normalized["eps"][latest_year]
+                        ni = normalized["net_income"][latest_year]
+                        if eps and ni:
+                            inferred = round(ni / eps, 2)
+                            normalized["diluted_shares_outstanding"] = {latest_year: inferred}
+                            print(f"🧠 Inferred diluted shares outstanding for {latest_year}: {inferred}")
+        except Exception as e:
+            print("⚠️ Could not infer shares outstanding:", e)
+
+        print("✅ Final normalized financials:\n", json.dumps(normalized, indent=2))
         return normalized
 
     except Exception as e:
         print("🔥 extract_financial_data() failed:", str(e))
         return {}
+
 
 
 def generate_forecast_scenarios(text, financials, assumptions):
