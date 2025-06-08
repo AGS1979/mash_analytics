@@ -1,12 +1,21 @@
 import os
 import re
 import json
+import time
 import requests
+
 import pandas as pd
 import numpy as np
 import yfinance as yf
 
-from PDFQueryEngine import PDFQueryEngine
+from PyPDF2 import PdfReader
+import camelot
+from openpyxl import Workbook
+from docx import Document
+from bs4 import BeautifulSoup
+
+from InvMemo import PDFQueryEngine  # ✅ Correct import based on your file name
+
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
