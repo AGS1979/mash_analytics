@@ -65,15 +65,31 @@ def call_llm(prompt: str, temperature=0.2, max_tokens=1000) -> str:
 
 
 def extract_financials_with_pdfquery(filepaths):
-    engine = PDFQueryEngine(docs=filepaths)
+    from InvMemo import PDFQueryEngine  # ✅ uses your existing class
+
+    engine = PDFQueryEngine()  # no arguments since your class doesn’t accept any
+    engine.chunks = []
+    for path in filepaths:
+        engine.chunks.extend(engine.extract_text_from_pdf(path))
+    engine.chunk_texts = [text for _, text in engine.chunks]
+    engine.embeddings = engine.embed_texts(engine.chunk_texts)
+    engine.index = engine.build_faiss_index(engine.embeddings)
+
     print("📄 Using PDFQueryEngine for financial extraction...")
 
     queries = {
         "cash": "Only provide the total cash or cash and cash equivalents for 2024. Only return a number.",
         "debt": "Only provide the total debt or borrowings for 2024. Only return a number.",
         "shares": "Only provide diluted shares outstanding for 2024. Only return a number.",
-        "net_income": "Only provide net income for 2024. Only return a number.",
-        "diluted_eps": "Only provide diluted earnings per share (EPS) for 2024. Only return a number."
+        "net_income": "Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "diluted_eps": "Only provide diluted earnings per share (EPS) for 2024. Only return a number.",
+        "revenue": "Only provide total revenue for the company for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "operating_income": "Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "EBITDA": "Only provide EBITDA for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "segment_revenue": "Only provide segment revenue for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "segment_EBITDA": "Only provide segment EBITDA for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "free_cash_flow": "Only provide free cash flow for 2024, 2023, 2022, 2021, 2020. Only return a number.",
+        "capex": "Only provide capital expenditure for 2024, 2023, 2022, 2021, 2020. Only return a number."
     }
 
     results = {}
@@ -91,6 +107,7 @@ def extract_financials_with_pdfquery(filepaths):
         results["shares"] = round(results["shares"] / 1e6, 2)
 
     return results
+
 
 
 def generate_forecast_scenarios(text, financials, assumptions):
