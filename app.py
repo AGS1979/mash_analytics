@@ -601,7 +601,6 @@ def analyze_dcf():
 
         # Extract inputs from form
         company_name = request.form.get("company_name")
-        line_item_queries = request.form.get("line_item_queries", "").splitlines()
         assumptions_json = request.form.get("assumptions")
         uploaded_files = request.files.getlist("files")
 
@@ -636,15 +635,19 @@ def analyze_dcf():
             print("❌ Ticker/CMP lookup failed:", str(e))
             return jsonify({"error": str(e)}), 400
 
-        # Extract full text from documents
-        print("📚 [STEP 3] Extracting text from uploaded documents...")
-        text = extract_text_from_documents(filepaths)
-        print("📄 Text extraction complete. Length:", len(text))
-
-        # Extract historical financial data
-        print("📈 [STEP 4] Extracting financials using line items...")
-        financials = extract_financial_data(text, line_item_queries)
+        # Extract financials using PDFQueryEngine
+        print("📈 [STEP 3] Extracting financials using PDFQueryEngine...")
+        financials = extract_financials_with_pdfquery(filepaths)
         print("📊 Extracted financials:", json.dumps(financials, indent=2))
+
+        # You still need to extract text for forecast scenario generation
+        print("📚 [STEP 4] Extracting combined text from uploaded documents...")
+        combined_text = ""
+        for path in filepaths:
+            with open(path, "rb") as f:
+                combined_text += f.read().decode(errors="ignore")
+        print("📄 Text extraction complete. Length:", len(combined_text))
+
 
         # Ensure core items are available
         cash = financials.get("cash", {}).get("2024", 0)

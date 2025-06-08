@@ -557,9 +557,7 @@ function showDcfModal() {
         <label>Company Name:</label><br>
         <input type="text" name="company_name" placeholder="e.g. Apple Inc." required /><br><br>
 
-        <label>Enter Line Item Queries (one per line):</label><br>
-        <textarea name="line_item_queries" rows="4" required placeholder="e.g.\nrevenue from 2020–2024\nFCF\nEBITDA"></textarea><br><br>
-
+        
         <label>Optional DCF Assumptions (JSON format):</label><br>
         <textarea name="assumptions" rows="4" placeholder='{"source":"own","WACC":"9.5","terminal_rate_or_multiple":"2.5","model_type":"perpetuity","forecast_years":"5"}'></textarea><br><br>
 
