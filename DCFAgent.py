@@ -181,24 +181,19 @@ def extract_financial_data(text, line_item_queries, ticker=None):
             "basic_shares": "diluted_shares_outstanding"
         }
 
+        # Normalize synonymous keys and populate normalized dictionary
+        normalized = {}
         for k in list(parsed_data.keys()):
             norm_k = k.lower().strip().replace(" ", "_")
             key_to_use = synonyms.get(norm_k, norm_k)
-            if isinstance(parsed_data[k], dict):
-                if key_to_use not in normalized:
-                    normalized[key_to_use] = parsed_data[k]
-                else:
-                    normalized[key_to_use].update(parsed_data[k])
+            val = parsed_data[k]
 
-
-        normalized = {}
-        for key, val in parsed_data.items():
-            norm_key = key.lower().strip().replace(" ", "_")
             if isinstance(val, dict):
-                if norm_key not in normalized:
-                    normalized[norm_key] = val
+                if key_to_use not in normalized:
+                    normalized[key_to_use] = val
                 else:
-                    normalized[norm_key].update(val)
+                    normalized[key_to_use].update(val)
+
 
         # Try to infer shares
         if "diluted_shares_outstanding" not in normalized:
