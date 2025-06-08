@@ -179,7 +179,9 @@ def extract_financial_data(text, line_item_queries, ticker=None):
             "shares_outstanding": "diluted_shares_outstanding",
             "weighted_average_shares": "diluted_shares_outstanding",
             "diluted_shares": "diluted_shares_outstanding",
-            "basic_shares": "diluted_shares_outstanding"
+            "basic_shares": "diluted_shares_outstanding",
+            "eps": "diluted_eps",  # add this
+            "basic_eps": "diluted_eps"
         }
 
         # Normalize synonymous keys and populate normalized dictionary
@@ -199,7 +201,7 @@ def extract_financial_data(text, line_item_queries, ticker=None):
         # Try to infer shares
         if "diluted_shares_outstanding" not in normalized:
             try:
-                if "eps" in normalized and "net_income" in normalized:
+                if "diluted_eps" in normalized and "net_income" in normalized:
                     common_years = set(normalized["eps"].keys()) & set(normalized["net_income"].keys())
                     if common_years:
                         y = max(common_years)
@@ -230,6 +232,8 @@ def extract_financial_data(text, line_item_queries, ticker=None):
 
             bs = fetch_fmp("balance-sheet-statement")
             is_ = fetch_fmp("income-statement")
+            print("🧾 Raw FMP balance sheet:", bs)
+            print("🧾 Raw FMP income statement:", is_)
 
             if "cash" not in normalized and "cashAndShortTermInvestments" in bs:
                 normalized["cash"] = {"2024": round(bs["cashAndShortTermInvestments"] / 1e6, 2)}
