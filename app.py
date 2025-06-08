@@ -61,7 +61,8 @@ from DCFAgent import (
     generate_forecast_scenarios,
     calculate_dcf_scenarios,
     format_html_output,
-    generate_excel_output
+    generate_excel_output,
+    extract_financials_with_pdfquery
 )
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
