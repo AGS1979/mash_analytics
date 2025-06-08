@@ -161,6 +161,22 @@ def extract_financial_data(text, line_item_queries, ticker=None):
         parsed_data = json.loads(raw_json)
         print("✅ Parsed JSON from OpenAI.")
 
+        # Normalize synonymous keys
+        synonyms = {
+            "total_cash_and_cash_equivalents": "cash",
+            "cash_and_cash_equivalents": "cash",
+            "cashandshortterminvestments": "cash",
+            "total_debt": "debt",
+            "total_borrowings": "debt",
+            "shares_outstanding": "diluted_shares_outstanding",
+            "weighted_average_shares": "diluted_shares_outstanding"
+        }
+        for k in list(parsed_data.keys()):
+            norm_k = k.lower().strip().replace(" ", "_")
+            if norm_k in synonyms:
+                new_key = synonyms[norm_k]
+                parsed_data[new_key] = parsed_data.get(new_key, {}) | parsed_data.pop(k)
+
         normalized = {}
         for key, val in parsed_data.items():
             norm_key = key.lower().strip().replace(" ", "_")
@@ -185,6 +201,7 @@ def extract_financial_data(text, line_item_queries, ticker=None):
 
         # Check completeness
         required = ["cash", "debt", "diluted_shares_outstanding"]
+        print("🔁 Normalized financials keys:", list(normalized.keys()))
         if all(k in normalized for k in required):
             print("✅ OpenAI provided all required financials.")
             return normalized
