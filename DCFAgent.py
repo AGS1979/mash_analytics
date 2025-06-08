@@ -53,6 +53,10 @@ def get_current_price(ticker: str) -> float:
     return round(df["Close"].dropna().iloc[-1], 2)
 
 
+def extract_year_value(field, year):
+    return field.get(str(year), 0) if isinstance(field, dict) else field
+
+
 def call_llm(prompt: str, temperature=0.2, max_tokens=1000) -> str:
     body = {
         "model": "gpt-4o",
@@ -166,8 +170,13 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
         fcffs = forecast_json[scenario]["fcff"]
         terminal_fcff = fcffs[-1] * (1 + terminal_growth / 100) / ((wacc - terminal_growth) / 100)
         dcf_value = discount_fcffs(fcffs) + terminal_fcff / ((1 + wacc / 100) ** years)
-        equity_value = dcf_value + cash - debt
-        fair_value = equity_value / shares
+        cash_val = extract_year_value(cash, 2024)
+        debt_val = extract_year_value(debt, 2024)
+        shares_val = extract_year_value(shares, 2024)
+
+        equity_value = dcf_value + cash_val - debt_val
+        fair_value = equity_value / shares_val if shares_val else 0
+
 
         output[scenario] = {
             "fcff": fcffs,

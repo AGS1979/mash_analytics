@@ -62,7 +62,8 @@ from DCFAgent import (
     calculate_dcf_scenarios,
     format_html_output,
     generate_excel_output,
-    extract_financials_with_pdfquery
+    extract_financials_with_pdfquery,
+    extract_year_value
 )
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -648,9 +649,9 @@ def analyze_dcf():
 
 
         # Ensure core items are available
-        cash = financials.get("cash", {}).get("2024", 0)
-        debt = financials.get("debt", {}).get("2024", 0)
-        shares = financials.get("diluted_shares_outstanding", {}).get("2024", 0)
+        cash = extract_year_value(financials.get("cash", 0), 2024)
+        debt = extract_year_value(financials.get("debt", 0), 2024)
+        shares = extract_year_value(financials.get("diluted_shares_outstanding", 0), 2024)
         print(f"🔍 Cash: {cash}, Debt: {debt}, Shares: {shares}")
 
         if not (cash and debt and shares):
