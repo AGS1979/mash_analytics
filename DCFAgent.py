@@ -269,7 +269,18 @@ def generate_forecast_scenarios(text, financials, assumptions):
 def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp):
     try:
         if isinstance(forecast_json, str):
+            forecast_json = forecast_json.strip()
+
+            # Clean markdown-style code block if present
+            if forecast_json.startswith("```json"):
+                forecast_json = forecast_json[len("```json"):].strip()
+            elif forecast_json.startswith("```"):
+                forecast_json = forecast_json[len("```"):].strip()
+            if forecast_json.endswith("```"):
+                forecast_json = forecast_json[:-3].strip()
+
             forecast_json = json.loads(forecast_json)
+
     except Exception as e:
         print("🔥 [FATAL] Failed to parse forecast JSON:", str(e))
         print("🧾 Forecast response was:\n", forecast_json)
