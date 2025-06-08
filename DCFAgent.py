@@ -200,19 +200,19 @@ def extract_financial_data(text, line_item_queries, ticker=None):
                 print("⚠️ Could not infer shares:", e)
 
         # Check completeness
+        # Check completeness
         required = ["cash", "debt", "diluted_shares_outstanding"]
         print("🔁 Normalized financials keys:", list(normalized.keys()))
-        if all(k in normalized for k in required):
-            print("✅ OpenAI provided all required financials.")
-            return normalized
+        missing = [k for k in required if k not in normalized]
 
-        # Use FMP fallback for US stocks
-        if ticker and "." not in ticker:
-            print("⚠️ Missing fields — attempting FMP fallback for US ticker:", ticker)
+        # Attempt FMP fallback if anything is missing and it's a US ticker
+        if missing and ticker and "." not in ticker:
+            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback for US ticker: {ticker}")
+            
             def fetch_fmp(endpoint):
                 url = f"{FMP_BASE_URL}/{endpoint}/{ticker}?limit=1&apikey={FMP_API_KEY}"
                 res = requests.get(url, headers=HEADERS_FMP)
-                return res.json()[0] if res.ok else {}
+                return res.json()[0] if res.ok and res.json() else {}
 
             bs = fetch_fmp("balance-sheet-statement")
             is_ = fetch_fmp("income-statement")
@@ -224,19 +224,21 @@ def extract_financial_data(text, line_item_queries, ticker=None):
                 if total_debt > 0:
                     normalized["debt"] = {"2024": round(total_debt / 1e6, 2)}
             if "diluted_shares_outstanding" not in normalized and "weightedAverageShsOutDil" in is_:
-                normalized["diluted_shares_outstanding"] = {"2024": round(is_["weightedAverageShsOutDil"] / 1e6, 2)}
+                normalized["diluted_shares_outstanding"] = {
+                    "2024": round(is_["weightedAverageShsOutDil"] / 1e6, 2)
+                }
 
             print("✅ FMP fallback completed. Final keys:", list(normalized.keys()))
         else:
-            print("🌐 Non-US stock or no ticker — skipping FMP fallback.")
+            print("🌐 FMP fallback not triggered (non-US ticker or no missing fields).")
 
-        print("✅ Final normalized financials:\n", json.dumps(normalized, indent=2))
-        return normalized
-
-    except Exception as e:
-        print("🔥 extract_financial_data() failed:", str(e))
-        return {}
-
+        # Final check
+        if all(k in normalized for k in required):
+            print("✅ Final normalized financials after fallback:\n", json.dumps(normalized, indent=2))
+            return normalized
+        else:
+            print(f"❌ Missing key financials: {', '.join(missing)}")
+            return {}
 
 
 
@@ -327,7 +329,7 @@ def format_html_output(dcf_result, financials, ticker, cmp):
 
     html += "</table>"
     return html
-    
+
 
 def generate_excel_output(dcf_result):
     from io import BytesIO
