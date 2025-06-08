@@ -142,7 +142,7 @@ def extract_financial_data(text, line_item_queries, ticker=None):
             '  "net_income": {"2024": 3400, "2023": 2900},\n'
             '  "cash": {"2024": 2100},\n'
             '  "debt": {"2024": 5000},\n'
-            '  "diluted_shares_outstanding": {"2024": 300}\n'
+            '  "diluted_eps": {"2024": 13.63}\n'
             "}\n\n"
             "Use **lowercase snake_case** keys. Return figures in **millions of USD**, unless otherwise stated.\n"
             "Do NOT include any text, commentary, or explanation outside the JSON.\n\n"
@@ -162,69 +162,33 @@ def extract_financial_data(text, line_item_queries, ticker=None):
         parsed_data = json.loads(raw_json)
         print("✅ Parsed JSON from OpenAI.")
 
-        # Normalize synonymous keys
-        # Normalize synonymous keys
+        # Synonym map
         synonyms = {
             "total_cash": "cash",
-            "total_cash_and_cash_equivalents": "cash",
             "cash_and_cash_equivalents": "cash",
             "cashandshortterminvestments": "cash",
-            "net_cash": "cash",
             "available_cash": "cash",
-
             "total_debt": "debt",
-            "total_borrowings": "debt",
             "borrowings": "debt",
-
-            "shares_outstanding": "diluted_shares_outstanding",
-            "weighted_average_shares": "diluted_shares_outstanding",
-            "diluted_shares": "diluted_shares_outstanding",
-            "basic_shares": "diluted_shares_outstanding",
-            "eps": "diluted_eps",  # add this
-            "basic_eps": "diluted_eps"
+            "eps": "diluted_eps",
+            "basic_eps": "diluted_eps",
         }
 
-        # Normalize synonymous keys and populate normalized dictionary
+        # Normalize keys
         normalized = {}
         for k in list(parsed_data.keys()):
             norm_k = k.lower().strip().replace(" ", "_")
             key_to_use = synonyms.get(norm_k, norm_k)
             val = parsed_data[k]
-
             if isinstance(val, dict):
-                if key_to_use not in normalized:
-                    normalized[key_to_use] = val
-                else:
-                    normalized[key_to_use].update(val)
+                normalized.setdefault(key_to_use, {}).update(val)
 
-
-        # Try to infer shares
-        if "diluted_shares_outstanding" not in normalized:
-            try:
-                if "diluted_eps" in normalized and "net_income" in normalized:
-                    common_years = set(normalized["eps"].keys()) & set(normalized["net_income"].keys())
-                    if common_years:
-                        y = max(common_years)
-                        inferred = round(normalized["net_income"][y] / normalized["eps"][y], 2)
-                        normalized["diluted_shares_outstanding"] = {y: inferred}
-                        print(f"🧠 Inferred diluted shares outstanding for {y}: {inferred}")
-            except Exception as e:
-                print("⚠️ Could not infer shares:", e)
-
-        # Check completeness
-        # Check completeness
-        required = ["cash", "debt", "diluted_shares_outstanding"]
-        
+        # Check if we need fallback
+        required = ["cash", "debt"]
         missing = [k for k in required if k not in normalized]
         if missing and ticker and "." not in ticker:
-            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback...")
-            # FMP logic here
+            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback for {ticker}")
 
-
-        # Attempt FMP fallback if anything is missing and it's a US ticker
-        if missing and ticker and "." not in ticker:
-            print(f"⚠️ Missing fields: {missing} — attempting FMP fallback for US ticker: {ticker}")
-            
             def fetch_fmp(endpoint):
                 url = f"{FMP_BASE_URL}/{endpoint}/{ticker}?limit=1&apikey={FMP_API_KEY}"
                 res = requests.get(url, headers=HEADERS_FMP)
@@ -241,26 +205,18 @@ def extract_financial_data(text, line_item_queries, ticker=None):
                 total_debt = (bs.get("shortTermDebt", 0) or 0) + (bs.get("longTermDebt", 0) or 0)
                 if total_debt > 0:
                     normalized["debt"] = {"2024": round(total_debt / 1e6, 2)}
-            if "diluted_shares_outstanding" not in normalized and "weightedAverageShsOutDil" in is_:
-                normalized["diluted_shares_outstanding"] = {
-                    "2024": round(is_["weightedAverageShsOutDil"] / 1e6, 2)
-                }
+            if "diluted_eps" not in normalized and "eps" in is_:
+                normalized["diluted_eps"] = {"2024": round(is_["eps"], 2)}
+            if "net_income" not in normalized and "netIncome" in is_:
+                normalized["net_income"] = {"2024": round(is_["netIncome"] / 1e6, 2)}
 
-            print("✅ FMP fallback completed. Final keys:", list(normalized.keys()))
-        else:
-            print("🌐 FMP fallback not triggered (non-US ticker or no missing fields).")
-
-        # Final check
-        if all(k in normalized for k in required):
-            print("✅ Final normalized financials after fallback:\n", json.dumps(normalized, indent=2))
-            return normalized
-        else:
-            print(f"❌ Missing key financials: {', '.join(missing)}")
-            return {}
+        print("✅ Final normalized financials:\n", json.dumps(normalized, indent=2))
+        return normalized
 
     except Exception as e:
         print(f"❌ Extraction error: {e}")
         return {}
+
 
 def generate_forecast_scenarios(text, financials, assumptions):
     prompt = (
@@ -288,7 +244,7 @@ def generate_forecast_scenarios(text, financials, assumptions):
     return call_llm(prompt, provider="openai")
 
 
-def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp):
+def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, cmp, financials=None):
     try:
         if isinstance(forecast_json, str):
             forecast_json = forecast_json.strip()
@@ -308,20 +264,46 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
         print("🧾 Forecast response was:\n", forecast_json)
         raise
 
+    # Extract WACC and terminal growth assumptions
     wacc = float(assumptions["WACC"])
     terminal_growth = float(assumptions["terminal_rate_or_multiple"])
     years = int(assumptions["forecast_years"])
 
+    # Discounting helper
     def discount_fcffs(fcffs):
-        return sum(f / ((1 + wacc/100) ** (i+1)) for i, f in enumerate(fcffs))
+        return sum(f / ((1 + wacc / 100) ** (i + 1)) for i, f in enumerate(fcffs))
 
+    # Compute shares = net_income / EPS
+    try:
+        if not financials:
+            raise ValueError("Missing `financials` for computing shares")
+
+        ni_years = financials.get("net_income", {})
+        eps_years = financials.get("diluted_eps", {})
+        common_years = set(ni_years.keys()) & set(eps_years.keys())
+
+        if not common_years:
+            raise ValueError("No common year between net income and EPS")
+
+        latest_year = max(common_years)
+        net_income = financials["net_income"][latest_year]
+        eps = financials["diluted_eps"][latest_year]
+
+        shares = round(net_income / eps, 2)
+        print(f"🧠 Computed shares = {net_income} / {eps} = {shares}")
+    except Exception as e:
+        print(f"❌ Could not compute shares from EPS and Net Income: {e}")
+        raise
+
+    # Build DCF output
     output = {}
     for scenario in ["bull", "base", "bear"]:
         fcffs = forecast_json[scenario]["fcff"]
-        terminal_fcff = fcffs[-1] * (1 + terminal_growth/100) / ((wacc - terminal_growth)/100)
-        dcf_value = discount_fcffs(fcffs) + terminal_fcff / ((1 + wacc/100) ** years)
+        terminal_fcff = fcffs[-1] * (1 + terminal_growth / 100) / ((wacc - terminal_growth) / 100)
+        dcf_value = discount_fcffs(fcffs) + terminal_fcff / ((1 + wacc / 100) ** years)
         equity_value = dcf_value + cash - debt
         fair_value = equity_value / shares
+
         output[scenario] = {
             "fcff": fcffs,
             "dcf_value": round(dcf_value, 2),
@@ -330,7 +312,9 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
             "cmp": cmp,
             "justification": forecast_json[scenario].get("justification", "")
         }
+
     return output
+
 
 
 def format_html_output(dcf_result, financials, ticker, cmp):
