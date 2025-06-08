@@ -603,7 +603,6 @@ def analyze_dcf():
         uploaded_files = request.files.getlist("files")
 
         print("🧾 Received company_name:", company_name)
-        print("📝 Line items:", line_item_queries)
         print("📦 Number of uploaded files:", len(uploaded_files))
 
         if not company_name or not uploaded_files:
@@ -659,7 +658,7 @@ def analyze_dcf():
 
         # Generate forecasts from LLM
         print("🧠 [STEP 5] Generating bull-base-bear forecast scenarios...")
-        forecast_json = generate_forecast_scenarios(text, financials, assumptions)
+        forecast_json = generate_forecast_scenarios(combined_text, financials, assumptions)
         print("📈 Forecast JSON:", forecast_json)
 
         # Calculate DCF based on forecasts
