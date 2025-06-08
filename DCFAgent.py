@@ -253,7 +253,9 @@ def extract_financial_data(text, line_item_queries, ticker=None):
             print(f"❌ Missing key financials: {', '.join(missing)}")
             return {}
 
-
+    except Exception as e:
+        print(f"❌ Extraction error: {e}")
+        return {}
 
 def generate_forecast_scenarios(text, financials, assumptions):
     prompt = (
