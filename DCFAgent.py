@@ -119,18 +119,83 @@ def extract_text_from_documents(filepaths):
     return text
 
 
-def extract_financial_data(text, line_items):
-    prompt = (
-        "Extract the following line items from the financial documents text below:\n"
-        f"{', '.join(line_items)}\n"
-        "Return results in JSON format with line item as key and year-wise values as nested dictionary."
-        "\n\nTEXT:\n" + text[:8000]
-    )
-    response = call_llm(prompt, provider="deepseek")
+def extract_financial_data(text, line_item_queries):
     try:
-        return json.loads(response)
-    except:
+        print("📊 [STEP 4] Extracting financial data...")
+
+        # Normalize query list to remove blank lines
+        line_items = [line.strip() for line in line_item_queries if line.strip()]
+        print("🧾 Line items requested:", line_items)
+
+        # Step 1: Prepare DeepSeek prompt
+        prompt = (
+            "You are a financial analyst reading through annual and quarterly reports.\n"
+            "Extract historical financial data ONLY from clearly stated tables, charts, or bullet points.\n"
+            "Avoid forward-looking projections or management commentary.\n\n"
+            f"Requested financial line items (across last 3–5 years):\n- " + "\n- ".join(line_items) + "\n\n"
+            "Respond in JSON using this format:\n"
+            '{\n'
+            '  "revenue": {"2024": 12345, "2023": 11800},\n'
+            '  "net_income": {"2024": 3400, "2023": 2900},\n'
+            '  "cash": {"2024": 2100},\n'
+            '  "debt": {"2024": 5000},\n'
+            '  "diluted_shares_outstanding": {"2024": 300}\n'
+            '}\n\n'
+            "Only include numbers. Use lowercase snake_case for keys.\n\n"
+            f"DOCUMENT TEXT SAMPLE:\n{text[:8000]}\n\n"
+            "Trim long responses if needed. Do not include explanations."
+        )
+
+        print("📤 Prompting DeepSeek...")
+        response = deepseek_chat(prompt, max_tokens=1600)
+        print("📥 Raw DeepSeek response:\n", response[:1000], "..." if len(response) > 1000 else "")
+
+        # Step 2: Extract JSON block
+        json_match = re.search(r"{.*}", response, re.DOTALL)
+        if not json_match:
+            print("❌ No JSON block found in response.")
+            return {}
+
+        raw_json = json_match.group(0)
+
+        try:
+            parsed_data = json.loads(raw_json)
+            print("✅ Parsed JSON:", json.dumps(parsed_data, indent=2))
+        except json.JSONDecodeError as e:
+            print("❌ JSON parsing error:", str(e))
+            return {}
+
+        # Step 3: Normalize keys for downstream compatibility
+        normalized = {}
+        key_mapping = {
+            "cash_and_cash_equivalents": "cash",
+            "total_cash": "cash",
+            "total_cash_and_equivalents": "cash",
+            "debt": "debt",
+            "total_debt": "debt",
+            "borrowings": "debt",
+            "total_borrowings": "debt",
+            "shares_outstanding": "diluted_shares_outstanding",
+            "diluted_shares": "diluted_shares_outstanding",
+            "diluted_shares_outstanding": "diluted_shares_outstanding"
+        }
+
+        for key, value in parsed_data.items():
+            norm_key = key_mapping.get(key.lower(), key.lower())
+            if norm_key not in normalized:
+                normalized[norm_key] = value
+            else:
+                # Merge values by year if same key appears twice
+                normalized[norm_key].update(value)
+
+        print("🧹 Normalized financial data:", json.dumps(normalized, indent=2))
+        return normalized
+
+    except Exception as e:
+        print("🔥 extract_financial_data() failed:", str(e))
         return {}
+
+
 
 
 def generate_forecast_scenarios(text, financials, assumptions):
