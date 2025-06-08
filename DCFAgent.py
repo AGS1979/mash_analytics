@@ -242,19 +242,38 @@ def extract_financial_data(text, line_item_queries, ticker=None):
 
 def generate_forecast_scenarios(text, financials, assumptions):
     prompt = (
-        "Based on the following financial data and document excerpts, generate 3 financial scenarios "
-        "(bull, base, bear) of Free Cash Flow to Firm (FCFF) over the next "
+        "Based on the following financial data and company document excerpts, generate 3 forecast scenarios "
+        "(bull, base, and bear) for Free Cash Flow to Firm (FCFF) over the next "
         f"{assumptions.get('forecast_years', 5)} years.\n"
-        "You should consider trends, segment outlooks, industry guidance, and recent news.\n"
-        "Output should include FCFF per year and a one-line justification per case.\n"
+        "Return your output strictly in **JSON format only** with the following structure:\n\n"
+        "{\n"
+        '  "bull": {\n'
+        '    "fcff": [3600, 4000, 4400, 4800, 5200],\n'
+        '    "justification": "Brief explanation here."\n'
+        "  },\n"
+        '  "base": {\n'
+        '    "fcff": [3400, 3700, 4000, 4300, 4600],\n'
+        '    "justification": "Brief explanation here."\n'
+        "  },\n"
+        '  "bear": {\n'
+        '    "fcff": [3000, 3200, 3400, 3600, 3800],\n'
+        '    "justification": "Brief explanation here."\n'
+        "}\n\n"
+        "Use integers in millions of USD. Do not include any markdown, bullet points, or non-JSON text.\n\n"
         f"FINANCIALS:\n{json.dumps(financials)}\n\nTEXT:\n{text[:10000]}"
     )
+
     return call_llm(prompt, provider="openai")
 
 
 def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp):
-    if isinstance(forecast_json, str):
-        forecast_json = json.loads(forecast_json)
+    try:
+        if isinstance(forecast_json, str):
+            forecast_json = json.loads(forecast_json)
+    except Exception as e:
+        print("🔥 [FATAL] Failed to parse forecast JSON:", str(e))
+        print("🧾 Forecast response was:\n", forecast_json)
+        raise
 
     wacc = float(assumptions["WACC"])
     terminal_growth = float(assumptions["terminal_rate_or_multiple"])
