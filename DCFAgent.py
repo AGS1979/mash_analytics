@@ -69,8 +69,14 @@ def call_llm(prompt: str, temperature=0.2, max_tokens=1000) -> str:
 
 
 def extract_financials_with_pdfquery(filepaths):
+    import re
     from InvMemo import PDFQueryEngine
     from types import MethodType
+
+    def extract_year_value_from_text(answer, target_year=2024):
+        pattern = re.findall(r"(\d{4})[:\s\-]+([-+]?\d[\d,\.]*)", answer)
+        data = {int(yr): float(val.replace(",", "")) for yr, val in pattern}
+        return round(data.get(target_year, 0), 2)
 
     engine = PDFQueryEngine()
     engine.chunks = []
@@ -85,15 +91,14 @@ def extract_financials_with_pdfquery(filepaths):
     def answer_query_bound(self, query: str) -> str:
         query_embedding = self.embedder.encode([query], convert_to_numpy=True)
         distances, indices = self.index.search(query_embedding, 5)
-        
-        # 🔍 Optional: Keyword-filtering for relevance (boosts precision)
+
         keywords = ["cash", "debt", "borrowings", "shares", "equity", "capital", "EPS", "revenue", "income"]
         retrieved_chunks = [
             chunk for i in indices[0] for chunk in [self.chunk_texts[i]]
             if any(k in chunk.lower() for k in keywords)
         ]
         if not retrieved_chunks:
-            retrieved_chunks = [self.chunk_texts[i] for i in indices[0]]  # fallback if too strict
+            retrieved_chunks = [self.chunk_texts[i] for i in indices[0]]
 
         context = "\n\n".join(retrieved_chunks)
 
@@ -112,7 +117,7 @@ def extract_financials_with_pdfquery(filepaths):
             headers=HEADERS_OPENAI,
             data=json.dumps(prompt)
         )
-       
+
         return response.json()["choices"][0]["message"]["content"].strip()
 
     engine.answer_query = MethodType(answer_query_bound, engine)
@@ -132,7 +137,6 @@ def extract_financials_with_pdfquery(filepaths):
             "How many diluted shares outstanding were there in 2024? Only return the number.",
             "Provide diluted shares outstanding for 2024. Return just the number."
         ],
-        # Single prompt entries wrapped in a list
         "net_income": ["Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number."],
         "diluted_eps": ["Only provide diluted earnings per share (EPS) for 2024. Only return a number."],
         "revenue": ["Only provide total revenue for the company for 2024, 2023, 2022, 2021, 2020. Only return a number."],
@@ -144,28 +148,46 @@ def extract_financials_with_pdfquery(filepaths):
         "capex": ["Only provide capital expenditure for 2024, 2023, 2022, 2021, 2020. Only return a number."]
     }
 
+    MULTI_YEAR_KEYS = {
+        "net_income", "operating_income", "EBITDA", "segment_revenue",
+        "segment_EBITDA", "free_cash_flow", "capex"
+    }
+
     results = {}
     for key, prompts in QUERIES.items():
         for prompt in prompts:
             try:
                 answer = engine.answer_query(prompt)
                 print(f"📌 {key} prompt: {prompt} → {answer}")
-                number = re.findall(r"[-+]?\d*\.\d+|\d+", answer.replace(",", ""))
-                if number:
-                    val = float(number[0])
-                    # Sanity check for shares
-                    if key == "shares" and val > 1_000_000:
-                        val = round(val / 1e6, 2)  # Convert to millions
-                    results[key] = round(val, 2)
-                    break  # successful extraction
+
+                if key in MULTI_YEAR_KEYS:
+                    val = extract_year_value_from_text(answer, target_year=2024)
+                    if val:
+                        results[key] = val
+                        break
+                else:
+                    number = re.findall(r"[-+]?\d*\.\d+|\d+", answer.replace(",", ""))
+                    if number:
+                        val = float(number[0])
+                        if key == "shares" and val > 1_000_000:
+                            val = round(val / 1e6, 2)
+                        results[key] = round(val, 2)
+                        break
+
             except Exception as e:
                 continue
         else:
             print(f"❌ Could not extract {key} with any prompt.")
             results[key] = 0
 
+    
+    # Prevent any critical field from being 0 unless all attempts failed
+    for k in ["shares", "cash", "debt"]:
+        if results.get(k, 0) == 0:
+            print(f"⚠️ Warning: {k} is 0 — extracted value may be missing or invalid.")
 
     return results
+
 
 
 
@@ -200,6 +222,9 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
         cash_val = extract_year_value(cash, 2024)
         debt_val = extract_year_value(debt, 2024)
         shares_val = extract_year_value(shares, 2024)
+        if not shares_val or shares_val <= 0:
+            raise ValueError("❌ Invalid or missing 'shares outstanding' value. Cannot proceed with DCF.")
+
 
         equity_value = dcf_value + cash_val - debt_val
         fair_value = equity_value / shares_val if shares_val else 0

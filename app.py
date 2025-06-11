@@ -651,8 +651,23 @@ def analyze_dcf():
         # Ensure core items are available
         cash = extract_year_value(financials.get("cash", 0), 2024)
         debt = extract_year_value(financials.get("debt", 0), 2024)
-        shares = extract_year_value(financials.get("diluted_shares_outstanding", 0), 2024)
+        shares = extract_year_value(financials.get("shares", 0), 2024)
+
         print(f"🔍 Cash: {cash}, Debt: {debt}, Shares: {shares}")
+
+
+        missing = []
+        if shares <= 0:
+            missing.append("shares outstanding")
+        if cash < 0:
+            missing.append("cash")
+        if debt < 0:
+            missing.append("debt")
+
+        if missing:
+            print(f"❌ Missing or invalid key financials: {', '.join(missing)}")
+            return jsonify({"error": f"Missing or invalid financials: {', '.join(missing)}"}), 400
+
 
         if not (cash and debt and shares):
             print("❌ Missing key financials: cash, debt, or shares")
