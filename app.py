@@ -685,7 +685,7 @@ def analyze_dcf():
 
         # Format HTML output
         print("🎨 Formatting HTML output...")
-        html_output = format_html_output(dcf_result, financials, ticker, cmp)
+        html_output = format_html_output(dcf_result, ticker, cmp)
 
         # Generate Excel output
         print("📤 Generating Excel output...")
