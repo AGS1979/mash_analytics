@@ -193,12 +193,15 @@ def extract_financials_with_pdfquery(filepaths):
 
 def generate_forecast_scenarios(text, financials, assumptions):
     prompt = (
-        f"Based on the following financial data and company document excerpts, generate 3 forecast scenarios "
-        f"(bull, base, and bear) for Free Cash Flow to Firm (FCFF) over the next {assumptions['forecast_years']} years.\n"
-        "Return in pure JSON format like:\n"
+        f"You are an equity research analyst preparing a DCF valuation for {financials.get('company_name', 'the company')}."
+        f"\n\nThe uploaded documents (investor presentations, filings, etc.) are provided below. "
+        f"Extract realistic justifications for future FCFF under bull, base, and bear scenarios."
+        f"\nFocus on company-specific drivers such as growth initiatives, product pipeline, R&D investments, market expansion, operating efficiency, macroeconomic trends, and risks mentioned in the uploaded materials. Justifications should reflect the industry context (e.g., tech, consumer, manufacturing, financials) and avoid generic phrasing.\n"
+        f"Return in JSON:\n"
         '{ "bull": { "fcff": [...], "justification": "..." }, "base": {...}, "bear": {...} }\n\n'
-        f"FINANCIALS:\n{json.dumps(financials)}\n\nTEXT:\n{text[:8000]}"
+        f"FINANCIALS:\n{json.dumps(financials)}\n\nDOCUMENTS:\n{text[:10000]}"
     )
+
     return call_llm(prompt, max_tokens=1600)
 
 
@@ -243,11 +246,15 @@ def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
 
 
 def format_html_output(dcf_result, ticker, cmp):
-    html = f"<h2>📊 DCF Valuation for {ticker}</h2><p>Current Market Price: <strong>${cmp}</strong></p>"
+    cmp_val = float(cmp) if not isinstance(cmp, (float, int)) else cmp
+    html = f"<h2>📊 DCF Valuation for {ticker}</h2><p>Current Market Price: <strong>${cmp_val:.2f}</strong></p>"
     html += "<table border='1' cellpadding='8' cellspacing='0'><tr><th>Scenario</th><th>Fair Value</th><th>Upside</th><th>Justification</th></tr>"
     for scenario, data in dcf_result.items():
-        upside = round((data["fair_value"] - cmp) / cmp * 100, 2)
-        html += f"<tr><td>{scenario.title()}</td><td>${data['fair_value']}</td><td>{upside}%</td><td>{data['justification']}</td></tr>"
+        cmp_val = float(data["cmp"]) if not isinstance(data["cmp"], (float, int)) else data["cmp"]
+        upside = round((data["fair_value"] - cmp_val) / cmp_val * 100, 2)
+        upside_str = f"+{upside}%" if upside > 0 else f"{upside}%"
+
+        html += f"<tr><td>{scenario.title()}</td><td>${data['fair_value']}</td><td>{upside_str}</td><td>{data['justification']}</td></tr>"
     html += "</table>"
     return html
 
