@@ -69,22 +69,32 @@ def call_llm(prompt: str, temperature=0.2, max_tokens=1000) -> str:
 
 
 def extract_financials_with_pdfquery(filepaths):
-    from InvMemo import PDFQueryEngine  # ✅ uses your existing class
+    from InvMemo import PDFQueryEngine
+    from types import MethodType
 
-    engine = PDFQueryEngine()  # no arguments since your class doesn’t accept any
+    engine = PDFQueryEngine()
     engine.chunks = []
+    
     for path in filepaths:
         engine.chunks.extend(engine.extract_text_from_pdf(path))
+    
     engine.chunk_texts = [text for _, text in engine.chunks]
     engine.embeddings = engine.embed_texts(engine.chunk_texts)
     engine.index = engine.build_faiss_index(engine.embeddings)
-    
-    from types import MethodType
 
     def answer_query_bound(self, query: str) -> str:
         query_embedding = self.embedder.encode([query], convert_to_numpy=True)
         distances, indices = self.index.search(query_embedding, 5)
-        retrieved_chunks = [self.chunk_texts[i] for i in indices[0]]
+        
+        # 🔍 Optional: Keyword-filtering for relevance (boosts precision)
+        keywords = ["cash", "debt", "borrowings", "shares", "equity", "capital", "EPS", "revenue", "income"]
+        retrieved_chunks = [
+            chunk for i in indices[0] for chunk in [self.chunk_texts[i]]
+            if any(k in chunk.lower() for k in keywords)
+        ]
+        if not retrieved_chunks:
+            retrieved_chunks = [self.chunk_texts[i] for i in indices[0]]  # fallback if too strict
+
         context = "\n\n".join(retrieved_chunks)
 
         prompt = {
@@ -102,41 +112,58 @@ def extract_financials_with_pdfquery(filepaths):
             headers=HEADERS_OPENAI,
             data=json.dumps(prompt)
         )
-
+       
         return response.json()["choices"][0]["message"]["content"].strip()
 
     engine.answer_query = MethodType(answer_query_bound, engine)
 
     print("📄 Using PDFQueryEngine for financial extraction...")
 
-    queries = {
-        "cash": "Only provide the total cash or cash and cash equivalents for 2024. Only return a number.",
-        "debt": "Only provide the total debt or borrowings for 2024. Only return a number.",
-        "shares": "Only provide diluted shares outstanding for 2024. Only return a number.",
-        "net_income": "Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "diluted_eps": "Only provide diluted earnings per share (EPS) for 2024. Only return a number.",
-        "revenue": "Only provide total revenue for the company for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "operating_income": "Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "EBITDA": "Only provide EBITDA for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "segment_revenue": "Only provide segment revenue for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "segment_EBITDA": "Only provide segment EBITDA for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "free_cash_flow": "Only provide free cash flow for 2024, 2023, 2022, 2021, 2020. Only return a number.",
-        "capex": "Only provide capital expenditure for 2024, 2023, 2022, 2021, 2020. Only return a number."
+    QUERIES = {
+        "cash": [
+            "What was the total cash or cash equivalents for the company in 2024? Provide only the number.",
+            "Only return total cash (or cash and equivalents) for 2024 from the context. Return only the number."
+        ],
+        "debt": [
+            "What is the total debt (or borrowings) for 2024? Just return the number.",
+            "Give the total debt or borrowings for the company in 2024. Return only the number."
+        ],
+        "shares": [
+            "How many diluted shares outstanding were there in 2024? Only return the number.",
+            "Provide diluted shares outstanding for 2024. Return just the number."
+        ],
+        # Single prompt entries wrapped in a list
+        "net_income": ["Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "diluted_eps": ["Only provide diluted earnings per share (EPS) for 2024. Only return a number."],
+        "revenue": ["Only provide total revenue for the company for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "operating_income": ["Only provide net income for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "EBITDA": ["Only provide EBITDA for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "segment_revenue": ["Only provide segment revenue for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "segment_EBITDA": ["Only provide segment EBITDA for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "free_cash_flow": ["Only provide free cash flow for 2024, 2023, 2022, 2021, 2020. Only return a number."],
+        "capex": ["Only provide capital expenditure for 2024, 2023, 2022, 2021, 2020. Only return a number."]
     }
 
     results = {}
-    for key, query in queries.items():
-        try:
-            answer = engine.answer_query(query)
-            print(f"📌 {key}: {answer}")
-            number = re.findall(r"[-+]?\d*\.\d+|\d+", answer.replace(",", ""))
-            results[key] = float(number[0]) if number else 0
-        except Exception as e:
-            print(f"❌ Failed to extract {key}: {e}")
+    for key, prompts in QUERIES.items():
+        for prompt in prompts:
+            try:
+                answer = engine.answer_query(prompt)
+                print(f"📌 {key} prompt: {prompt} → {answer}")
+                number = re.findall(r"[-+]?\d*\.\d+|\d+", answer.replace(",", ""))
+                if number:
+                    val = float(number[0])
+                    # Sanity check for shares
+                    if key == "shares" and val > 1_000_000:
+                        val = round(val / 1e6, 2)  # Convert to millions
+                    results[key] = round(val, 2)
+                    break  # successful extraction
+            except Exception as e:
+                continue
+        else:
+            print(f"❌ Could not extract {key} with any prompt.")
             results[key] = 0
 
-    if results.get("shares", 0) > 1000:
-        results["shares"] = round(results["shares"] / 1e6, 2)
 
     return results
 
