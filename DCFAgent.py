@@ -193,16 +193,23 @@ def extract_financials_with_pdfquery(filepaths):
 
 def generate_forecast_scenarios(text, financials, assumptions):
     prompt = (
-        f"You are an equity research analyst preparing a DCF valuation for {financials.get('company_name', 'the company')}."
-        f"\n\nThe uploaded documents (investor presentations, filings, etc.) are provided below. "
-        f"Extract realistic justifications for future FCFF under bull, base, and bear scenarios."
-        f"\nFocus on company-specific drivers such as growth initiatives, product pipeline, R&D investments, market expansion, operating efficiency, macroeconomic trends, and risks mentioned in the uploaded materials. Justifications should reflect the industry context (e.g., tech, consumer, manufacturing, financials) and avoid generic phrasing.\n"
-        f"Return in JSON:\n"
+        f"You are an equity research analyst preparing a 3-scenario DCF valuation for the company '{financials.get('company_name', 'the company')}'.\n\n"
+        f"Use the extracted financials and the uploaded document excerpts to generate realistic Bull, Base, and Bear cases for Free Cash Flow to Firm (FCFF) over the next {assumptions['forecast_years']} years.\n"
+        "Focus on company-specific drivers such as growth initiatives, market expansion, product pipeline, R&D investments, capital efficiency, and macroeconomic risks. Avoid generic assumptions and only use information grounded in the text.\n\n"
+        "Return in **pure JSON** format (no explanations, no markdown, no comments), like:\n"
         '{ "bull": { "fcff": [...], "justification": "..." }, "base": {...}, "bear": {...} }\n\n'
         f"FINANCIALS:\n{json.dumps(financials)}\n\nDOCUMENTS:\n{text[:10000]}"
     )
 
-    return call_llm(prompt, max_tokens=1600)
+    raw = call_llm(prompt, max_tokens=1600)
+
+    try:
+        clean = raw.strip().strip("```json").strip("```").strip()
+        return json.loads(clean)
+    except Exception as e:
+        print("❌ Failed to parse LLM JSON response:", raw[:500])
+        raise ValueError("LLM did not return valid JSON. Try re-running or upload more complete documents.")
+
 
 
 def calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp):

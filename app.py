@@ -676,7 +676,13 @@ def analyze_dcf():
         # Generate forecasts from LLM
         print("🧠 [STEP 5] Generating bull-base-bear forecast scenarios...")
         forecast_json = generate_forecast_scenarios(combined_text, financials, assumptions)
+        try:
+            forecast_json = generate_forecast_scenarios(combined_text, financials, assumptions)
+        except Exception as e:
+            print("❌ Forecast generation failed:", str(e))
+            return jsonify({"error": "LLM failed to generate forecast. Please recheck uploaded documents."}), 400
         print("📈 Forecast JSON:", forecast_json)
+
 
         # Calculate DCF based on forecasts
         print("🧮 [STEP 6] Calculating DCF...")
