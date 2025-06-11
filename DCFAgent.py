@@ -169,8 +169,12 @@ def extract_financials_with_pdfquery(filepaths):
                     number = re.findall(r"[-+]?\d*\.\d+|\d+", answer.replace(",", ""))
                     if number:
                         val = float(number[0])
-                        if key == "shares" and val > 1_000_000:
-                            val = round(val / 1e6, 2)
+                        if key == "shares":
+                            if val > 1_000_000:
+                                val = round(val / 1e6, 2)  # e.g. 416,000,000 → 416.0
+                            elif val > 1_000:
+                                val = round(val / 1e3, 2)  # e.g. 277,485 → 277.49
+
                         results[key] = round(val, 2)
                         break
 
@@ -180,7 +184,9 @@ def extract_financials_with_pdfquery(filepaths):
             print(f"❌ Could not extract {key} with any prompt.")
             results[key] = 0
 
-    
+    if "shares" in results and results["shares"] < 10:
+        print(f"⚠️ Possible shares extraction issue — too low: {results['shares']}M")
+
     # Prevent any critical field from being 0 unless all attempts failed
     for k in ["shares", "cash", "debt"]:
         if results.get(k, 0) == 0:
