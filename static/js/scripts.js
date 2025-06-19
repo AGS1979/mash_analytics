@@ -567,11 +567,13 @@ function showDcfModal() {
         </select><br><br>
 
         <label>Upload Supporting Documents (PDF, DOCX, PPTX):</label><br>
-        <input type="file" name="files" multiple required accept=".pdf,.docx,.pptx" /><br><br>
+        <input type="file" name="files" multiple accept=".pdf,.docx,.pptx" /><br><br>
+
+        <label>Upload Financials Excel:</label><br>
+        <input type="file" name="financials" id="dcf-financials-file" accept=".xlsx" required /><br><br>
 
         <input type="hidden" name="ticker" />
         <input type="hidden" name="cmp" />
-        <input type="file" name="financials" id="dcf-financials-file" style="display: none;" />
 
         <button type="submit">Run DCF Analysis</button>
       </form>
@@ -603,12 +605,12 @@ function showDcfModal() {
         if (data.error) throw new Error(data.error);
         infoDiv.innerHTML = `
           ✅ Ticker: ${data.ticker}, CMP: ${data.cmp}<br>
-          <a href="${data.excel_url}" target="_blank">⬇ Download Financials</a>
+          <a href="${data.excel_url}" target="_blank" style="color:lightblue;font-weight:bold;">⬇ Download Financials</a>
         `;
         modal.querySelector("input[name='ticker']").value = data.ticker;
         modal.querySelector("input[name='cmp']").value = data.cmp;
 
-        // download Excel and re-attach to form
+        // download Excel and reattach to form
         fetch(data.excel_url)
           .then(res => res.blob())
           .then(blob => {
@@ -652,6 +654,7 @@ function showDcfModal() {
       });
   });
 }
+
 
 
 
