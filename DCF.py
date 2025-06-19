@@ -134,7 +134,8 @@ You are a professional equity analyst preparing a multi-scenario DCF valuation f
 - Terminal Growth Rates: Bull = 2.5%, Base = 2.0%, Bear = 1.5%
 
 📑 Annotated Document Context:
-{documents_text_annotated}
+{documents_text_annotated if documents_text_annotated.strip() else "No additional context provided."}
+
 
 🎯 Your task:
 1. Extract KPI evidence and justify forecast assumptions
@@ -186,7 +187,7 @@ def clean_and_format_dcf_output(raw_text, current_price):
         <ul>
     """
     for scenario, val in per_share_values.items():
-        if val:
+        if val is not None:
             comparison_html += f"<li><strong>{scenario}:</strong> ${val:.2f} → {get_upside_text(val, cmp)}</li>"
     comparison_html += "</ul></div>"
 

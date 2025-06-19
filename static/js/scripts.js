@@ -532,7 +532,6 @@ function showDcfModal() {
                         });
 
                     } else if (agent.id === "dcf_analyzer") {
-  // 1) Create the card
   card.innerHTML = `
     <h3>${agent.name}</h3>
     <p><strong>Category:</strong> ${agent.category}</p>
@@ -541,7 +540,6 @@ function showDcfModal() {
   `;
   grid.appendChild(card);
 
-  // 2) Create modal container
   const modal = document.createElement("div");
   modal.id = `modal-${agent.id}`;
   modal.className = "modal";
@@ -549,88 +547,84 @@ function showDcfModal() {
     <div class="modal-content">
       <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
       <h2>${agent.name}</h2>
-      <p><strong>Category:</strong> ${agent.category}</p>
-      <p><strong>Description:</strong> ${agent.description}</p>
-
-      <!-- FORM START -->
-      <form id="dcf-form" enctype="multipart/form-data">
-        <label>Company Name:</label><br>
-        <input type="text" name="company_name" placeholder="e.g. Apple Inc." required /><br><br>
-
-        
-        <label>Optional DCF Assumptions (JSON format):</label><br>
-        <textarea name="assumptions" rows="4" placeholder='{"source":"own","WACC":"9.5","terminal_rate_or_multiple":"2.5","model_type":"perpetuity","forecast_years":"5"}'></textarea><br><br>
-
-        <label>Upload PDFs, PPTs, DOCX:</label><br>
-        <input type="file" name="files" multiple accept=".pdf,.pptx,.docx" required /><br><br>
-
-        <button type="submit">Run DCF Analysis</button>
+      <p><strong>Step 1: Download Financials</strong></p>
+      <form id="dcf-step1-form">
+        <input type="text" name="company_name" placeholder="Enter Company Name" required>
+        <button type="submit">Prepare Financials</button>
       </form>
-      <!-- FORM END -->
+      <div id="dcf-step1-result" style="margin:10px 0;"></div>
 
-      <hr style="margin:24px 0;" />
-      <div id="dcf-result" style="max-height: 60vh; overflow-y: auto;"></div>
+      <hr>
+      <p><strong>Step 2: Upload Files & Run DCF</strong></p>
+      <form id="dcf-step2-form" enctype="multipart/form-data">
+        <input type="text" name="ticker" placeholder="Ticker" required><br><br>
+        <input type="text" name="cmp" placeholder="Current Market Price" required><br><br>
+        <input type="text" name="wacc" placeholder="WACC (e.g. 9.0)" required><br><br>
+        <input type="hidden" name="mode" value="llm">
+        <label>Upload Financials Excel:</label><br>
+        <input type="file" name="financials" accept=".xlsx" required><br><br>
+        <label>Upload Documents:</label><br>
+        <input type="file" name="files" multiple required><br><br>
+        <button type="submit">Run DCF</button>
+      </form>
+      <div id="dcf-step2-result" style="margin-top:20px;"></div>
     </div>
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
 
-  // 3) Handle form submission
-  modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
+  // Step 1 handler
+  modal.querySelector("#dcf-step1-form").addEventListener("submit", function (e) {
     e.preventDefault();
     const form = e.target;
-    const resultDiv = document.getElementById("dcf-result");
-    const submitBtn = form.querySelector("button");
-
+    const resultDiv = document.getElementById("dcf-step1-result");
     const formData = new FormData(form);
-    const assumptions = form.querySelector("textarea[name='assumptions']").value.trim();
-    if (!assumptions) {
-      formData.set("assumptions", JSON.stringify({
-        source: "llm",
-        WACC: "9.0",
-        terminal_rate_or_multiple: "2.0",
-        model_type: "perpetuity",
-        forecast_years: "5"
-      }));
-    }
 
-    // Show loading message
-    resultDiv.innerHTML = "<p>⏳ Running DCF analysis, please wait...</p>";
-    submitBtn.disabled = true;
-
-    fetch("/analyze-dcf", {
+    resultDiv.innerHTML = "⏳ Preparing financials...";
+    fetch("/prepare-dcf-financials", {
       method: "POST",
       body: formData
     })
-    .then(async (resp) => {
-      if (!resp.ok) {
-        const err = await resp.json();
-        throw new Error(err.error || `HTTP ${resp.status}`);
-      }
-      return resp.json();
-    })
-    .then((data) => {
-      let html = "";
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) return resultDiv.innerHTML = `❌ ${data.error}`;
+        resultDiv.innerHTML = `
+          ✅ Financials ready for <strong>${data.ticker}</strong><br>
+          CMP: $${data.cmp}<br>
+          <a href="${data.excel_url}" target="_blank">⬇ Download Excel</a><br><br>
+          Please fill in Step 2 with the above values.
+        `;
+        // Auto-fill step 2
+        modal.querySelector("input[name='ticker']").value = data.ticker;
+        modal.querySelector("input[name='cmp']").value = data.cmp;
+      })
+      .catch(err => {
+        resultDiv.innerHTML = `❌ Error: ${err.message}`;
+      });
+  });
 
-      if (data.html) {
-        html += `<div class="dcf-html">${data.html}</div>`;
-      }
+  // Step 2 handler
+  modal.querySelector("#dcf-step2-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const form = e.target;
+    const resultDiv = document.getElementById("dcf-step2-result");
+    const formData = new FormData(form);
 
-      if (data.excel_url) {
-        html += `<p><a href="${data.excel_url}" target="_blank" download class="button">⬇️ Download Excel</a></p>`;
-      }
-
-      resultDiv.innerHTML = html || "<p>No results returned.</p>";
+    resultDiv.innerHTML = "⏳ Running DCF analysis...";
+    fetch("/run-dcf-analysis", {
+      method: "POST",
+      body: formData
     })
-    .catch((err) => {
-      console.error(err);
-      resultDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
-    })
-    .finally(() => {
-      submitBtn.disabled = false;
-      resultDiv.scrollIntoView({ behavior: "smooth" });
-    });
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) return resultDiv.innerHTML = `❌ ${data.error}`;
+        resultDiv.innerHTML = `<div class="dcf-html">${data.html}</div>`;
+      })
+      .catch(err => {
+        resultDiv.innerHTML = `❌ Error: ${err.message}`;
+      });
   });
 }
+
 
  else {
                         // Default cards for other agents
