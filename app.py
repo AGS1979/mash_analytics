@@ -55,15 +55,9 @@ from InvMemo import run_pipeline  # ← your modularized memo logic
 from FactorOptimizer import run_factor_optimizer_csv
 from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
-from DCFAgent import (
-    get_ticker,
-    get_current_price,
-    generate_forecast_scenarios,
-    calculate_dcf_scenarios,
-    format_html_output,
-    generate_excel_output,
-    extract_financials_with_pdfquery,
-    extract_year_value
+from DCF import (
+    get_fmp_ticker, get_fmp_data, get_current_price, extract_text_from_files,
+    generate_dcf_logic, clean_and_format_dcf_output, save_excel
 )
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -597,125 +591,59 @@ def chat():
 @app.route("/analyze-dcf", methods=["POST"])
 def analyze_dcf():
     try:
-        print("📡 [STEP 1] Receiving request...")
+        print("📡 Receiving DCF Analysis request...")
 
-        # Extract inputs from form
         company_name = request.form.get("company_name")
-        assumptions_json = request.form.get("assumptions")
+        assumptions_raw = request.form.get("assumptions")
         uploaded_files = request.files.getlist("files")
 
-        print("🧾 Received company_name:", company_name)
-        print("📦 Number of uploaded files:", len(uploaded_files))
-
         if not company_name or not uploaded_files:
-            print("❌ Missing company name or files.")
-            return jsonify({"error": "Company name and files are required."}), 400
+            return jsonify({"error": "Missing company name or files."}), 400
 
-        assumptions = json.loads(assumptions_json)
-        print("⚙️  Assumptions parsed successfully.")
+        assumptions = json.loads(assumptions_raw)
+        wacc = float(assumptions.get("WACC", 8.0))
+        dcf_mode = "Quick mechanical DCF" if assumptions.get("source", "llm") == "own" else "Detailed LLM-based DCF with strategy commentary"
 
-        # Save uploaded files
+        print(f"✅ Parsed inputs | Company: {company_name} | WACC: {wacc} | Mode: {dcf_mode}")
+        
+        # Save and parse files
         filepaths = []
-        for file in uploaded_files:
-            filename = secure_filename(file.filename)
+        for f in uploaded_files:
+            filename = secure_filename(f.filename)
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(filepath)
+            f.save(filepath)
             filepaths.append(filepath)
-        print("💾 Saved files to disk:", filepaths)
 
-        # Get ticker and current share price
-        try:
-            print("🔎 [STEP 2] Resolving ticker and CMP...")
-            ticker = get_ticker(company_name)
-            print("✅ Ticker identified:", ticker)
-            cmp = get_current_price(ticker)
-            print("💲 Current Market Price (CMP):", cmp)
-        except Exception as e:
-            print("❌ Ticker/CMP lookup failed:", str(e))
-            return jsonify({"error": str(e)}), 400
+        # Extract PDF/DOCX text
+        documents_text = extract_text_from_files([open(fp, "rb") for fp in filepaths])
+        print("📑 Extracted document text.")
 
-        # Extract financials using PDFQueryEngine
-        print("📈 [STEP 3] Extracting financials using PDFQueryEngine...")
-        financials = extract_financials_with_pdfquery(filepaths)
-        print("📊 Extracted financials:", json.dumps(financials, indent=2))
+        # Get ticker, price, and FMP financials
+        ticker = get_fmp_ticker(company_name)
+        current_price = get_current_price(ticker)
+        financials_df = get_fmp_data(ticker)
+        print(f"📈 Ticker: {ticker} | CMP: {current_price}")
 
-        # You still need to extract text for forecast scenario generation
-        print("📚 [STEP 4] Extracting combined text from uploaded documents...")
-        combined_text = ""
-        for path in filepaths:
-            with open(path, "rb") as f:
-                combined_text += f.read().decode(errors="ignore")
-        print("📄 Text extraction complete. Length:", len(combined_text))
+        # Generate DCF
+        raw_output = generate_dcf_logic(financials_df, documents_text, wacc, current_price, dcf_mode)
+        html_output = clean_and_format_dcf_output(raw_output, current_price)
 
-
-        # Ensure core items are available
-        cash = extract_year_value(financials.get("cash", 0), 2024)
-        debt = extract_year_value(financials.get("debt", 0), 2024)
-        shares = extract_year_value(financials.get("shares", 0), 2024)
-
-        print(f"🔍 Cash: {cash}, Debt: {debt}, Shares: {shares}")
-
-
-        missing = []
-        if shares <= 0:
-            missing.append("shares outstanding")
-        if cash < 0:
-            missing.append("cash")
-        if debt < 0:
-            missing.append("debt")
-
-        if missing:
-            print(f"❌ Missing or invalid key financials: {', '.join(missing)}")
-            return jsonify({"error": f"Missing or invalid financials: {', '.join(missing)}"}), 400
-
-
-        if not (cash and debt and shares):
-            print("❌ Missing key financials: cash, debt, or shares")
-            return jsonify({"error": "Missing required financials like cash, debt, or shares."}), 400
-
-        # Generate forecasts from LLM
-        print("🧠 [STEP 5] Generating bull-base-bear forecast scenarios...")
-        forecast_json = generate_forecast_scenarios(combined_text, financials, assumptions)
-        try:
-            forecast_json = generate_forecast_scenarios(combined_text, financials, assumptions)
-        except Exception as e:
-            print("❌ Forecast generation failed:", str(e))
-            return jsonify({"error": "LLM failed to generate forecast. Please recheck uploaded documents."}), 400
-        print("📈 Forecast JSON:", forecast_json)
-
-
-        # Calculate DCF based on forecasts
-        print("🧮 [STEP 6] Calculating DCF...")
-        dcf_result = calculate_dcf_scenarios(forecast_json, assumptions, cash, debt, shares, cmp)
-        print("📉 DCF Results:", dcf_result)
-
-        # Format HTML output
-        print("🎨 Formatting HTML output...")
-        html_output = format_html_output(dcf_result, ticker, cmp)
-
-        # Generate Excel output
-        print("📤 Generating Excel output...")
-        excel_bytes = generate_excel_output(dcf_result)
-
-        # Save Excel file
+        # Save Excel (optional)
+        excel_buffer = save_excel(financials_df)
         timestamp = int(time.time())
-        excel_filename = f"{ticker}_DCF_{timestamp}.xlsx"
+        excel_filename = f"{ticker}_financials_{timestamp}.xlsx"
         excel_path = os.path.join(app.config["UPLOAD_FOLDER"], excel_filename)
         with open(excel_path, "wb") as f:
-            f.write(excel_bytes)
-        print("📁 Excel saved to:", excel_path)
-
+            f.write(excel_buffer.getbuffer())
         download_url = url_for("download_report", filename=excel_filename, _external=True)
 
-        # Respond with HTML + Excel download
-        print("✅ Returning DCF output.")
         return jsonify({
             "html": html_output,
             "excel_url": download_url
         })
 
     except Exception as e:
-        print(f"🔥 [FATAL] DCF ERROR: {str(e)}")
+        print(f"❌ Error in /analyze-dcf: {e}")
         return jsonify({"error": str(e)}), 500
 
 
