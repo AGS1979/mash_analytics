@@ -547,83 +547,112 @@ function showDcfModal() {
     <div class="modal-content">
       <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
       <h2>${agent.name}</h2>
-      <p><strong>Step 1: Download Financials</strong></p>
-      <form id="dcf-step1-form">
-        <input type="text" name="company_name" placeholder="Enter Company Name" required>
-        <button type="submit">Prepare Financials</button>
-      </form>
-      <div id="dcf-step1-result" style="margin:10px 0;"></div>
+      <p><strong>Category:</strong> ${agent.category}</p>
+      <p><strong>Description:</strong> ${agent.description}</p>
 
-      <hr>
-      <p><strong>Step 2: Upload Files & Run DCF</strong></p>
-      <form id="dcf-step2-form" enctype="multipart/form-data">
-        <input type="text" name="ticker" placeholder="Ticker" required><br><br>
-        <input type="text" name="cmp" placeholder="Current Market Price" required><br><br>
-        <input type="text" name="wacc" placeholder="WACC (e.g. 9.0)" required><br><br>
-        <input type="hidden" name="mode" value="llm">
-        <label>Upload Financials Excel:</label><br>
-        <input type="file" name="financials" accept=".xlsx" required><br><br>
-        <label>Upload Documents:</label><br>
-        <input type="file" name="files" multiple required><br><br>
-        <button type="submit">Run DCF</button>
+      <form id="dcf-form" enctype="multipart/form-data">
+        <label>Company Name:</label><br>
+        <input type="text" id="dcf-company-name" name="company_name" required placeholder="e.g. Apple Inc." /><br><br>
+
+        <button type="button" id="prepare-financials-btn">📥 Download Financials</button><br><br>
+        <div id="dcf-financials-info"></div><br>
+
+        <label>WACC (%):</label><br>
+        <input type="number" name="wacc" value="9" step="0.1" required /><br><br>
+
+        <label>Select Mode:</label><br>
+        <select name="mode">
+          <option value="llm">Detailed LLM-based DCF with strategy commentary</option>
+          <option value="own">Quick mechanical DCF</option>
+        </select><br><br>
+
+        <label>Upload Supporting Documents (PDF, DOCX, PPTX):</label><br>
+        <input type="file" name="files" multiple required accept=".pdf,.docx,.pptx" /><br><br>
+
+        <input type="hidden" name="ticker" />
+        <input type="hidden" name="cmp" />
+        <input type="file" name="financials" id="dcf-financials-file" style="display: none;" />
+
+        <button type="submit">Run DCF Analysis</button>
       </form>
-      <div id="dcf-step2-result" style="margin-top:20px;"></div>
+      <hr />
+      <div id="dcf-result" style="max-height: 60vh; overflow-y: auto;"></div>
     </div>
   `;
   document.getElementById("custom-agents-ui").appendChild(modal);
 
-  // Step 1 handler
-  modal.querySelector("#dcf-step1-form").addEventListener("submit", function (e) {
-    e.preventDefault();
-    const form = e.target;
-    const resultDiv = document.getElementById("dcf-step1-result");
-    const formData = new FormData(form);
+  // Handle download financials button
+  modal.querySelector("#prepare-financials-btn").addEventListener("click", function () {
+    const name = modal.querySelector("#dcf-company-name").value.trim();
+    const infoDiv = modal.querySelector("#dcf-financials-info");
+    if (!name) {
+      infoDiv.innerHTML = "<span style='color:red;'>Please enter a company name first.</span>";
+      return;
+    }
 
-    resultDiv.innerHTML = "⏳ Preparing financials...";
+    const formData = new FormData();
+    formData.append("company_name", name);
+
+    infoDiv.innerHTML = "⏳ Preparing financials...";
     fetch("/prepare-dcf-financials", {
       method: "POST",
       body: formData
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error) return resultDiv.innerHTML = `❌ ${data.error}`;
-        resultDiv.innerHTML = `
-          ✅ Financials ready for <strong>${data.ticker}</strong><br>
-          CMP: $${data.cmp}<br>
-          <a href="${data.excel_url}" target="_blank">⬇ Download Excel</a><br><br>
-          Please fill in Step 2 with the above values.
+        if (data.error) throw new Error(data.error);
+        infoDiv.innerHTML = `
+          ✅ Ticker: ${data.ticker}, CMP: ${data.cmp}<br>
+          <a href="${data.excel_url}" target="_blank">⬇ Download Financials</a>
         `;
-        // Auto-fill step 2
         modal.querySelector("input[name='ticker']").value = data.ticker;
         modal.querySelector("input[name='cmp']").value = data.cmp;
+
+        // download Excel and re-attach to form
+        fetch(data.excel_url)
+          .then(res => res.blob())
+          .then(blob => {
+            const file = new File([blob], "financials.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            modal.querySelector("#dcf-financials-file").files = dt.files;
+          });
       })
       .catch(err => {
-        resultDiv.innerHTML = `❌ Error: ${err.message}`;
+        console.error(err);
+        infoDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
       });
   });
 
-  // Step 2 handler
-  modal.querySelector("#dcf-step2-form").addEventListener("submit", function (e) {
+  // Handle DCF submit
+  modal.querySelector("#dcf-form").addEventListener("submit", function (e) {
     e.preventDefault();
     const form = e.target;
-    const resultDiv = document.getElementById("dcf-step2-result");
-    const formData = new FormData(form);
+    const resultDiv = document.getElementById("dcf-result");
+    const submitBtn = form.querySelector("button[type='submit']");
+    resultDiv.innerHTML = "⏳ Running DCF Analysis...";
+    submitBtn.disabled = true;
 
-    resultDiv.innerHTML = "⏳ Running DCF analysis...";
+    const formData = new FormData(form);
     fetch("/run-dcf-analysis", {
       method: "POST",
       body: formData
     })
       .then(r => r.json())
       .then(data => {
-        if (data.error) return resultDiv.innerHTML = `❌ ${data.error}`;
-        resultDiv.innerHTML = `<div class="dcf-html">${data.html}</div>`;
+        if (data.error) throw new Error(data.error);
+        resultDiv.innerHTML = data.html || "✅ Done.";
       })
       .catch(err => {
-        resultDiv.innerHTML = `❌ Error: ${err.message}`;
+        console.error(err);
+        resultDiv.innerHTML = `<p style="color:red;">❌ ${err.message}</p>`;
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
       });
   });
 }
+
 
 
  else {

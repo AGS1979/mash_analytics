@@ -123,26 +123,33 @@ You are a valuation modeler. Using the below historical financials, generate act
 """
     else:
         prompt = f"""
-You are a professional equity analyst preparing a multi-scenario DCF valuation for institutional investors.
+You are a professional equity analyst preparing a multi-scenario DCF valuation.
 
-📘 INPUTS:
+📘 Inputs:
 - CMP: ${current_price}
 - WACC: {wacc}%
-- Shares Outstanding = {shares:.2f}
-- Net Debt = ${net_debt:.2f}
-- Latest FCF = ${latest_fcf:.2f}
+- Shares Outstanding: {shares:.2f}
+- Net Debt: ${net_debt:.2f}
+- Latest FCF: ${latest_fcf:.2f}
 - Terminal Growth Rates: Bull = 2.5%, Base = 2.0%, Bear = 1.5%
 
 📑 Annotated Document Context:
-{documents_text_annotated if documents_text_annotated.strip() else "No additional context provided."}
+{documents_text_annotated if documents_text_annotated.strip() else "No supporting documents provided."}
 
+📊 Required Output:
+- Bull / Base / Bear scenario assumptions (Revenue CAGR, EBITDA margin, CapEx %)
+- Explicit numerical values for FCFs, terminal value, enterprise value (EV), equity value, and per-share value
+- Per-share value should be calculated and shown for each scenario
+- Compare each scenario with CMP (${current_price}) and calculate % Upside or Downside
+- Format result as a professional summary followed by a table:
 
-🎯 Your task:
-1. Extract KPI evidence and justify forecast assumptions
-2. For Bull/Base/Bear: Revenue CAGR, EBITDA margin, CapEx %, FCFs, terminal value, EV, equity value, per-share value
-3. Compare to CMP and calculate Upside
-4. Include a final summary table
+| Scenario | Per-Share Value | Upside (%) |
+|----------|-----------------|------------|
+| Bull     | $xxx.xx         | +12.34%    |
+| Base     | $xxx.xx         | +5.67%     |
+| Bear     | $xxx.xx         | -3.45%     |
 """
+
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -158,7 +165,7 @@ def clean_and_format_dcf_output(raw_text, current_price):
         per_share_values = {"Bull": None, "Base": None, "Bear": None}
         for scenario in per_share_values:
             for line in lines:
-                if scenario.lower() in line.lower() and "per-share" in line.lower():
+                if scenario.lower() in line.lower() and ("per-share" in line.lower() or "per share" in line.lower()):
                     try:
                         value = float(line.split("$")[-1].strip())
                         per_share_values[scenario] = value
