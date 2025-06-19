@@ -588,63 +588,75 @@ def chat():
     )
 
 
-@app.route("/analyze-dcf", methods=["POST"])
-def analyze_dcf():
+@app.route("/prepare-dcf-financials", methods=["POST"])
+def prepare_dcf_financials():
     try:
-        print("📡 Receiving DCF Analysis request...")
-
         company_name = request.form.get("company_name")
-        assumptions_raw = request.form.get("assumptions")
-        uploaded_files = request.files.getlist("files")
+        if not company_name:
+            return jsonify({"error": "Missing company name."}), 400
 
-        if not company_name or not uploaded_files:
-            return jsonify({"error": "Missing company name or files."}), 400
-
-        assumptions = json.loads(assumptions_raw)
-        wacc = float(assumptions.get("WACC", 8.0))
-        dcf_mode = "Quick mechanical DCF" if assumptions.get("source", "llm") == "own" else "Detailed LLM-based DCF with strategy commentary"
-
-        print(f"✅ Parsed inputs | Company: {company_name} | WACC: {wacc} | Mode: {dcf_mode}")
-        
-        # Save and parse files
-        filepaths = []
-        for f in uploaded_files:
-            filename = secure_filename(f.filename)
-            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            f.save(filepath)
-            filepaths.append(filepath)
-
-        # Extract PDF/DOCX text
-        documents_text = extract_text_from_files([open(fp, "rb") for fp in filepaths])
-        print("📑 Extracted document text.")
-
-        # Get ticker, price, and FMP financials
         ticker = get_fmp_ticker(company_name)
         current_price = get_current_price(ticker)
         financials_df = get_fmp_data(ticker)
-        print(f"📈 Ticker: {ticker} | CMP: {current_price}")
 
-        # Generate DCF
-        raw_output = generate_dcf_logic(financials_df, documents_text, wacc, current_price, dcf_mode)
-        html_output = clean_and_format_dcf_output(raw_output, current_price)
-
-        # Save Excel (optional)
         excel_buffer = save_excel(financials_df)
         timestamp = int(time.time())
         excel_filename = f"{ticker}_financials_{timestamp}.xlsx"
         excel_path = os.path.join(app.config["UPLOAD_FOLDER"], excel_filename)
         with open(excel_path, "wb") as f:
             f.write(excel_buffer.getbuffer())
-        download_url = url_for("download_report", filename=excel_filename, _external=True)
 
         return jsonify({
-            "html": html_output,
-            "excel_url": download_url
-        })
+            "message": f"Financials prepared for {ticker}.",
+            "ticker": ticker,
+            "cmp": current_price,
+            "excel_url": url_for("download_report", filename=excel_filename, _external=True)
+        }), 200
 
     except Exception as e:
-        print(f"❌ Error in /analyze-dcf: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/run-dcf-analysis", methods=["POST"])
+def run_dcf_analysis():
+    try:
+        ticker = request.form.get("ticker")
+        cmp = float(request.form.get("cmp", 0))
+        wacc = float(request.form.get("wacc", 8.0))
+        mode = request.form.get("mode", "llm")
+
+        uploaded_files = request.files.getlist("files")
+        if not ticker or not cmp or not uploaded_files:
+            return jsonify({"error": "Missing ticker, CMP or files."}), 400
+
+        # Load financials from previously downloaded Excel
+        excel_file = request.files.get("financials")
+        if not excel_file:
+            return jsonify({"error": "Financials Excel file is required."}), 400
+
+        df = pd.read_excel(excel_file)
+
+        # Extract text
+        filepaths = []
+        for f in uploaded_files:
+            filename = secure_filename(f.filename)
+            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+            f.save(filepath)
+            filepaths.append(filepath)
+        documents_text = extract_text_from_files([open(fp, "rb") for fp in filepaths])
+
+        dcf_mode = "Quick mechanical DCF" if mode == "own" else "Detailed LLM-based DCF with strategy commentary"
+        raw_output = generate_dcf_logic(df, documents_text, wacc, cmp, dcf_mode)
+        html_output = clean_and_format_dcf_output(raw_output, cmp)
+
+        return jsonify({
+            "html": html_output
+        }), 200
+
+    except Exception as e:
+        print(f"❌ Error in /run-dcf-analysis: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 
 
