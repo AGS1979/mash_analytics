@@ -95,6 +95,32 @@ def extract_text_from_files(uploaded_files):
             chunked_docs.append(f"[TXT: {file.name}]\n{text}")
     return "\n\n".join(chunked_docs)
 
+
+def extract_kpi_drivers(documents_text):
+    prompt = f"""
+From the below annotated investor documents, extract key financial and strategic drivers to support a DCF model.
+
+Focus on:
+- Revenue growth (backlog, segments, pricing)
+- EBITDA margins (cost structure, operating leverage)
+- CapEx levels or efficiency drivers
+- Free Cash Flow stability or expansion
+- Explicit KPIs like: Book-to-bill, Order intake, Margin targets, CapEx guidance
+
+Present your output as a bullet list. Be concise and tag the source (e.g., "PDF1, Page 3") if possible.
+
+📄 Document Snippets:
+{documents_text if documents_text.strip() else "No documents provided."}
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3
+    )
+    return response.choices[0].message.content.strip()
+
+
 # ========== LLM-Based DCF ==========
 def generate_dcf_logic(financials_df, documents_text_annotated, wacc, current_price, mode):
     shares = financials_df['Shares Outstanding'].dropna().astype(float).iloc[0]
@@ -122,8 +148,9 @@ You are a valuation modeler. Using the below historical financials, generate act
 {financials_df.to_string(index=False)}
 """
     else:
+        # Enhanced logic-based prompt
         prompt = f"""
-You are a professional equity analyst preparing a multi-scenario DCF valuation.
+You are a professional equity analyst performing a multi-scenario DCF valuation for a company based on annotated financial documents and Excel inputs.
 
 📘 Inputs:
 - CMP: ${current_price}
@@ -133,15 +160,30 @@ You are a professional equity analyst preparing a multi-scenario DCF valuation.
 - Latest FCF: ${latest_fcf:.2f}
 - Terminal Growth Rates: Bull = 2.5%, Base = 2.0%, Bear = 1.5%
 
-📑 Annotated Document Context:
+📂 Supporting Extracts:
 {documents_text_annotated if documents_text_annotated.strip() else "No supporting documents provided."}
 
-📊 Required Output:
-- Bull / Base / Bear scenario assumptions (Revenue CAGR, EBITDA margin, CapEx %)
-- Explicit numerical values for FCFs, terminal value, enterprise value (EV), equity value, and per-share value
-- Per-share value should be calculated and shown for each scenario
-- Compare each scenario with CMP (${current_price}) and calculate % Upside or Downside
-- Format result as a professional summary followed by a table:
+🧠 Instructions:
+1. Identify key business drivers from the context (e.g. order backlog, segment trends, margin expansion, capex guidance, cost cuts).
+2. Based on this, estimate and justify:
+   - Revenue CAGR
+   - EBITDA Margin
+   - CapEx % of Revenue
+3. Provide a 5-year forecast of Free Cash Flow (FCF) for each scenario.
+4. Calculate Terminal Value using Gordon Growth.
+5. Derive Enterprise Value, Equity Value, and Per-Share Value.
+6. Compare each to CMP and show upside/downside.
+
+📋 Format:
+- Begin with 1 paragraph per scenario giving KPI assumptions and rationale.
+- Add a table:
+
+| Year | Revenue | EBITDA Margin | CapEx % | FCF |
+|------|---------|----------------|--------|-----|
+| 2025 | ...     | ...            | ...    | ... |
+...
+
+- Follow with:
 
 | Scenario | Per-Share Value | Upside (%) |
 |----------|-----------------|------------|
@@ -150,11 +192,10 @@ You are a professional equity analyst preparing a multi-scenario DCF valuation.
 | Bear     | $xxx.xx         | -3.45%     |
 """
 
-
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.0
+        temperature=0
     )
     return response.choices[0].message.content.strip()
 

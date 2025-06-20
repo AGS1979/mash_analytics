@@ -629,24 +629,33 @@ def run_dcf_analysis():
         if not ticker or not cmp or not uploaded_files:
             return jsonify({"error": "Missing ticker, CMP or files."}), 400
 
-        # Load financials from previously downloaded Excel
+        # Load Financials Excel
         excel_file = request.files.get("financials")
         if not excel_file:
             return jsonify({"error": "Financials Excel file is required."}), 400
-
         df = pd.read_excel(excel_file)
 
-        # Extract text
+        # Save and extract text from uploaded documents
         filepaths = []
         for f in uploaded_files:
             filename = secure_filename(f.filename)
             filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
             f.save(filepath)
             filepaths.append(filepath)
-        documents_text = extract_text_from_files([open(fp, "rb") for fp in filepaths])
 
+        # Read text content
+        file_objects = [open(fp, "rb") for fp in filepaths]
+        documents_text = extract_text_from_files(file_objects)
+
+        # Extract KPI drivers
+        driver_summary = extract_kpi_drivers(documents_text)
+        documents_text_annotated = f"🔹 Key Drivers:\n{driver_summary}\n\n📄 Full Extract:\n{documents_text}"
+
+        # Resolve mode
         dcf_mode = "Quick mechanical DCF" if mode == "own" else "Detailed LLM-based DCF with strategy commentary"
-        raw_output = generate_dcf_logic(df, documents_text, wacc, cmp, dcf_mode)
+
+        # Generate DCF Output
+        raw_output = generate_dcf_logic(df, documents_text_annotated, wacc, cmp, dcf_mode)
         html_output = clean_and_format_dcf_output(raw_output, cmp)
 
         return jsonify({
