@@ -98,27 +98,28 @@ def extract_text_from_files(uploaded_files):
 
 def extract_kpi_drivers(documents_text):
     prompt = f"""
-From the below annotated investor documents, extract key financial and strategic drivers to support a DCF model.
+Extract 2025 forward-looking guidance from RTX's earnings call and investor document below. Focus on:
 
-Focus on:
-- Revenue growth (backlog, segments, pricing)
-- EBITDA margins (cost structure, operating leverage)
-- CapEx levels or efficiency drivers
-- Free Cash Flow stability or expansion
-- Explicit KPIs like: Book-to-bill, Order intake, Margin targets, CapEx guidance
+- Revenue range or growth %
+- EBITDA or segment margins
+- CapEx guidance
+- Free Cash Flow target
+- EPS guidance
+- Segment-level performance
+- Any comments supporting these assumptions
 
-Present your output as a bullet list. Be concise and tag the source (e.g., "PDF1, Page 3") if possible.
+Return the extracted drivers in clean bullet points with values, and tag source if visible (e.g. "Slide 13" or "Page 14").
 
-📄 Document Snippets:
-{documents_text if documents_text.strip() else "No documents provided."}
+📄 RTX Investor PDF Extract:
+{documents_text}
 """
-
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3
     )
     return response.choices[0].message.content.strip()
+
 
 
 # ========== LLM-Based DCF ==========

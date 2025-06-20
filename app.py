@@ -620,22 +620,23 @@ def prepare_dcf_financials():
 @app.route("/run-dcf-analysis", methods=["POST"])
 def run_dcf_analysis():
     try:
+        # ───── STEP 1: PARSE INPUTS ─────
         ticker = request.form.get("ticker")
         cmp = float(request.form.get("cmp", 0))
         wacc = float(request.form.get("wacc", 8.0))
         mode = request.form.get("mode", "llm")
+        confirm_guidance = request.form.get("confirm_guidance", "false") == "true"
 
         uploaded_files = request.files.getlist("files")
-        if not ticker or not cmp or not uploaded_files:
-            return jsonify({"error": "Missing ticker, CMP or files."}), 400
-
-        # Load Financials Excel
         excel_file = request.files.get("financials")
-        if not excel_file:
-            return jsonify({"error": "Financials Excel file is required."}), 400
+
+        if not ticker or not cmp or not uploaded_files or not excel_file:
+            return jsonify({"error": "Missing ticker, CMP, financials, or files."}), 400
+
+        # ───── STEP 2: LOAD FINANCIALS ─────
         df = pd.read_excel(excel_file)
 
-        # Save and extract text from uploaded documents
+        # ───── STEP 3: PARSE DOCUMENTS ─────
         filepaths = []
         for f in uploaded_files:
             filename = secure_filename(f.filename)
@@ -643,20 +644,60 @@ def run_dcf_analysis():
             f.save(filepath)
             filepaths.append(filepath)
 
-        # Read text content
         file_objects = [open(fp, "rb") for fp in filepaths]
         documents_text = extract_text_from_files(file_objects)
 
-        # Extract KPI drivers
-        driver_summary = extract_kpi_drivers(documents_text)
-        documents_text_annotated = f"🔹 Key Drivers:\n{driver_summary}\n\n📄 Full Extract:\n{documents_text}"
+        # ───── STEP 4: EXTRACT GUIDANCE FROM DOCUMENTS ─────
+        guidance_summary = extract_kpi_drivers(documents_text)
 
-        # Resolve mode
+        if not confirm_guidance:
+            # Return guidance preview for confirmation step
+            guidance_html = f"""
+                <div class="guidance-confirm-box">
+                    <h3>📌 Extracted 2025 Guidance Summary</h3>
+                    <pre style="white-space: pre-wrap; font-family: monospace; background:#222; padding:1em; color:#eee;">{guidance_summary}</pre>
+                    <p>✅ If the above looks accurate, re-run the DCF with <code>confirm_guidance=true</code>.</p>
+                </div>
+            """
+            return jsonify({
+                "html": guidance_html
+            })
+
+        # ───── STEP 5: COMBINE STRUCTURED CONTEXT FOR DCF ─────
+        documents_text_annotated = f"""
+🔹 Extracted 2025 Guidance from Uploaded Documents:
+
+{guidance_summary}
+
+📄 Full Supporting Extract (for optional reference):
+
+{documents_text}
+"""
+
         dcf_mode = "Quick mechanical DCF" if mode == "own" else "Detailed LLM-based DCF with strategy commentary"
 
-        # Generate DCF Output
+        # ───── STEP 6: RUN GPT DCF ─────
         raw_output = generate_dcf_logic(df, documents_text_annotated, wacc, cmp, dcf_mode)
         html_output = clean_and_format_dcf_output(raw_output, cmp)
+
+        # ───── STEP 7: (Optional) Mismatch Highlight ─────
+        mismatches = []
+        if "free cash flow" in guidance_summary.lower():
+            import re
+            fcf_range = re.findall(r"\$([0-9.]+)B\s*-\s*\$([0-9.]+)B", guidance_summary)
+            if fcf_range:
+                try:
+                    low, high = map(float, fcf_range[0])
+                    if f"${low:.1f}B" not in raw_output and f"${high:.1f}B" not in raw_output:
+                        mismatches.append(f"⚠️ DCF output may understate 2025 FCF. Guidance was ${low:.1f}B–${high:.1f}B.")
+                except:
+                    pass
+
+        if mismatches:
+            mismatch_html = "<div class='mismatch-warning'><h4>🔍 Mismatch Alerts</h4><ul>"
+            mismatch_html += "".join(f"<li>{m}</li>" for m in mismatches)
+            mismatch_html += "</ul></div>"
+            html_output = mismatch_html + html_output
 
         return jsonify({
             "html": html_output
@@ -665,6 +706,7 @@ def run_dcf_analysis():
     except Exception as e:
         print(f"❌ Error in /run-dcf-analysis: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 

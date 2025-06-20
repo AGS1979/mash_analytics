@@ -574,8 +574,9 @@ function showDcfModal() {
 
         <input type="hidden" name="ticker" />
         <input type="hidden" name="cmp" />
+        <input type="hidden" name="confirm_guidance" id="confirm-guidance" value="false" />
 
-        <button type="submit">Run DCF Analysis</button>
+        <button type="submit" id="dcf-submit-btn">Run DCF Analysis</button>
       </form>
       <hr />
       <div id="dcf-result" style="max-height: 60vh; overflow-y: auto;"></div>
@@ -631,11 +632,13 @@ function showDcfModal() {
     e.preventDefault();
     const form = e.target;
     const resultDiv = document.getElementById("dcf-result");
-    const submitBtn = form.querySelector("button[type='submit']");
+    const submitBtn = form.querySelector("#dcf-submit-btn");
+    const confirmInput = form.querySelector("#confirm-guidance");
+    const formData = new FormData(form);
+
     resultDiv.innerHTML = "⏳ Running DCF Analysis...";
     submitBtn.disabled = true;
 
-    const formData = new FormData(form);
     fetch("/run-dcf-analysis", {
       method: "POST",
       body: formData
@@ -643,7 +646,20 @@ function showDcfModal() {
       .then(r => r.json())
       .then(data => {
         if (data.error) throw new Error(data.error);
-        resultDiv.innerHTML = data.html || "✅ Done.";
+
+        // Step 1: guidance preview — show and wait for confirmation
+        if (data.html && data.html.includes("📌 Extracted 2025 Guidance Summary")) {
+          resultDiv.innerHTML = data.html + `
+            <br><button id="confirm-dcf-run">✅ Confirm and Run DCF</button>
+          `;
+          document.getElementById("confirm-dcf-run").addEventListener("click", () => {
+            confirmInput.value = "true";
+            form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+          });
+        } else {
+          // Step 2: final DCF output
+          resultDiv.innerHTML = data.html || "✅ Done.";
+        }
       })
       .catch(err => {
         console.error(err);
@@ -654,6 +670,7 @@ function showDcfModal() {
       });
   });
 }
+
 
 
 
