@@ -116,13 +116,15 @@ Return the extracted drivers in clean bullet points with values, and tag source 
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.3
+        temperature=0.0
     )
     return response.choices[0].message.content.strip()
 
 
 
 # ========== LLM-Based DCF ==========
+import hashlib
+
 def generate_dcf_logic(financials_df, documents_text_annotated, wacc, current_price, mode):
     shares = financials_df['Shares Outstanding'].dropna().astype(float).iloc[0]
     net_debt = (
@@ -131,74 +133,82 @@ def generate_dcf_logic(financials_df, documents_text_annotated, wacc, current_pr
         financials_df['Cash'].dropna().astype(float).iloc[0]
     )
     latest_fcf = financials_df['FCF'].dropna().astype(float).iloc[0]
+    latest_revenue = financials_df['Revenue'].dropna().astype(float).iloc[0]
 
-    if mode == "Quick mechanical DCF":
-        prompt = f"""
-You are a valuation modeler. Using the below historical financials, generate actual Bull/Base/Bear DCF outputs — not formulas.
+    # Deterministic hash tag
+    data_to_hash = str(financials_df.to_dict()) + documents_text_annotated + str(wacc)
+    prompt_seed = hashlib.md5(data_to_hash.encode()).hexdigest()[:8]
 
-📘 INPUTS:
-- WACC: {wacc}%
-- Terminal Growth: Bull (2.5%), Base (2.0%), Bear (1.5%)
-- CMP: ${current_price}
-- Working Capital = 2% of revenue
-- Net Debt = {net_debt:.2f}
-- Shares Outstanding = {shares:.2f}
-- Use historical FCF values below (latest FCF = ${latest_fcf:.2f})
+    prompt = f"""
+[SEED: {prompt_seed}]
 
-📊 Financials:
-{financials_df.to_string(index=False)}
-"""
-    else:
-        # Enhanced logic-based prompt
-        prompt = f"""
-You are a professional equity analyst performing a multi-scenario DCF valuation for a company based on annotated financial documents and Excel inputs.
+You are a professional equity analyst performing a multi-scenario DCF valuation for a company based on historical financials and annotated documents.
+
+🎯 Objective:
+Generate Bull, Base, and Bear DCF forecasts using revenue, EBITDA margin, capex % and other metrics **extracted from the documents or inferred from historical data.** Maintain logical consistency in math.
 
 📘 Inputs:
 - CMP: ${current_price}
 - WACC: {wacc}%
-- Shares Outstanding: {shares:.2f}
-- Net Debt: ${net_debt:.2f}
-- Latest FCF: ${latest_fcf:.2f}
-- Terminal Growth Rates: Bull = 2.5%, Base = 2.0%, Bear = 1.5%
+- Shares Outstanding = {shares:.2f}
+- Net Debt = ${net_debt:.2f}
+- Latest Revenue = ${latest_revenue:,.2f}
+- Latest FCF = ${latest_fcf:,.2f}
+- Forecast Period = 2025 to 2029
+- Terminal Growth = Bull (2.5%), Base (2.0%), Bear (1.5%)
 
-📂 Supporting Extracts:
-{documents_text_annotated if documents_text_annotated.strip() else "No supporting documents provided."}
+📂 Annotated Extracts (source of truth):
+{documents_text_annotated if documents_text_annotated.strip() else "No guidance uploaded. Use trailing 3-year trends to infer assumptions."}
 
 🧠 Instructions:
-1. Identify key business drivers from the context (e.g. order backlog, segment trends, margin expansion, capex guidance, cost cuts).
-2. Based on this, estimate and justify:
+1. Extract or infer key assumptions:
    - Revenue CAGR
-   - EBITDA Margin
-   - CapEx % of Revenue
-3. Provide a 5-year forecast of Free Cash Flow (FCF) for each scenario.
-4. Calculate Terminal Value using Gordon Growth.
-5. Derive Enterprise Value, Equity Value, and Per-Share Value.
-6. Compare each to CMP and show upside/downside.
+   - EBITDA Margin range (Bull/Base/Bear)
+   - CapEx as % of revenue
+   - Change in Working Capital (default to 2% of revenue)
+   - D&A as % of revenue (assume 5% if not mentioned)
+   - Tax rate = 25%
 
-📋 Format:
-- Begin with 1 paragraph per scenario giving KPI assumptions and rationale.
-- Add a table:
+2. For each scenario:
+   - Forecast revenue for 5 years
+   - Compute EBITDA = Revenue × EBITDA Margin
+   - EBIT = EBITDA - D&A
+   - NOPAT = EBIT × (1 - tax rate)
+   - FCF = NOPAT - CapEx - ΔWC
+
+3. Compute Terminal Value using Gordon Growth
+4. Compute Enterprise Value = PV of FCFs + PV of Terminal Value
+5. Derive Equity Value = EV - Net Debt
+6. Calculate per-share value = Equity Value / Shares Outstanding
+7. Compare to CMP and show upside/downside
+
+📋 Format Output:
+1. Start with a short paragraph for each scenario justifying the assumptions
+2. Add this table (sample shown below):
 
 | Year | Revenue | EBITDA Margin | CapEx % | FCF |
 |------|---------|----------------|--------|-----|
-| 2025 | ...     | ...            | ...    | ... |
+| 2025 | $...    | ...%           | ...%   | $...|
 ...
 
-- Follow with:
+3. Final comparison:
 
 | Scenario | Per-Share Value | Upside (%) |
 |----------|-----------------|------------|
 | Bull     | $xxx.xx         | +12.34%    |
 | Base     | $xxx.xx         | +5.67%     |
 | Bear     | $xxx.xx         | -3.45%     |
+
+⚠️ All assumptions must be traceable to financials or uploaded guidance. Do not invent numbers without support. Use consistent math across years and scenarios.
 """
 
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0
+        temperature=0  # deterministic
     )
     return response.choices[0].message.content.strip()
+
 
 # ========== Cleaned HTML Output ==========
 def clean_and_format_dcf_output(raw_text, current_price):
