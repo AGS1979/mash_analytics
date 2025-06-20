@@ -57,7 +57,7 @@ from InvMemo import PDFQueryEngine  # Import the class we modularized earlier
 from PrivateTransactionAnalyzer import analyze_transaction_doc
 from DCF import (
     get_fmp_ticker, get_fmp_data, get_current_price, extract_text_from_files,
-    generate_dcf_logic, clean_and_format_dcf_output, save_excel
+    generate_dcf_logic, clean_and_format_dcf_output, save_excel, extract_kpi_drivers
 )
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
