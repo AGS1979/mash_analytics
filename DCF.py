@@ -17,8 +17,9 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # ========== Ticker & Price ==========
 def get_fmp_ticker(company_name):
     prompt = f"""
-What is the FMP-compatible stock ticker for the company: {company_name}?
-Only return the raw ticker symbol (e.g., AAPL or MSFT). Do not include any explanation or extra text.
+What is the exact ticker symbol used by Financial Modeling Prep (FMP API) for the company: "{company_name}"?
+Return only the full FMP-compatible ticker, including exchange suffix if applicable (e.g., RENT3.SA, SHOP.TO, 0700.HK, AAPL).
+Do not include any explanation or punctuation. Only return the raw ticker.
 """
     response = client.chat.completions.create(
         model="gpt-4o",
