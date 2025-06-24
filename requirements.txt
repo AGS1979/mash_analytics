@@ -21,10 +21,10 @@ torch
 datasets
 evaluate
 nltk
-statsmodels
+statsmodels==0.13.5
 osqp
 ecos
-scipy
+scipy==1.10.1
 numpy
 faiss-cpu
 sentence-transformers
