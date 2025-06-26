@@ -95,6 +95,18 @@ def extract_company_name(text):
     return response.json()['choices'][0]['message']['content'].strip()
 
 
+def clean_markdown(text):
+    # Remove Markdown headings and formatting
+    text = re.sub(r'#+\s?', '', text)  # remove headings like ### 
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)  # bold
+    text = re.sub(r'\*(.*?)\*', r'\1', text)      # italics
+    text = re.sub(r'---', '', text)               # horizontal rules
+    text = re.sub(r'__+', '', text)               # underlines if any
+    text = re.sub(r'\n{3,}', '\n\n', text)  # max 2 line breaks in a row
+
+    return text.strip()
+
+
 def generate_memo_sections(filtered_text, custom_notes=""):
     section_titles = [
         "1. IPO Offer Details",
@@ -111,10 +123,13 @@ def generate_memo_sections(filtered_text, custom_notes=""):
     sections = {}
     for title in section_titles:
         prompt = (
-            f"Write a 500+ word section for the investment memo titled '{title}'. "
-            "Use a natural, analytical, and opinionated tone like an equity research analyst. "
-            "Use structured paragraphs. Use ISO currency codes, and show financials in millions with commas.\n\n"
+            f"Write a 500+ word investment memo section on the topic: {title[3:]}. "
+            "Avoid repeating the section title in the beginning. "
+            "Avoid references to the next or previous sections. "
+            "Use a natural, analytical tone like an equity research analyst. "
+            "Format it in plain text without markdown or symbols. "
         )
+
         if custom_notes:
             prompt += f"Also cover: {custom_notes.strip()}\n\n"
 
@@ -131,7 +146,9 @@ def generate_memo_sections(filtered_text, custom_notes=""):
         )
         response.raise_for_status()
         content = response.json()['choices'][0]['message']['content']
-        sections[title] = content.strip()
+        cleaned = clean_markdown(content)
+        sections[title] = cleaned
+
 
     return sections
 
@@ -166,7 +183,10 @@ def save_sections_to_word(sections_dict, company_name="Company", output_dir="doc
         run.font.name = 'Aptos Display'
         run.font.size = Pt(14)
 
-        doc.add_paragraph(body.strip())
+        for para in body.strip().split('\n\n'):
+            if para.strip():
+                doc.add_paragraph(para.strip())
+
         doc.add_paragraph()  # small space between sections
 
     section = doc.sections[0]
