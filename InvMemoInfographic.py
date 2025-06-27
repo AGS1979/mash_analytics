@@ -55,36 +55,43 @@ Memo:
     return response.json()["choices"][0]["message"]["content"]
 
 def parse_deepseek_response(response_text):
-    current_number = 0
     sections = {}
     current_section = None
     content_lines = []
+    current_number = 0
 
     for line in response_text.splitlines():
         line = line.strip()
         if not line:
             continue
 
-        heading_match = re.match(r"^\d+\.\s+(.*)", line)
+        heading_match = re.match(r"^(\d+)\.\s+(.*)", line)
         if heading_match:
             if current_section and content_lines:
-                sections[f"{current_number}. {current_section}"] = content_lines
+                numbered_title = f"{current_number}. {current_section}"
+                sections[numbered_title] = content_lines
                 content_lines = []
-            current_number = int(heading_match.group(0).split(".")[0])  # extract number
-            current_section = heading_match.group(1)
+            current_number = int(heading_match.group(1))
+            current_section = heading_match.group(2)
         elif line.startswith("-"):
             content_lines.append(line.lstrip("- ").strip())
 
     if current_section and content_lines:
-        sections[f"{current_number}. {current_section}"] = content_lines
-
+        numbered_title = f"{current_number}. {current_section}"
+        sections[numbered_title] = content_lines
 
     return sections
+
 
 def generate_infographic_html(docx_path, company_name):
     raw_text = extract_raw_text(docx_path)
     summary = call_deepseek_summary(raw_text, company_name)
     sections = parse_deepseek_response(summary)
+
+    # ✅ Print section headings to confirm parsing worked
+    print("\n🔍 Parsed Section Headings:")
+    for k in sections.keys():
+        print(f"  - {k}")
 
     with open("templates/base_infographic.html", "r", encoding="utf-8") as f:
         html_template = f.read()
@@ -95,3 +102,4 @@ def generate_infographic_html(docx_path, company_name):
         sections=sections
     )
     return html_rendered
+
