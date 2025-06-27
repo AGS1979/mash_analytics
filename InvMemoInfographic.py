@@ -12,9 +12,9 @@ def parse_docx_sections(docx_path):
 
     # Define known section headers to look for (you can customize this list)
     known_headings = [
-        "Executive Summary", "Key Investment Positives", "Key Risks",
-        "Valuation Summary", "Company Overview", "Market Opportunity",
-        "Financial Summary", "Use of Proceeds", "Management Commentary"
+        "1. IPO Offer Details", "2. Company Overview", "3. Industry Overview and Outlook",
+        "4. Business Model", "5. Financial Highlights", "6. Guidance and Outlook on future financial performance",
+        "7. Peer Comparison and Competitors", "8. Risks", "9. Investment Highlights"
     ]
 
     for para in doc.paragraphs:
