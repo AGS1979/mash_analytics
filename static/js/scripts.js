@@ -226,11 +226,8 @@ function showDcfModal() {
 
                             resultDiv.innerHTML = `⏳ Creating infographic...`;
 
-                            fetch("/generate-preipo-infographic-from-latest", {
-                                method: "POST"
-                            })
-
-                            const resultDiv = modal.querySelector("#infographic-result");
+                            // Decide whether you're using the uploaded file or the latest saved one
+                            const file = modal.currentPreipoFile;
 
                             if (!file || !file.name.endsWith(".docx")) {
                                 resultDiv.innerHTML = `❌ Please upload a valid .docx memo to generate infographic.`;
@@ -239,7 +236,6 @@ function showDcfModal() {
 
                             const formData = new FormData();
                             formData.append("file", file);
-                            resultDiv.innerHTML = `⏳ Creating infographic...`;
 
                             fetch("/generate-preipo-infographic", {
                                 method: "POST",
@@ -248,7 +244,6 @@ function showDcfModal() {
                             .then(r => r.json())
                             .then(data => {
                                 if (data.html) {
-                                    // ✅ Render in modal or popup
                                     const popup = window.open("", "_blank", "width=1200,height=800");
                                     popup.document.open();
                                     popup.document.write(data.html);
@@ -259,12 +254,12 @@ function showDcfModal() {
                                     resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || "Unknown error"}</span>`;
                                 }
                             })
-
                             .catch(err => {
                                 console.error(err);
                                 resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
                             });
                         });
+
 
 
                         modal.querySelector("#pdfquery-form").addEventListener("submit", function (e) {
