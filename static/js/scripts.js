@@ -156,11 +156,14 @@ function showDcfModal() {
 
                                 <!-- Infographic Button + Result -->
                                 <div id="infographic-section" style="margin-top: 20px; display:none;">
-                                    <button id="generate-infographic-btn" style="margin-top:10px;">
-                                        📊 Generate Infographic from Memo
-                                    </button>
-                                    <div id="infographic-result" style="margin-top: 10px;"></div>
+                                  <label for="infographic-file">Upload the downloaded memo (.docx):</label><br>
+                                  <input type="file" id="infographic-file" accept=".docx" required><br><br>
+                                  <button id="generate-infographic-btn" style="margin-top:10px;">
+                                    📊 Generate Infographic from Memo
+                                  </button>
+                                  <div id="infographic-result" style="margin-top: 10px;"></div>
                                 </div>
+
 
                                 <hr style="margin: 30px 0;" />
                                 <h3>📄 Ask Questions from the Uploaded DRHP</h3>
@@ -224,11 +227,7 @@ function showDcfModal() {
                         modal.querySelector("#generate-infographic-btn").addEventListener("click", () => {
                             const resultDiv = modal.querySelector("#infographic-result");
 
-                            resultDiv.innerHTML = `⏳ Creating infographic...`;
-
-                            // Decide whether you're using the uploaded file or the latest saved one
-                            const file = modal.currentPreipoFile;
-
+                            const file = modal.querySelector("#infographic-file").files[0];
                             if (!file || !file.name.endsWith(".docx")) {
                                 resultDiv.innerHTML = `❌ Please upload a valid .docx memo to generate infographic.`;
                                 return;
@@ -236,6 +235,8 @@ function showDcfModal() {
 
                             const formData = new FormData();
                             formData.append("file", file);
+
+                            resultDiv.innerHTML = `⏳ Creating infographic...`;
 
                             fetch("/generate-preipo-infographic", {
                                 method: "POST",
@@ -259,6 +260,7 @@ function showDcfModal() {
                                 resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
                             });
                         });
+
 
 
 
