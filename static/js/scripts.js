@@ -154,6 +154,14 @@ function showDcfModal() {
                                 </form>
                                 <div id="preipo-result" style="margin-top: 15px;"></div>
 
+                                <!-- Infographic Button + Result -->
+                                <div id="infographic-section" style="margin-top: 20px; display:none;">
+                                    <button id="generate-infographic-btn" style="margin-top:10px;">
+                                        📊 Generate Infographic from Memo
+                                    </button>
+                                    <div id="infographic-result" style="margin-top: 10px;"></div>
+                                </div>
+
                                 <hr style="margin: 30px 0;" />
                                 <h3>📄 Ask Questions from the Uploaded DRHP</h3>
                                 <form id="pdfquery-form">
@@ -191,7 +199,15 @@ function showDcfModal() {
                                         <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
                                             ⬇ Download Memo
                                         </a>`;
-                                } else {
+                                    
+                                    // ✅ Show infographic section
+                                    const infographSection = modal.querySelector("#infographic-section");
+                                    infographSection.style.display = "block";
+
+                                    // ✅ Store current file for infographic generation
+                                    modal.currentPreipoFile = form.querySelector("input[name='file']").files[0];
+                                }
+                                    else {
                                     resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error}</span>`;
                                 }
                             })
@@ -204,6 +220,45 @@ function showDcfModal() {
                                 resultDiv.scrollIntoView({ behavior: "smooth" });
                             });
                         });
+
+                        modal.querySelector("#generate-infographic-btn").addEventListener("click", () => {
+                            const file = modal.currentPreipoFile;
+                            const resultDiv = modal.querySelector("#infographic-result");
+
+                            if (!file || !file.name.endsWith(".docx")) {
+                                resultDiv.innerHTML = `❌ Please upload a valid .docx memo to generate infographic.`;
+                                return;
+                            }
+
+                            const formData = new FormData();
+                            formData.append("file", file);
+                            resultDiv.innerHTML = `⏳ Creating infographic...`;
+
+                            fetch("/generate-preipo-infographic", {
+                                method: "POST",
+                                body: formData
+                            })
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.html) {
+                                    // ✅ Render in modal or popup
+                                    const popup = window.open("", "_blank", "width=1200,height=800");
+                                    popup.document.open();
+                                    popup.document.write(data.html);
+                                    popup.document.close();
+
+                                    resultDiv.innerHTML = `✅ Infographic preview opened in a new tab.`;
+                                } else {
+                                    resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || "Unknown error"}</span>`;
+                                }
+                            })
+
+                            .catch(err => {
+                                console.error(err);
+                                resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
+                            });
+                        });
+
 
                         modal.querySelector("#pdfquery-form").addEventListener("submit", function (e) {
                             e.preventDefault();

@@ -59,6 +59,8 @@ from DCF import (
     get_fmp_ticker, get_fmp_data, get_current_price, extract_text_from_files,
     generate_dcf_logic, clean_and_format_dcf_output, save_excel, extract_kpi_drivers
 )
+from InvMemoInfographic import generate_infographic_html
+
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
@@ -563,6 +565,27 @@ def generate_preipo_memo():
         print(f"🔥 Error in /generate-preipo-memo: {e}")
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/generate-preipo-infographic', methods=['POST'])
+def generate_preipo_infographic():
+    try:
+        file = request.files.get('file')
+        if not file or not file.filename.endswith('.docx'):
+            return jsonify({'error': 'Upload a valid .docx memo.'}), 400
+
+        # Read uploaded file into memory
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as temp:
+            file.save(temp.name)
+            company_name = file.filename.split('_')[0]
+            html_content = generate_infographic_html(temp.name, company_name)
+
+        return jsonify({
+            "message": "Infographic ready!",
+            "html": html_content
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/logout')
