@@ -4,15 +4,19 @@ import requests
 from docx import Document
 from flask import render_template_string
 from dotenv import load_dotenv
+from collections import defaultdict
 
+# === Load environment variable ===
 load_dotenv()
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 
+# === Extract text from .docx file ===
 def extract_raw_text(docx_path):
     doc = Document(docx_path)
     return "\n".join(para.text.strip() for para in doc.paragraphs if para.text.strip())
 
+# === Call DeepSeek to summarize ===
 def call_deepseek_summary(text, company_name):
     prompt = f"""
 You are an investment analyst tasked with converting the following pre-IPO memo into a concise infographic-ready summary.
@@ -54,44 +58,54 @@ Memo:
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
 
-def parse_deepseek_response(response_text):
-    sections = {}
-    current_section = None
-    content_lines = []
-    current_number = 0
+# === Format bold labels inside bullet points ===
+def bold_labels(text):
+    return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
 
-    for line in response_text.splitlines():
+# === Parse DeepSeek's markdown-style response into sections ===
+def parse_deepseek_response(summary_text):
+    sections = defaultdict(list)
+    current_section = None
+
+    lines = summary_text.splitlines()
+    for line in lines:
         line = line.strip()
-        if not line:
+
+        # Markdown-style header: "### 1. IPO Offer Details"
+        section_match = re.match(r"^#+\s+\*+\d+\.\s+(.*?)\*+\s*$", line)
+        if section_match:
+            current_section = section_match.group(1).strip()
             continue
 
-        heading_match = re.match(r"^(\d+)\.\s+(.*)", line)
-        if heading_match:
-            if current_section and content_lines:
-                numbered_title = f"{current_number}. {current_section}"
-                sections[numbered_title] = content_lines
-                content_lines = []
-            current_number = int(heading_match.group(1))
-            current_section = heading_match.group(2)
-        elif line.startswith("-"):
-            content_lines.append(line.lstrip("- ").strip())
+        # Fallback: "### Business Overview"
+        simple_header = re.match(r"^#+\s+(.*)", line)
+        if simple_header:
+            current_section = simple_header.group(1).strip()
+            continue
 
-    if current_section and content_lines:
-        numbered_title = f"{current_number}. {current_section}"
-        sections[numbered_title] = content_lines
+        # Bullet point line: "- key point"
+        bullet_match = re.match(r"^- (.+)", line)
+        if bullet_match and current_section:
+            bullet = bold_labels(bullet_match.group(1).strip())
+            sections[current_section].append(bullet)
 
-    return sections
+    return dict(sections)
 
-
+# === Generate final infographic-ready HTML ===
 def generate_infographic_html(docx_path, company_name):
     raw_text = extract_raw_text(docx_path)
     summary = call_deepseek_summary(raw_text, company_name)
     sections = parse_deepseek_response(summary)
 
-    # ✅ Print section headings to confirm parsing worked
-    print("\n🔍 Parsed Section Headings:")
-    for k in sections.keys():
-        print(f"  - {k}")
+    # Debug output
+    print("\n🧾 RAW LLM RESPONSE:\n")
+    print(summary)
+
+    print("\n🔍 Final Parsed Sections for HTML:")
+    for heading, bullets in sections.items():
+        print(f"\n{heading}")
+        for bullet in bullets:
+            print(f" - {bullet}")
 
     with open("templates/base_infographic.html", "r", encoding="utf-8") as f:
         html_template = f.read()
@@ -102,4 +116,3 @@ def generate_infographic_html(docx_path, company_name):
         sections=sections
     )
     return html_rendered
-
