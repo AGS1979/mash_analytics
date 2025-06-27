@@ -10,19 +10,32 @@ def parse_docx_sections(docx_path):
     current_heading = None
     content = []
 
+    # Define known section headers to look for (you can customize this list)
+    known_headings = [
+        "Executive Summary", "Key Investment Positives", "Key Risks",
+        "Valuation Summary", "Company Overview", "Market Opportunity",
+        "Financial Summary", "Use of Proceeds", "Management Commentary"
+    ]
+
     for para in doc.paragraphs:
-        if para.style.name.startswith('Heading'):
+        text = para.text.strip()
+        if not text:
+            continue
+
+        # Treat paragraph as heading if it matches known titles
+        if text in known_headings:
             if current_heading and content:
                 sections[current_heading] = "\n".join(content).strip()
                 content = []
-            current_heading = para.text.strip()
-        elif para.text.strip():
-            content.append(para.text.strip())
+            current_heading = text
+        else:
+            content.append(text)
 
     if current_heading and content:
         sections[current_heading] = "\n".join(content).strip()
 
     return sections
+
 
 def generate_infographic_html(docx_path, company_name):
     sections = parse_docx_sections(docx_path)
