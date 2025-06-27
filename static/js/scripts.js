@@ -222,7 +222,14 @@ function showDcfModal() {
                         });
 
                         modal.querySelector("#generate-infographic-btn").addEventListener("click", () => {
-                            const file = modal.currentPreipoFile;
+                            const resultDiv = modal.querySelector("#infographic-result");
+
+                            resultDiv.innerHTML = `⏳ Creating infographic...`;
+
+                            fetch("/generate-preipo-infographic-from-latest", {
+                                method: "POST"
+                            })
+
                             const resultDiv = modal.querySelector("#infographic-result");
 
                             if (!file || !file.name.endsWith(".docx")) {

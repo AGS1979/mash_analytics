@@ -587,6 +587,24 @@ def generate_preipo_infographic():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route("/generate-preipo-infographic-from-latest", methods=["POST"])
+def generate_infographic_from_latest():
+    try:
+        # You must have stored the latest memo content temporarily in memory (e.g., session or variable)
+        # For now, simulate by pointing to the latest file (not production-safe!)
+        latest_docx_path = "temp/generated_memo.docx"
+
+        if not os.path.exists(latest_docx_path):
+            return jsonify({"error": "Memo not found. Please regenerate the memo first."})
+
+        # Run infographic generation
+        from InvMemoInfographic import generate_infographic_from_docx
+        html = generate_infographic_from_docx(latest_docx_path)
+
+        return jsonify({"html": html})
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
 
 @app.route('/logout')
 def logout():
