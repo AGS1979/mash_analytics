@@ -233,6 +233,14 @@ function showDcfModal() {
                                 return;
                             }
 
+                            const popup = window.open("", "_blank", "width=1200,height=800"); // 💡 move to top
+                            if (!popup) {
+                                resultDiv.innerHTML = `❌ Pop-up blocked. Please allow pop-ups for this site.`;
+                                return;
+                            }
+
+                            popup.document.write("<p>⏳ Generating infographic...</p>");  // Optional: preloader
+
                             const formData = new FormData();
                             formData.append("file", file);
 
@@ -245,21 +253,22 @@ function showDcfModal() {
                             .then(r => r.json())
                             .then(data => {
                                 if (data.html) {
-                                    const popup = window.open("", "_blank", "width=1200,height=800");
-                                    popup.document.open();
+                                    popup.document.open();  // ✅ Now popup is not null
                                     popup.document.write(data.html);
                                     popup.document.close();
-
                                     resultDiv.innerHTML = `✅ Infographic preview opened in a new tab.`;
                                 } else {
+                                    popup.close();
                                     resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error || "Unknown error"}</span>`;
                                 }
                             })
                             .catch(err => {
                                 console.error(err);
+                                popup.close();
                                 resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
                             });
                         });
+
 
 
 
