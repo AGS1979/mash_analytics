@@ -60,6 +60,14 @@ from DCF import (
     generate_dcf_logic, clean_and_format_dcf_output, save_excel, extract_kpi_drivers
 )
 from InvMemoInfographic import generate_infographic_html
+from SpecialSituations import generate_special_situation_note  # Your core function
+from SSInfographic import generate_infographic_html  # Your earlier function
+
+
+UPLOAD_DIR = "uploads"
+OUTPUT_DIR = "infographics"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -469,6 +477,82 @@ def signup():
 
 
 
+
+UPLOAD_DIR = "uploads"
+OUTPUT_DIR = "memos"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+@app.route("/generate-special-situation-memo", methods=["POST"])
+def generate_special_situation_memo():
+    if 'company_name' not in request.form or 'situation_type' not in request.form:
+        return jsonify({"error": "Missing company_name or situation_type"}), 400
+
+    if 'files' not in request.files:
+        return jsonify({"error": "No files uploaded"}), 400
+
+    company_name = request.form['company_name'].strip()
+    situation_type = request.form['situation_type'].strip()
+    uploaded_files = request.files.getlist('files')
+
+    if not uploaded_files:
+        return jsonify({"error": "Empty file list"}), 400
+
+    # Save uploaded files
+    saved_paths = []
+    for file in uploaded_files:
+        filename = secure_filename(file.filename)
+        save_path = os.path.join(UPLOAD_DIR, filename)
+        file.save(save_path)
+        saved_paths.append(save_path)
+
+    # Output filename
+    output_filename = f"{company_name.replace(' ', '_')}_{situation_type.replace(' ', '_')}_Memo.docx"
+    output_path = os.path.join(OUTPUT_DIR, output_filename)
+
+    try:
+        generate_special_situation_note(company_name, situation_type, saved_paths, output_path)
+    except Exception as e:
+        return jsonify({"error": f"❌ Error generating memo: {str(e)}"}), 500
+
+    return send_file(output_path, as_attachment=True)
+
+
+
+
+@app.route("/generate-infographic", methods=["POST"])
+def generate_infographic():
+    if 'company_name' not in request.form:
+        return jsonify({"error": "Missing company name"}), 400
+    if 'memo_file' not in request.files:
+        return jsonify({"error": "Missing uploaded memo"}), 400
+
+    company_name = request.form['company_name'].strip()
+    memo_file = request.files['memo_file']
+
+    if memo_file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    if not memo_file.filename.lower().endswith('.docx'):
+        return jsonify({"error": "Only .docx files are supported"}), 400
+
+    # Save uploaded DOCX
+    memo_filename = secure_filename(memo_file.filename)
+    memo_path = os.path.join(UPLOAD_DIR, memo_filename)
+    memo_file.save(memo_path)
+
+    # Output path
+    html_filename = f"{company_name.replace(' ', '_')}_Infographic.html"
+    output_path = os.path.join(OUTPUT_DIR, html_filename)
+
+    try:
+        generate_infographic_html(memo_path, company_name, output_path)
+    except Exception as e:
+        return jsonify({"error": f"❌ Error generating infographic: {str(e)}"}), 500
+
+    return send_file(output_path, as_attachment=True, download_name=html_filename)
+
+
+
 @app.route('/custom-agents-data')
 def get_custom_agents():
     agents = [
@@ -488,9 +572,9 @@ def get_custom_agents():
         },
         {
             "id": "macro_classifier",
-            "name": "Macro Regime Classifier",
-            "category": "Risk Management",
-            "description": "Classifies the current macro regime (e.g., inflationary slowdown) and recommends tilts.",
+            "name": "Special Situations Analyzer",
+            "category": "Investment Notes",
+            "description": "Creates an investment note based on a special situation",
             "output": "Regime classification file"
         },
         {
@@ -587,24 +671,7 @@ def generate_preipo_infographic():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route("/generate-preipo-infographic-from-latest", methods=["POST"])
-def generate_infographic_from_latest():
-    try:
-        # You must have stored the latest memo content temporarily in memory (e.g., session or variable)
-        # For now, simulate by pointing to the latest file (not production-safe!)
-        latest_docx_path = "temp/generated_memo.docx"
-
-        if not os.path.exists(latest_docx_path):
-            return jsonify({"error": "Memo not found. Please regenerate the memo first."})
-
-        # Run infographic generation
-        from InvMemoInfographic import generate_infographic_from_docx
-        html = generate_infographic_from_docx(latest_docx_path)
-
-        return jsonify({"html": html})
-    except Exception as e:
-        return jsonify({"error": str(e)})
-
+        
 
 @app.route('/logout')
 def logout():

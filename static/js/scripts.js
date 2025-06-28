@@ -100,6 +100,11 @@ function showDcfModal() {
     document.getElementById("modal-dcf_analyzer").style.display = "block";
 }
 
+function showSpecialSituationsModal() {
+    document.getElementById("modal-Special_Situations_Analyzer").style.display = "block";
+}
+
+
 
 // ------------------------------------------------------------
     // Definition of loadCustomAgents (this is where two braces were missing)
@@ -740,6 +745,140 @@ function showDcfModal() {
 }
 
 
+else if (agent.id === "Special_Situations_Analyzer") {
+    card.innerHTML = `
+        <h3>${agent.name}</h3>
+        <p><strong>Category:</strong> ${agent.category}</p>
+        <p>${agent.description}</p>
+        <button onclick="showSpecialSituationsModal()">Run Agent</button>
+    `;
+
+    grid.appendChild(card);
+
+    const modal = document.createElement("div");
+    modal.id = `modal-${agent.id}`;
+    modal.className = "modal";
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+            <h2>${agent.name}</h2>
+            <p><strong>Category:</strong> ${agent.category}</p>
+            <p><strong>Description:</strong> ${agent.description}</p>
+
+            <form id="specialsituations-form">
+                <label>Company Name:</label><br>
+                <input type="text" name="company_name" required /><br><br>
+
+                <label>Select Special Situation:</label><br>
+                <select name="situation_type" required>
+                    <option value="">-- Select --</option>
+                    <option value="Spin-Off or Split-Up">Spin-Off or Split-Up</option>
+                    <option value="Mergers & Acquisitions (Takeover, Break-Up, LBO)">Mergers & Acquisitions</option>
+                    <option value="Bankruptcy / Distressed / Restructuring">Bankruptcy / Restructuring</option>
+                    <option value="Activist Campaign">Activist Campaign</option>
+                    <option value="Regulatory or Legal Catalyst">Regulatory or Legal Catalyst</option>
+                    <option value="Asset Sales or Carve-Outs">Asset Sales or Carve-Outs</option>
+                    <option value="Capital Raising or Buyback Catalyst">Capital Raising / Buyback</option>
+                </select><br><br>
+
+                <label>Upload Company Files (.pdf or .docx):</label><br>
+                <input type="file" name="file" accept=".pdf,.docx" multiple required /><br><br>
+                <button type="submit">Generate Memo</button>
+            </form>
+
+            <div id="specialsituations-result" style="margin-top: 15px;"></div>
+
+            <!-- Infographic Button -->
+            <div id="infographic-section" style="margin-top: 20px; display:none;">
+                <label for="infographic-file">Upload the downloaded memo (.docx):</label><br>
+                <input type="file" id="infographic-file" accept=".docx" required><br><br>
+                <button id="generate-infographic-btn" style="margin-top:10px;">📊 Generate Infographic</button>
+                <div id="infographic-result" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+    `;
+    document.getElementById("custom-agents-ui").appendChild(modal);
+
+    modal.querySelector("#specialsituations-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+
+        const resultDiv = modal.querySelector("#specialsituations-result");
+        const submitBtn = form.querySelector("button");
+
+        resultDiv.innerHTML = `⏳ Generating memo... please wait...`;
+        submitBtn.disabled = true;
+
+        fetch("/generate-special-situation-memo", {
+            method: "POST",
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.download_url) {
+                resultDiv.innerHTML = `
+                    ✅ Memo ready!<br>
+                    <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
+                        ⬇ Download Memo
+                    </a>`;
+                modal.querySelector("#infographic-section").style.display = "block";
+            } else {
+                resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error}</span>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            resultDiv.innerText = `Error: ${err.message}`;
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            resultDiv.scrollIntoView({ behavior: "smooth" });
+        });
+    });
+
+    modal.querySelector("#generate-infographic-btn").addEventListener("click", () => {
+        const resultDiv = modal.querySelector("#infographic-result");
+        const file = modal.querySelector("#infographic-file").files[0];
+        if (!file || !file.name.endsWith(".docx")) {
+            resultDiv.innerHTML = `❌ Please upload a valid .docx memo to generate infographic.`;
+            return;
+        }
+
+        const popup = window.open("", "_blank", "width=1200,height=800");
+        if (!popup) {
+            resultDiv.innerHTML = `❌ Pop-up blocked. Please allow pop-ups for this site.`;
+            return;
+        }
+
+        popup.document.write("<p>⏳ Generating infographic...</p>");
+
+        const formData = new FormData();
+        formData.append("memo_file", file);
+        formData.append("company_name", modal.querySelector("input[name='company_name']").value.trim());
+
+        fetch("/generate-infographic", {
+            method: "POST",
+            body: formData
+        })
+        .then(r => r.blob())
+        .then(blob => {
+            const reader = new FileReader();
+            reader.onload = function () {
+                popup.document.open();
+                popup.document.write(reader.result);
+                popup.document.close();
+                resultDiv.innerHTML = `✅ Infographic preview opened.`;
+            };
+            reader.readAsText(blob);
+        })
+        .catch(err => {
+            console.error(err);
+            popup.close();
+            resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
+        });
+    });
+}
 
 
 
