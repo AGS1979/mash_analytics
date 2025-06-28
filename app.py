@@ -571,8 +571,8 @@ def get_custom_agents():
             "output": "Optimization result file"
         },
         {
-            "id": "macro_classifier",
-            "name": "Special_Situations_Analyzer",
+            "id": "Special_Situations_Analyzer",
+            "name": "Special Situations Analyzer",
             "category": "Investment Notes",
             "description": "Creates an investment note based on a special situation",
             "output": "Regime classification file"
