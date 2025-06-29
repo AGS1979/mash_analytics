@@ -496,11 +496,11 @@ def generate_special_situation_memo():
         if not uploaded_files:
             return jsonify({"error": "No files uploaded"}), 400
 
-        # Save uploaded files
+        # Save uploaded files to UPLOAD_FOLDER
         saved_paths = []
         for file in uploaded_files:
             if not file.filename.lower().endswith(('.pdf', '.docx')):
-                continue  # only process supported file types
+                continue
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
@@ -509,18 +509,18 @@ def generate_special_situation_memo():
         if not saved_paths:
             return jsonify({"error": "No valid files saved."}), 400
 
-        # Generate output filename and path
+        # Save memo to DOCS_FOLDER (used by download_doc route)
         output_filename = f"{company_name.replace(' ', '_')}_{situation_type.replace(' ', '_')}_Memo.docx"
         output_path = os.path.join(app.config['DOCS_FOLDER'], output_filename)
 
-        # Call the memo generation function
+        # Call generator
         generate_special_situation_note(company_name, situation_type, saved_paths, output_path)
 
         if not os.path.exists(output_path):
             return jsonify({"error": "Memo generation failed."}), 500
 
-        # Construct relative URL for download
-        download_url = url_for('download_doc', filename=os.path.basename(output_path), _external=False)
+        # ✅ Use external URL for full download link
+        download_url = url_for('download_doc', filename=output_filename, _external=True)
 
         return jsonify({
             "message": "Memo generated successfully!",
@@ -530,6 +530,7 @@ def generate_special_situation_memo():
     except Exception as e:
         print(f"🔥 Error in /generate-special-situation-memo: {e}")
         return jsonify({"error": f"❌ Error generating memo: {str(e)}"}), 500
+
 
 
 
