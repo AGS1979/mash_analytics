@@ -3,7 +3,7 @@ import requests
 import pdfplumber
 from docx import Document
 from typing import List
-from docx.shared import Pt
+from docx.shared import Pt, Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import re
 
@@ -208,7 +208,6 @@ def extract_text_from_pdf(file_path: str) -> str:
                 extracted = page.extract_text()
                 if extracted:
                     text += extracted + "\n"
-
         return text.strip()
     except Exception as e:
         return f"[ERROR extracting PDF: {e}]"
@@ -225,16 +224,14 @@ def extract_text_from_docx(file_path: str) -> str:
 # ==========================
 
 def clean_markdown(text):
-    # Remove markdown-style formatting
-    text = re.sub(r'#+\s*', '', text)                    # remove headings like ### 
-    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)         # bold
-    text = re.sub(r'\*(.*?)\*', r'\1', text)             # italics
-    text = re.sub(r'`{1,3}(.*?)`{1,3}', r'\1', text)      # inline code blocks
-    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)          # image links
-    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # normal links
-    text = re.sub(r'\n{3,}', '\n\n', text)               # limit empty lines
-    text = re.sub(r'^- ', '• ', text, flags=re.MULTILINE)  # bullet points
-
+    text = re.sub(r'#+\s*', '', text)
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+    text = re.sub(r'\*(.*?)\*', r'\1', text)
+    text = re.sub(r'`{1,3}(.*?)`{1,3}', r'\1', text)
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'^- ', '• ', text, flags=re.MULTILINE)
     return text.strip()
 
 def truncate_safely(text, limit=7000):
@@ -243,9 +240,7 @@ def truncate_safely(text, limit=7000):
     cutoff = text[:limit].rfind('\n\n')
     return text[:cutoff] if cutoff != -1 else text[:limit]
 
-
 def generate_special_situation_note(company_name: str, situation_type: str, file_paths: List[str], output_path: str):
-    # 1. Extract content from files
     combined_text = ""
     for path in file_paths:
         if path.endswith(".pdf"):
@@ -255,12 +250,10 @@ def generate_special_situation_note(company_name: str, situation_type: str, file
         else:
             combined_text += f"[Unsupported file: {path}]\n"
 
-    # 2. Select report structure
     structure = REPORT_TEMPLATES.get(situation_type)
     if not structure:
         raise ValueError(f"Unsupported situation type: {situation_type}")
 
-    # 3. Build prompt
     prompt = f"""
 You are an institutional investment analyst writing a professional memo on a special situation involving {company_name}.
 The situation is: **{situation_type}**
@@ -275,7 +268,6 @@ Structure:
 {structure}
 """
 
-    # 4. Call DeepSeek
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
     payload = {
         "model": "deepseek-chat",
@@ -288,54 +280,77 @@ Structure:
     response.raise_for_status()
     memo = response.json()["choices"][0]["message"]["content"]
 
-    # ✅ Clean markdown from LLM output
     memo = clean_markdown(memo)
-
-    # ✅ 5. Format and save to DOCX
     format_memo_docx(memo, company_name, situation_type, output_path)
 
-
+# ==========================
+# Word Formatting Function
+# ==========================
 
 def format_memo_docx(memo_text: str, company_name: str, situation_type: str, output_path: str):
+    from docx.enum.style import WD_STYLE_TYPE
+
     doc = Document()
 
-    # Title Page
-    title = f"{company_name} {situation_type} Investment Memo"
+    # === Fonts ===
+    style = doc.styles['Normal']
+    style.font.name = 'Aptos Display'
+
+    if 'Heading 2' not in doc.styles:
+        heading_style = doc.styles.add_style('Heading 2', WD_STYLE_TYPE.PARAGRAPH)
+        heading_style.font.size = Pt(14)
+        heading_style.font.bold = True
+        heading_style.font.name = 'Aptos Display'
+    else:
+        doc.styles['Heading 2'].font.name = 'Aptos Display'
+
+    # === Title ===
+    title = f"{company_name} – {situation_type} Investment Memo"
     title_paragraph = doc.add_paragraph()
     title_run = title_paragraph.add_run(title)
     title_run.bold = True
     title_run.font.size = Pt(18)
+    title_run.font.name = 'Aptos Display'
     title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     doc.add_paragraph("\n")
 
-    # Split sections
-    sections = memo_text.strip().split("\n\n")
+    # === TOC Sections ===
+    toc = REPORT_TEMPLATES.get(situation_type)
+    if not toc:
+        raise ValueError(f"No TOC found for situation type: {situation_type}")
+    expected_sections = [t.strip() for t in toc.strip().splitlines() if t.strip()]
 
-    section_number = 1
-    for block in sections:
-        if not block.strip():
+    parsed = {}
+    current_title = None
+    lines = memo_text.strip().split("\n")
+
+    for line in lines:
+        if any(line.strip().lower().startswith(sec.lower()) for sec in expected_sections):
+            current_title = next((sec for sec in expected_sections if line.strip().lower().startswith(sec.lower())), line.strip())
+            parsed[current_title] = []
+        elif current_title:
+            parsed[current_title].append(line.strip())
+
+    for i, section in enumerate(expected_sections, 1):
+        body_lines = parsed.get(section, [])
+        if not body_lines:
             continue
 
-        lines = block.strip().split("\n", 1)
-        if len(lines) == 2 and lines[0].lower().startswith("investment memo:"):
-            # Section Title
-            heading = f"{section_number}. {lines[0].replace('Investment Memo: ', '').strip()}"
-            doc.add_paragraph(heading, style="Heading 2")
-            section_number += 1
+        doc.add_paragraph(f"{i}. {section}", style="Heading 2")
 
-            # Body text
-            paragraph = doc.add_paragraph()
-            run = paragraph.add_run(lines[1].strip())
-            run.font.size = Pt(11)
-            paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        for para in "\n".join(body_lines).split("\n\n"):
+            if para.strip():
+                p = doc.add_paragraph(para.strip())
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
-        else:
-            # Fallback: no structured "Investment Memo:" present
-            paragraph = doc.add_paragraph()
-            run = paragraph.add_run(block.strip())
-            run.font.size = Pt(11)
-            paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        doc.add_paragraph()
+
+    # === Margins ===
+    section = doc.sections[0]
+    section.left_margin = Inches(0.5)
+    section.right_margin = Inches(0.5)
+    section.top_margin = Inches(0.5)
+    section.bottom_margin = Inches(0.5)
 
     doc.save(output_path)
-    print(f"✅ Formatted memo saved to: {output_path}")
-
+    print(f"✅ Clean, TOC-based memo saved to: {output_path}")
