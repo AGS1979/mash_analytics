@@ -20,6 +20,7 @@ FALLBACK_META = [
     ("🧠", "gray"),
 ]
 
+# 🔄 UPDATED SECTION EXTRACTOR
 def extract_sections_from_docx(docx_path):
     doc = Document(docx_path)
     sections = {}
@@ -28,13 +29,13 @@ def extract_sections_from_docx(docx_path):
 
     for para in doc.paragraphs:
         text = para.text.strip()
-        if not text:
-            continue
+        style_name = para.style.name.lower()
 
-        if text.startswith("Investment Memo:"):
+        # Use heading styles as section titles
+        if "heading" in style_name:
             if current_heading and current_text:
                 sections[current_heading] = "\n".join(current_text).strip()
-            current_heading = text.replace("Investment Memo:", "").strip()
+            current_heading = text
             current_text = []
         else:
             current_text.append(text)
@@ -102,7 +103,6 @@ def build_infographic_html(company_name, sections):
         print(f"🔍 Summarizing section: {title}")
         summary = summarize_section_with_deepseek(title, section_text)
 
-        # Normalize bullets
         lines = [
             line.strip("•- ").strip()
             for line in summary.split("\n")
@@ -132,6 +132,10 @@ def build_infographic_html(company_name, sections):
 def generate_infographic_html(docx_path, company_name, output_path):
     print("📄 Extracting memo sections...")
     sections = extract_sections_from_docx(docx_path)
+
+    if not sections:
+        print("⚠️ No sections extracted. Check that your DOCX uses heading styles.")
+        return
 
     print("🎨 Generating HTML infographic...")
     html = build_infographic_html(company_name, sections)

@@ -566,7 +566,7 @@ def generate_infographic():
     except Exception as e:
         return jsonify({"error": f"❌ Error generating infographic: {str(e)}"}), 500
 
-    return send_file(output_path, as_attachment=True, download_name=html_filename)
+    return send_file(output_path, as_attachment=True, download_name=html_filename, mimetype="text/html")
 
 
 

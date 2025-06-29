@@ -851,7 +851,7 @@ else if (agent.id === "Special_Situations_Analyzer") {
             return;
         }
 
-        popup.document.write("<p>⏳ Generating infographic...</p>");
+        popup.document.write("<p>⏳ Generating infographic...<br><img src=\"https://i.imgur.com/llF5iyg.gif\" style=\"height:30px;\"></p>");
 
         const formData = new FormData();
         formData.append("memo_file", file);
@@ -870,7 +870,7 @@ else if (agent.id === "Special_Situations_Analyzer") {
                 popup.document.close();
                 resultDiv.innerHTML = `✅ Infographic preview opened.`;
             };
-            reader.readAsText(blob);
+            reader.readAsText(blob, "UTF-8");
         })
         .catch(err => {
             console.error(err);

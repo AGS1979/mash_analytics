@@ -5,6 +5,7 @@ from docx import Document
 from typing import List
 from docx.shared import Pt
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+import re
 
 # ==========================
 # DeepSeek Setup
@@ -204,7 +205,10 @@ def extract_text_from_pdf(file_path: str) -> str:
         text = ""
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
-                text += page.extract_text() + "\n"
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+
         return text.strip()
     except Exception as e:
         return f"[ERROR extracting PDF: {e}]"
@@ -219,6 +223,26 @@ def extract_text_from_docx(file_path: str) -> str:
 # ==========================
 # Main Exported Function
 # ==========================
+
+def clean_markdown(text):
+    # Remove markdown-style formatting
+    text = re.sub(r'#+\s*', '', text)                    # remove headings like ### 
+    text = re.sub(r'\*\*(.*?)\*\*', r'\1', text)         # bold
+    text = re.sub(r'\*(.*?)\*', r'\1', text)             # italics
+    text = re.sub(r'`{1,3}(.*?)`{1,3}', r'\1', text)      # inline code blocks
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)          # image links
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # normal links
+    text = re.sub(r'\n{3,}', '\n\n', text)               # limit empty lines
+    text = re.sub(r'^- ', '• ', text, flags=re.MULTILINE)  # bullet points
+
+    return text.strip()
+
+def truncate_safely(text, limit=7000):
+    if len(text) <= limit:
+        return text
+    cutoff = text[:limit].rfind('\n\n')
+    return text[:cutoff] if cutoff != -1 else text[:limit]
+
 
 def generate_special_situation_note(company_name: str, situation_type: str, file_paths: List[str], output_path: str):
     # 1. Extract content from files
@@ -243,7 +267,7 @@ The situation is: **{situation_type}**
 
 Below is the internal company information extracted from various files:
 
-\"\"\"{combined_text[:7000]}\"\"\"
+\"\"\"{truncate_safely(combined_text)}\"\"\"
 
 Using the structure below, generate a well-written investment memo. Be factual, insightful, and clear.
 
@@ -263,6 +287,9 @@ Structure:
     response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
     response.raise_for_status()
     memo = response.json()["choices"][0]["message"]["content"]
+
+    # ✅ Clean markdown from LLM output
+    memo = clean_markdown(memo)
 
     # ✅ 5. Format and save to DOCX
     format_memo_docx(memo, company_name, situation_type, output_path)
