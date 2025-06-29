@@ -292,41 +292,39 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
 
     doc = Document()
 
-    # === Define Global Font ===
+    # === Define global font style ===
     style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
+    style.font.name = 'Calibri'
+    style.font.size = Pt(11)
 
-    # === Document Margins ===
+    # === Set page margins ===
     section = doc.sections[0]
     section.top_margin = Inches(1)
     section.bottom_margin = Inches(1)
     section.left_margin = Inches(1)
     section.right_margin = Inches(1)
 
-    # === Title ===
+    # === Title formatting ===
     title_para = doc.add_paragraph()
     title_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    title_run = title_para.add_run(f"{company_name} – {situation_type} Investment Memo")
-    title_run.font.name = 'Calibri'
-    title_run.font.size = Pt(18)
-    title_run.bold = True
-    doc.add_paragraph()  # Spacer
+    run = title_para.add_run(f"{company_name} – {situation_type} Investment Memo")
+    run.font.name = 'Calibri'
+    run.font.size = Pt(18)
+    run.bold = True
+    doc.add_paragraph("")  # spacer
 
-    # === Heading Style ===
+    # === Define Heading style ===
     if "HeadingCustom" not in doc.styles:
         heading_style = doc.styles.add_style("HeadingCustom", WD_STYLE_TYPE.PARAGRAPH)
         heading_style.font.name = 'Calibri'
         heading_style.font.size = Pt(13)
         heading_style.font.bold = True
         heading_style.paragraph_format.space_before = Pt(12)
-        heading_style.paragraph_format.space_after = Pt(4)
+        heading_style.paragraph_format.space_after = Pt(6)
 
-    # === Clean Section Parsing ===
+    # === Parse sections ===
     toc = REPORT_TEMPLATES.get(situation_type)
     expected_sections = [line.strip() for line in toc.strip().splitlines() if line.strip()]
-
     parsed = {}
     current_title = None
     for line in memo_text.strip().split("\n"):
@@ -337,30 +335,40 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
         elif current_title:
             parsed[current_title].append(line.strip())
 
-    # === Write Sections ===
+    # === Write sections ===
     for idx, section_title in enumerate(expected_sections, 1):
-        body = parsed.get(section_title, [])
-        if not body:
+        content = parsed.get(section_title, [])
+        if not content:
             continue
 
-        # Add Heading
+        # Add heading
         doc.add_paragraph(f"{idx}. {section_title}", style="HeadingCustom")
 
-        # Add Paragraphs
-        joined = "\n".join(body)
-        for para in re.split(r"\n{2,}", joined):
+        # Clean paragraphs and bullets
+        joined = "\n".join(content)
+        paragraphs = re.split(r"\n{2,}", joined)
+        for para in paragraphs:
             para = para.strip()
             if not para:
                 continue
-            p = doc.add_paragraph(para)
-            p.paragraph_format.space_after = Pt(6)
-            p.paragraph_format.line_spacing = 1.5
-            p.paragraph_format.first_line_indent = Inches(0.3)
-            p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+            # Bullet handling
+            if para.startswith("• ") or para.startswith("- "):
+                bullet_lines = para.splitlines()
+                for line in bullet_lines:
+                    if line.strip():
+                        p = doc.add_paragraph(line.strip().lstrip("•- "), style='List Bullet')
+                        p.paragraph_format.left_indent = Inches(0.25)
+                        p.paragraph_format.space_after = Pt(2)
+            else:
+                p = doc.add_paragraph(para)
+                p.paragraph_format.first_line_indent = Inches(0.25)
+                p.paragraph_format.line_spacing = 1.25
+                p.paragraph_format.space_after = Pt(6)
+                p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
-        doc.add_paragraph()
+        doc.add_paragraph("")  # spacer
 
-    # === Footer disclaimer (Optional) ===
+    # === Footer ===
     footer = doc.sections[0].footer
     footer_para = footer.paragraphs[0]
     footer_para.text = "Confidential | Prepared for internal investment research use only"
@@ -368,5 +376,7 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
     footer_para.style.font.size = Pt(9)
     footer_para.style.font.name = 'Calibri'
 
+    # === Save doc ===
     doc.save(output_path)
-    print(f"✅ Saved to {output_path}")
+    print(f"✅ Memo saved to: {output_path}")
+

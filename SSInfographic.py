@@ -213,16 +213,16 @@ def build_infographic_html(company_name, sections):
     return html
 
 def generate_infographic_html(docx_path, company_name, situation_type, output_path):
-    print("\ud83d\udcc4 Extracting memo sections...")
+    print("Extracting memo sections...")
     raw_sections = extract_sections_from_docx(docx_path)
 
     toc = REPORT_TEMPLATES.get(situation_type)
     if not toc:
-        print(f"\u26a0\ufe0f No TOC found for situation type: {situation_type}")
+        print(f"No TOC found for situation type: {situation_type}")
         return
 
     ordered_titles = [t.strip() for t in toc.strip().splitlines() if t.strip()]
-    print(f"\ud83e\udded Using TOC with {len(ordered_titles)} expected sections")
+    print(f"Using TOC with {len(ordered_titles)} expected sections")
 
     structured_sections = {}
     for expected_title in ordered_titles:
@@ -234,18 +234,17 @@ def generate_infographic_html(docx_path, company_name, situation_type, output_pa
         if matched:
             structured_sections[expected_title] = matched
         else:
-            print(f"\u26a0\ufe0f Missing section in DOCX: '{expected_title}' — skipping")
+            print(f"Missing section in DOCX: '{expected_title}' — skipping")
 
     if not structured_sections:
-        print("\u26a0\ufe0f No valid sections found. Check headings or memo formatting.")
+        print("No valid sections found. Check headings or memo formatting.")
         return
 
-    print("\ud83c\udfa8 Generating HTML infographic...")
+    print("Generating HTML infographic...")
     html = build_infographic_html(company_name, structured_sections)
 
     with open(output_path, "w", encoding="utf-8") as f:
-        safe_html = html.encode("utf-8", errors="replace").decode("utf-8")
-        f.write(safe_html)
+        f.write(html)
 
 
-    print(f"\u2705 Infographic saved to: {output_path}")
+    print(f"Infographic saved to: {output_path}")
