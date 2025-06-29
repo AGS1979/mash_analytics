@@ -485,38 +485,53 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 @app.route("/generate-special-situation-memo", methods=["POST"])
 def generate_special_situation_memo():
-    if 'company_name' not in request.form or 'situation_type' not in request.form:
-        return jsonify({"error": "Missing company_name or situation_type"}), 400
-
-    if 'files' not in request.files:
-        return jsonify({"error": "No files uploaded"}), 400
-
-    company_name = request.form['company_name'].strip()
-    situation_type = request.form['situation_type'].strip()
-    uploaded_files = request.files.getlist('files')
-
-    if not uploaded_files:
-        return jsonify({"error": "Empty file list"}), 400
-
-    # Save uploaded files
-    saved_paths = []
-    for file in uploaded_files:
-        filename = secure_filename(file.filename)
-        save_path = os.path.join(UPLOAD_DIR, filename)
-        file.save(save_path)
-        saved_paths.append(save_path)
-
-    # Output filename
-    output_filename = f"{company_name.replace(' ', '_')}_{situation_type.replace(' ', '_')}_Memo.docx"
-    output_path = os.path.join(OUTPUT_DIR, output_filename)
-
     try:
+        company_name = request.form.get('company_name', '').strip()
+        situation_type = request.form.get('situation_type', '').strip()
+        uploaded_files = request.files.getlist('files')
+
+        if not company_name or not situation_type:
+            return jsonify({"error": "Missing company_name or situation_type"}), 400
+
+        if not uploaded_files:
+            return jsonify({"error": "No files uploaded"}), 400
+
+        # Save uploaded files
+        saved_paths = []
+        for file in uploaded_files:
+            if not file.filename.lower().endswith(('.pdf', '.docx')):
+                continue  # only process supported file types
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            saved_paths.append(file_path)
+
+        if not saved_paths:
+            return jsonify({"error": "No valid files saved."}), 400
+
+        # Generate output filename and path
+        output_filename = f"{company_name.replace(' ', '_')}_{situation_type.replace(' ', '_')}_Memo.docx"
+        output_path = os.path.join(app.config['DOCS_FOLDER'], output_filename)
+
+        # Call the memo generation function
         generate_special_situation_note(company_name, situation_type, saved_paths, output_path)
+
+        if not os.path.exists(output_path):
+            return jsonify({"error": "Memo generation failed."}), 500
+
+        # Construct relative URL for download
+        download_url = url_for('download_doc', filename=os.path.basename(output_path), _external=False)
+
+        return jsonify({
+            "message": "Memo generated successfully!",
+            "download_url": download_url
+        }), 200
+
     except Exception as e:
+        print(f"🔥 Error in /generate-special-situation-memo: {e}")
         return jsonify({"error": f"❌ Error generating memo: {str(e)}"}), 500
 
-    download_url = url_for('download_doc', filename=os.path.basename(output_path))
-    return jsonify({"download_url": download_url})
+
 
 
 
