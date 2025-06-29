@@ -244,6 +244,8 @@ def generate_infographic_html(docx_path, company_name, situation_type, output_pa
     html = build_infographic_html(company_name, structured_sections)
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html)
+        safe_html = html.encode("utf-8", errors="replace").decode("utf-8")
+        f.write(safe_html)
+
 
     print(f"\u2705 Infographic saved to: {output_path}")

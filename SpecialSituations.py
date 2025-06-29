@@ -292,43 +292,44 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
 
     doc = Document()
 
-    # === Set Global Font ===
+    # === Define Global Font ===
     style = doc.styles['Normal']
     font = style.font
     font.name = 'Calibri'
     font.size = Pt(11)
 
-    # === Title Formatting ===
-    title = f"{company_name} – {situation_type} Investment Memo"
+    # === Document Margins ===
+    section = doc.sections[0]
+    section.top_margin = Inches(1)
+    section.bottom_margin = Inches(1)
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+
+    # === Title ===
     title_para = doc.add_paragraph()
-    title_run = title_para.add_run(title)
-    title_run.bold = True
-    title_run.font.size = Pt(18)
-    title_run.font.name = 'Calibri'
     title_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    title_run = title_para.add_run(f"{company_name} – {situation_type} Investment Memo")
+    title_run.font.name = 'Calibri'
+    title_run.font.size = Pt(18)
+    title_run.bold = True
     doc.add_paragraph()  # Spacer
 
-    # === Section Heading Style ===
-    if 'CustomHeading' not in doc.styles:
-        heading_style = doc.styles.add_style('CustomHeading', WD_STYLE_TYPE.PARAGRAPH)
+    # === Heading Style ===
+    if "HeadingCustom" not in doc.styles:
+        heading_style = doc.styles.add_style("HeadingCustom", WD_STYLE_TYPE.PARAGRAPH)
+        heading_style.font.name = 'Calibri'
         heading_style.font.size = Pt(13)
         heading_style.font.bold = True
-        heading_style.font.name = 'Calibri'
-        heading_style.paragraph_format.space_after = Pt(4)
         heading_style.paragraph_format.space_before = Pt(12)
-    else:
-        heading_style = doc.styles['CustomHeading']
+        heading_style.paragraph_format.space_after = Pt(4)
 
-    # === Parse Text by Sections ===
+    # === Clean Section Parsing ===
     toc = REPORT_TEMPLATES.get(situation_type)
-    if not toc:
-        raise ValueError(f"No TOC found for situation type: {situation_type}")
-    expected_sections = [t.strip() for t in toc.strip().splitlines() if t.strip()]
+    expected_sections = [line.strip() for line in toc.strip().splitlines() if line.strip()]
 
     parsed = {}
     current_title = None
-    lines = memo_text.strip().split("\n")
-    for line in lines:
+    for line in memo_text.strip().split("\n"):
         match = next((sec for sec in expected_sections if line.strip().lower().startswith(sec.lower())), None)
         if match:
             current_title = match
@@ -336,34 +337,36 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
         elif current_title:
             parsed[current_title].append(line.strip())
 
-    # === Write Parsed Sections ===
-    for idx, section in enumerate(expected_sections, 1):
-        content = parsed.get(section, [])
-        if not content:
+    # === Write Sections ===
+    for idx, section_title in enumerate(expected_sections, 1):
+        body = parsed.get(section_title, [])
+        if not body:
             continue
 
-        doc.add_paragraph(f"{idx}. {section}", style='CustomHeading')
+        # Add Heading
+        doc.add_paragraph(f"{idx}. {section_title}", style="HeadingCustom")
 
-        section_text = "\n".join(content).strip()
-        paragraphs = re.split(r'\n{2,}', section_text)
+        # Add Paragraphs
+        joined = "\n".join(body)
+        for para in re.split(r"\n{2,}", joined):
+            para = para.strip()
+            if not para:
+                continue
+            p = doc.add_paragraph(para)
+            p.paragraph_format.space_after = Pt(6)
+            p.paragraph_format.line_spacing = 1.5
+            p.paragraph_format.first_line_indent = Inches(0.3)
+            p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
-        for para in paragraphs:
-            if para.strip():
-                p = doc.add_paragraph(para.strip())
-                p.paragraph_format.space_after = Pt(6)
-                p.paragraph_format.first_line_indent = Inches(0.25)
-                p.paragraph_format.line_spacing = 1.25
-                p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+        doc.add_paragraph()
 
-        doc.add_paragraph()  # Spacer
+    # === Footer disclaimer (Optional) ===
+    footer = doc.sections[0].footer
+    footer_para = footer.paragraphs[0]
+    footer_para.text = "Confidential | Prepared for internal investment research use only"
+    footer_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    footer_para.style.font.size = Pt(9)
+    footer_para.style.font.name = 'Calibri'
 
-    # === Adjust Margins ===
-    section = doc.sections[0]
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
-    section.top_margin = Inches(0.75)
-    section.bottom_margin = Inches(0.75)
-
-    # === Save ===
     doc.save(output_path)
-    print(f"✅ Formatted memo saved to: {output_path}")
+    print(f"✅ Saved to {output_path}")
