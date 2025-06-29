@@ -782,7 +782,7 @@ else if (agent.id === "Special_Situations_Analyzer") {
                 </select><br><br>
 
                 <label>Upload Company Files (.pdf or .docx):</label><br>
-                <input type="file" name="file" accept=".pdf,.docx" multiple required /><br><br>
+                <input type="file" name="files" accept=".pdf,.docx" multiple required /><br><br>
                 <button type="submit">Generate Memo</button>
             </form>
 
