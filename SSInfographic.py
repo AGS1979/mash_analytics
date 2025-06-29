@@ -212,7 +212,7 @@ def build_infographic_html(company_name, sections):
 """
     return html
 
-def generate_infographic_html(docx_path, company_name, situation_type, output_path):
+def generate_infographic(docx_path, company_name, situation_type, output_path):
     print("Extracting memo sections...")
     raw_sections = extract_sections_from_docx(docx_path)
 

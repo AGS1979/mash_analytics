@@ -1,11 +1,12 @@
 import os
-import requests
-import pdfplumber
-from docx import Document
-from typing import List
-from docx.shared import Pt, Inches
 import re
+from typing import List
+
+import pdfplumber
+import requests
+from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt
 
 # ==========================
 # DeepSeek Setup
@@ -19,179 +20,101 @@ DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 REPORT_TEMPLATES = {
     "Spin-Off or Split-Up": """
 Transaction Overview
-
 ParentCo and SpinCo details
-
 Rationale (regulatory, strategic unlock, valuation arbitrage)
-
 Distribution terms (ratio, eligibility, tax treatment)
-
 ParentCo Post-Spin Outlook
-
 Strategic focus
-
 Financial profile and valuation
-
 SpinCo Investment Case
-
 Business model, growth drivers
-
 Historical and pro forma financials
-
 Independent valuation (e.g., Sum-of-the-Parts)
-
 Risks and Overhangs
-
 Forced selling, low float, governance concerns
 """,
     "Mergers & Acquisitions": """
 Deal Summary
-
 Parties involved, consideration (cash/stock), premium
-
 Regulatory/antitrust/board approval status
-
 Target Company Analysis
-
 Valuation vs. offer
-
 Control premium vs. peers
-
 Buyer’s Rationale and Financing
-
 Strategic fit
-
 Synergies and pro forma financials
-
 Deal financing (debt, equity)
-
 Shareholder Vote & Antitrust Risk
-
 Key holders' stance
-
 Timing and likelihood of deal closure
-
 Spread Analysis and Arbitrage Opportunity
-
 Deal spread
-
 IRR scenarios based on timing/risk
 """,
     "Bankruptcy / Distressed / Restructuring": """
 Situation Summary
-
 Cause of distress
-
 Filing date, jurisdiction, DIP terms
-
 Capital Structure Analysis
-
 Pre- and post-reorg structure
-
 Seniority waterfall
-
 Creditor classes and recovery potential
-
 Valuation and Recovery Scenarios
-
 Estimated Enterprise Value
-
 Recovery per instrument (bonds, equity, unsecured)
-
 Reorganization Plan and Exit Timeline
-
 Conversion to equity, rights offering, warrants
-
 Exit multiples
-
 Catalysts and Legal Risks
-
 Judge approval, creditor objections, asset sales
 """,
     "Activist Campaign": """
 Activist Background
-
 Fund profile, history, prior campaigns
-
 Campaign Details
-
 Demands (board seat, spin, buyback, etc.)
-
 Timeline of engagement
-
 Company's Response and Governance Profile
-
 Management alignment, shareholder defense
-
 Scenario Analysis
-
 Status quo vs. activist success
-
 Proxy fight implications
-
 Valuation Impact
-
 NPV of potential changes (e.g., spin-off value, ROIC uplift)
 """,
     "Regulatory or Legal Catalyst": """
 Legal/Regulatory Background
-
 Case/issue summary
-
 Historical legal proceedings
-
 Outcome Scenarios
-
 Win, loss, settlement
-
 Timeline
-
 Financial and Strategic Implications
-
 Fines, product approval, license loss
-
 Revenue/EBITDA impact
-
 Market Reaction History (if any)
-
 Past similar cases
 """,
     "Asset Sales or Carve-Outs": """
 Transaction Overview
-
 Buyer, price, structure
-
 Valuation vs. book and peers
-
 Strategic Impact
-
 Focus shift, deleveraging, margin profile
-
 Use of Proceeds
-
 Debt repayment, dividends, buybacks, capex
-
 Re-rating Potential
-
 EBITDA margin uplift, return metrics
 """,
     "Capital Raising or Buyback Catalyst": """
 Transaction Mechanics
-
 Size, dilution, instrument type
-
 Capital Structure Post-Deal
-
 Leverage ratios, interest burden
-
 Shareholder Implications
-
 Accretion/dilution
-
 EPS impact
-
 Buyback Analysis (if applicable)
-
 Repurchase pace, valuation support
 """
 }
@@ -220,7 +143,7 @@ def extract_text_from_docx(file_path: str) -> str:
         return f"[ERROR extracting DOCX: {e}]"
 
 # ==========================
-# Main Exported Function
+# Main Orchestration Function
 # ==========================
 
 def clean_markdown(text):
@@ -281,20 +204,16 @@ Structure:
     memo = response.json()["choices"][0]["message"]["content"]
 
     memo = clean_markdown(memo)
-    # CORRECTED: Pass the template ('structure') to the splitting function for reliable parsing.
+    # Pass the template ('structure') to the splitting function for reliable parsing.
     memo_dict = split_into_sections(memo, structure)
     format_memo_docx(memo_dict, company_name, situation_type, output_path)
 
 
 # ==========================
-# Word Formatting Function
+# Word Formatting and Section Splitting
 # ==========================
 
-
-def format_memo_docx(memo, company_name, situation_type, output_path):
-    from docx import Document
-    from docx.shared import Pt, Inches
-
+def format_memo_docx(memo_dict, company_name, situation_type, output_path):
     doc = Document()
 
     # Set default style
@@ -312,12 +231,12 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
 
     doc.add_paragraph()
 
-    # ✅ If memo is string, treat as one section
-    if isinstance(memo, str):
-        memo = {"Memo": memo}
+    # Fallback if memo is not a dictionary
+    if not isinstance(memo_dict, dict) or not memo_dict:
+        memo_dict = {"Memo": str(memo_dict)}
 
     # Apply formatting per section
-    for section_title, content in memo.items():
+    for section_title, content in memo_dict.items():
         heading = doc.add_paragraph()
         heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
         run = heading.add_run(section_title)
@@ -325,6 +244,7 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
         run.font.size = Pt(14)
         run.font.name = 'Aptos Display'
 
+        # Process paragraphs within the section content
         for para in content.strip().split('\n\n'):
             if para.strip():
                 p = doc.add_paragraph(para.strip())
@@ -334,7 +254,7 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
 
         doc.add_paragraph()
 
-    # Margins
+    # Set page margins
     section = doc.sections[0]
     section.left_margin = Inches(0.75)
     section.right_margin = Inches(0.75)
@@ -345,11 +265,11 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
 
 def split_into_sections(text: str, template: str):
     """
-    Splits the memo text into a dictionary of sections.
+    Splits the memo text into a dictionary of sections based on titles from a template.
 
-    This function is corrected to be more robust. It extracts section titles from the
-    provided template and uses them as delimiters to split the text. This avoids
-    the fragility of relying on a generic regex pattern to guess what a title is.
+    This corrected function reliably extracts section titles from the template and uses
+    them as delimiters to split the memo text, avoiding the fragility of the previous
+    generic pattern matching.
 
     Args:
         text: The memo text to be split.
@@ -359,34 +279,23 @@ def split_into_sections(text: str, template: str):
         A dictionary with section titles as keys and their content as values.
     """
     sections = {}
-    # Extract canonical titles from the template. We just want the main heading,
-    # so we take the part before any '('.
+    # Extract canonical titles from the template, taking only text before any '('.
     titles = [line.split('(')[0].strip() for line in template.strip().split('\n') if line.strip()]
     if not titles:
-        # If template is empty or malformed, return the text as a single block.
         return {"Memo": text.strip()} if text.strip() else {}
 
     # Build a regex to find any of the titles when they appear on their own line.
-    # We use re.IGNORECASE to be robust against case variations from the AI model.
-    # `^` and `$` with re.MULTILINE ensure we match the whole line as the title.
     pattern = re.compile(r'^(' + '|'.join(map(re.escape, titles)) + r')\s*$', re.MULTILINE | re.IGNORECASE)
 
     matches = list(pattern.finditer(text))
     if not matches:
-        # If no titles are found, return the entire text as a single section.
         return {"Memo": text.strip()} if text.strip() else {}
 
     # Iterate through the found titles to carve out the sections
     for i, match in enumerate(matches):
-        # The title is the captured group from our regex
         title = match.group(1).strip()
-        
-        # The content of this section starts after the current title match
         start_of_content = match.end()
-        
-        # The content ends at the start of the next section's title, or at the end of the text
         end_of_content = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        
         content = text[start_of_content:end_of_content].strip()
         
         # Use the canonical title from the template for consistent key names
