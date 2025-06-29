@@ -541,10 +541,13 @@ def generate_special_situation_memo():
 def generate_infographic():
     if 'company_name' not in request.form:
         return jsonify({"error": "Missing company name"}), 400
+    if 'situation_type' not in request.form:
+        return jsonify({"error": "Missing situation type"}), 400
     if 'memo_file' not in request.files:
         return jsonify({"error": "Missing uploaded memo"}), 400
 
     company_name = request.form['company_name'].strip()
+    situation_type = request.form['situation_type'].strip()
     memo_file = request.files['memo_file']
 
     if memo_file.filename == '':
@@ -552,21 +555,20 @@ def generate_infographic():
     if not memo_file.filename.lower().endswith('.docx'):
         return jsonify({"error": "Only .docx files are supported"}), 400
 
-    # Save uploaded DOCX
     memo_filename = secure_filename(memo_file.filename)
     memo_path = os.path.join(UPLOAD_DIR, memo_filename)
     memo_file.save(memo_path)
 
-    # Output path
     html_filename = f"{company_name.replace(' ', '_')}_Infographic.html"
     output_path = os.path.join(OUTPUT_DIR, html_filename)
 
     try:
-        generate_infographic_html(memo_path, company_name, output_path)
+        generate_infographic_html(memo_path, company_name, situation_type, output_path)
     except Exception as e:
         return jsonify({"error": f"❌ Error generating infographic: {str(e)}"}), 500
 
     return send_file(output_path, as_attachment=True, download_name=html_filename, mimetype="text/html")
+
 
 
 
