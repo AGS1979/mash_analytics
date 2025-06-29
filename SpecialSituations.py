@@ -243,7 +243,7 @@ The situation is: **{situation_type}**
 
 Below is the internal company information extracted from various files:
 
-\"\"\"{combined_text[:7000]}\"
+\"\"\"{combined_text[:7000]}\"\"\"
 
 Using the structure below, generate a well-written investment memo. Be factual, insightful, and clear.
 
@@ -263,6 +263,10 @@ Structure:
     response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
     response.raise_for_status()
     memo = response.json()["choices"][0]["message"]["content"]
+
+    # ✅ 5. Format and save to DOCX
+    format_memo_docx(memo, company_name, situation_type, output_path)
+
 
 
 def format_memo_docx(memo_text: str, company_name: str, situation_type: str, output_path: str):
