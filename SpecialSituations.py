@@ -292,29 +292,34 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
 
     doc = Document()
 
-    # === Fonts ===
+    # === Set Global Font ===
     style = doc.styles['Normal']
-    style.font.name = 'Aptos Display'
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
 
-    if 'Heading 2' not in doc.styles:
-        heading_style = doc.styles.add_style('Heading 2', WD_STYLE_TYPE.PARAGRAPH)
-        heading_style.font.size = Pt(14)
-        heading_style.font.bold = True
-        heading_style.font.name = 'Aptos Display'
-    else:
-        doc.styles['Heading 2'].font.name = 'Aptos Display'
-
-    # === Title ===
+    # === Title Formatting ===
     title = f"{company_name} – {situation_type} Investment Memo"
-    title_paragraph = doc.add_paragraph()
-    title_run = title_paragraph.add_run(title)
+    title_para = doc.add_paragraph()
+    title_run = title_para.add_run(title)
     title_run.bold = True
     title_run.font.size = Pt(18)
-    title_run.font.name = 'Aptos Display'
-    title_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    doc.add_paragraph("\n")
+    title_run.font.name = 'Calibri'
+    title_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+    doc.add_paragraph()  # Spacer
 
-    # === TOC Sections ===
+    # === Section Heading Style ===
+    if 'CustomHeading' not in doc.styles:
+        heading_style = doc.styles.add_style('CustomHeading', WD_STYLE_TYPE.PARAGRAPH)
+        heading_style.font.size = Pt(13)
+        heading_style.font.bold = True
+        heading_style.font.name = 'Calibri'
+        heading_style.paragraph_format.space_after = Pt(4)
+        heading_style.paragraph_format.space_before = Pt(12)
+    else:
+        heading_style = doc.styles['CustomHeading']
+
+    # === Parse Text by Sections ===
     toc = REPORT_TEMPLATES.get(situation_type)
     if not toc:
         raise ValueError(f"No TOC found for situation type: {situation_type}")
@@ -323,34 +328,42 @@ def format_memo_docx(memo_text: str, company_name: str, situation_type: str, out
     parsed = {}
     current_title = None
     lines = memo_text.strip().split("\n")
-
     for line in lines:
-        if any(line.strip().lower().startswith(sec.lower()) for sec in expected_sections):
-            current_title = next((sec for sec in expected_sections if line.strip().lower().startswith(sec.lower())), line.strip())
+        match = next((sec for sec in expected_sections if line.strip().lower().startswith(sec.lower())), None)
+        if match:
+            current_title = match
             parsed[current_title] = []
         elif current_title:
             parsed[current_title].append(line.strip())
 
-    for i, section in enumerate(expected_sections, 1):
-        body_lines = parsed.get(section, [])
-        if not body_lines:
+    # === Write Parsed Sections ===
+    for idx, section in enumerate(expected_sections, 1):
+        content = parsed.get(section, [])
+        if not content:
             continue
 
-        doc.add_paragraph(f"{i}. {section}", style="Heading 2")
+        doc.add_paragraph(f"{idx}. {section}", style='CustomHeading')
 
-        for para in "\n".join(body_lines).split("\n\n"):
+        section_text = "\n".join(content).strip()
+        paragraphs = re.split(r'\n{2,}', section_text)
+
+        for para in paragraphs:
             if para.strip():
                 p = doc.add_paragraph(para.strip())
+                p.paragraph_format.space_after = Pt(6)
+                p.paragraph_format.first_line_indent = Inches(0.25)
+                p.paragraph_format.line_spacing = 1.25
                 p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
 
-        doc.add_paragraph()
+        doc.add_paragraph()  # Spacer
 
-    # === Margins ===
+    # === Adjust Margins ===
     section = doc.sections[0]
-    section.left_margin = Inches(0.5)
-    section.right_margin = Inches(0.5)
-    section.top_margin = Inches(0.5)
-    section.bottom_margin = Inches(0.5)
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+    section.top_margin = Inches(0.75)
+    section.bottom_margin = Inches(0.75)
 
+    # === Save ===
     doc.save(output_path)
-    print(f"✅ Clean, TOC-based memo saved to: {output_path}")
+    print(f"✅ Formatted memo saved to: {output_path}")

@@ -856,6 +856,8 @@ else if (agent.id === "Special_Situations_Analyzer") {
         const formData = new FormData();
         formData.append("memo_file", file);
         formData.append("company_name", modal.querySelector("input[name='company_name']").value.trim());
+        formData.append("situation_type", modal.querySelector("select[name='situation_type']").value.trim());  // ✅ ADD THIS
+
 
         fetch("/generate-infographic", {
             method: "POST",
