@@ -188,10 +188,10 @@ def build_infographic_html(company_name, sections):
 """
     for idx, (title, section_text) in enumerate(sections.items()):
         icon, color = assign_icon_and_color(idx)
-        print(f"\ud83d\udd0d Summarizing section: {title}")
+        print(f"Summarizing section: {title}")
         summary = summarize_section_with_deepseek(title, section_text)
 
-        lines = [line.strip("\u2022- ").strip() for line in summary.split("\n") if line.strip()]
+        lines = [line.lstrip("•- ").strip() for line in summary.split("\n") if line.strip()]
         bullet_items = "\n".join(f"<li>{line}</li>" for line in lines)
 
         html += f"""

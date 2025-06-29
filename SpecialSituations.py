@@ -6,6 +6,7 @@ from typing import List
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import re
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 # ==========================
 # DeepSeek Setup
@@ -287,96 +288,53 @@ Structure:
 # Word Formatting Function
 # ==========================
 
-def format_memo_docx(memo_text: str, company_name: str, situation_type: str, output_path: str):
-    from docx.enum.style import WD_STYLE_TYPE
+
+def format_memo_docx(memo, company_name, situation_type, output_path):
+    from docx import Document
+    from docx.shared import Pt, Inches
 
     doc = Document()
 
-    # === Define global font style ===
+    # Set default style
     style = doc.styles['Normal']
-    style.font.name = 'Calibri'
+    style.font.name = 'Aptos Display'
     style.font.size = Pt(11)
 
-    # === Set page margins ===
-    section = doc.sections[0]
-    section.top_margin = Inches(1)
-    section.bottom_margin = Inches(1)
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
-
-    # === Title formatting ===
+    # Title
     title_para = doc.add_paragraph()
-    title_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    run = title_para.add_run(f"{company_name} – {situation_type} Investment Memo")
-    run.font.name = 'Calibri'
-    run.font.size = Pt(18)
-    run.bold = True
-    doc.add_paragraph("")  # spacer
+    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title_para.add_run(f"{company_name} – {situation_type} Investment Memo")
+    title_run.font.name = 'Aptos Display'
+    title_run.font.size = Pt(20)
+    title_run.bold = True
 
-    # === Define Heading style ===
-    if "HeadingCustom" not in doc.styles:
-        heading_style = doc.styles.add_style("HeadingCustom", WD_STYLE_TYPE.PARAGRAPH)
-        heading_style.font.name = 'Calibri'
-        heading_style.font.size = Pt(13)
-        heading_style.font.bold = True
-        heading_style.paragraph_format.space_before = Pt(12)
-        heading_style.paragraph_format.space_after = Pt(6)
+    doc.add_paragraph()
 
-    # === Parse sections ===
-    toc = REPORT_TEMPLATES.get(situation_type)
-    expected_sections = [line.strip() for line in toc.strip().splitlines() if line.strip()]
-    parsed = {}
-    current_title = None
-    for line in memo_text.strip().split("\n"):
-        match = next((sec for sec in expected_sections if line.strip().lower().startswith(sec.lower())), None)
-        if match:
-            current_title = match
-            parsed[current_title] = []
-        elif current_title:
-            parsed[current_title].append(line.strip())
+    # Apply formatting per section
+    for section_title, content in memo.items():
+        heading = doc.add_paragraph()
+        heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        run = heading.add_run(section_title)
+        run.bold = True
+        run.font.size = Pt(14)
+        run.font.name = 'Aptos Display'
 
-    # === Write sections ===
-    for idx, section_title in enumerate(expected_sections, 1):
-        content = parsed.get(section_title, [])
-        if not content:
-            continue
+        for para in content.strip().split('\n\n'):
+            if para.strip():
+                p = doc.add_paragraph(para.strip())
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Avoid justify for narrow margins
+                p.paragraph_format.space_after = Pt(10)
+                p.paragraph_format.line_spacing = 1.5
 
-        # Add heading
-        doc.add_paragraph(f"{idx}. {section_title}", style="HeadingCustom")
+        doc.add_paragraph()
 
-        # Clean paragraphs and bullets
-        joined = "\n".join(content)
-        paragraphs = re.split(r"\n{2,}", joined)
-        for para in paragraphs:
-            para = para.strip()
-            if not para:
-                continue
-            # Bullet handling
-            if para.startswith("• ") or para.startswith("- "):
-                bullet_lines = para.splitlines()
-                for line in bullet_lines:
-                    if line.strip():
-                        p = doc.add_paragraph(line.strip().lstrip("•- "), style='List Bullet')
-                        p.paragraph_format.left_indent = Inches(0.25)
-                        p.paragraph_format.space_after = Pt(2)
-            else:
-                p = doc.add_paragraph(para)
-                p.paragraph_format.first_line_indent = Inches(0.25)
-                p.paragraph_format.line_spacing = 1.25
-                p.paragraph_format.space_after = Pt(6)
-                p.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+    # Margins
+    section = doc.sections[0]
+    section.left_margin = Inches(0.75)
+    section.right_margin = Inches(0.75)
+    section.top_margin = Inches(0.75)
+    section.bottom_margin = Inches(0.75)
 
-        doc.add_paragraph("")  # spacer
-
-    # === Footer ===
-    footer = doc.sections[0].footer
-    footer_para = footer.paragraphs[0]
-    footer_para.text = "Confidential | Prepared for internal investment research use only"
-    footer_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-    footer_para.style.font.size = Pt(9)
-    footer_para.style.font.name = 'Calibri'
-
-    # === Save doc ===
     doc.save(output_path)
-    print(f"✅ Memo saved to: {output_path}")
+
 
