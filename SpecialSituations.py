@@ -4,7 +4,6 @@ import pdfplumber
 from docx import Document
 from typing import List
 from docx.shared import Pt, Inches
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import re
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -282,7 +281,8 @@ Structure:
     memo = response.json()["choices"][0]["message"]["content"]
 
     memo = clean_markdown(memo)
-    memo_dict = split_into_sections(memo)  # <- convert to section-wise dict
+    # CORRECTED: Pass the template ('structure') to the splitting function for reliable parsing.
+    memo_dict = split_into_sections(memo, structure)
     format_memo_docx(memo_dict, company_name, situation_type, output_path)
 
 
@@ -343,13 +343,54 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
 
     doc.save(output_path)
 
-def split_into_sections(text):
+def split_into_sections(text: str, template: str):
+    """
+    Splits the memo text into a dictionary of sections.
+
+    This function is corrected to be more robust. It extracts section titles from the
+    provided template and uses them as delimiters to split the text. This avoids
+    the fragility of relying on a generic regex pattern to guess what a title is.
+
+    Args:
+        text: The memo text to be split.
+        template: The report template string containing the section titles.
+
+    Returns:
+        A dictionary with section titles as keys and their content as values.
+    """
     sections = {}
-    pattern = re.compile(r"(?P<title>^[A-Z][^\n]{3,}?)\n+(?P<body>.*?)(?=^[A-Z][^\n]{3,}?\n+|$)", re.DOTALL | re.MULTILINE)
-    for match in pattern.finditer(text):
-        title = match.group("title").strip()
-        body = match.group("body").strip()
-        sections[title] = body
+    # Extract canonical titles from the template. We just want the main heading,
+    # so we take the part before any '('.
+    titles = [line.split('(')[0].strip() for line in template.strip().split('\n') if line.strip()]
+    if not titles:
+        # If template is empty or malformed, return the text as a single block.
+        return {"Memo": text.strip()} if text.strip() else {}
+
+    # Build a regex to find any of the titles when they appear on their own line.
+    # We use re.IGNORECASE to be robust against case variations from the AI model.
+    # `^` and `$` with re.MULTILINE ensure we match the whole line as the title.
+    pattern = re.compile(r'^(' + '|'.join(map(re.escape, titles)) + r')\s*$', re.MULTILINE | re.IGNORECASE)
+
+    matches = list(pattern.finditer(text))
+    if not matches:
+        # If no titles are found, return the entire text as a single section.
+        return {"Memo": text.strip()} if text.strip() else {}
+
+    # Iterate through the found titles to carve out the sections
+    for i, match in enumerate(matches):
+        # The title is the captured group from our regex
+        title = match.group(1).strip()
+        
+        # The content of this section starts after the current title match
+        start_of_content = match.end()
+        
+        # The content ends at the start of the next section's title, or at the end of the text
+        end_of_content = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        
+        content = text[start_of_content:end_of_content].strip()
+        
+        # Use the canonical title from the template for consistent key names
+        canonical_title = next((t for t in titles if t.lower() == title.lower()), title)
+        sections[canonical_title] = content
+
     return sections
-
-
