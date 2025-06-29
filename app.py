@@ -515,7 +515,8 @@ def generate_special_situation_memo():
     except Exception as e:
         return jsonify({"error": f"❌ Error generating memo: {str(e)}"}), 500
 
-    return send_file(output_path, as_attachment=True)
+    download_url = url_for('download_file', filename=os.path.basename(output_path))
+    return jsonify({"download_url": download_url})
 
 
 
