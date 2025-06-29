@@ -61,7 +61,7 @@ from DCF import (
 )
 from InvMemoInfographic import generate_infographic_html
 from SpecialSituations import generate_special_situation_note  # Your core function
-from SSInfographic import generate_infographic  # Your earlier function
+from SSInfographic import generate_infographic_entrypoint  # Your earlier function
 
 
 UPLOAD_DIR = "uploads"
@@ -558,7 +558,7 @@ def generate_infographic():
     output_path = os.path.join(OUTPUT_DIR, html_filename)
 
     try:
-        generate_infographic(memo_path, company_name, situation_type, output_path)
+        generate_infographic_entrypoint(memo_path, company_name, situation_type, output_path)
     except Exception as e:
         return jsonify({"error": f"❌ Error generating infographic: {str(e)}"}), 500
 
