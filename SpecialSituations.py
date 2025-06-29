@@ -282,7 +282,9 @@ Structure:
     memo = response.json()["choices"][0]["message"]["content"]
 
     memo = clean_markdown(memo)
-    format_memo_docx(memo, company_name, situation_type, output_path)
+    memo_dict = split_into_sections(memo)  # <- convert to section-wise dict
+    format_memo_docx(memo_dict, company_name, situation_type, output_path)
+
 
 # ==========================
 # Word Formatting Function
@@ -310,6 +312,10 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
 
     doc.add_paragraph()
 
+    # ✅ If memo is string, treat as one section
+    if isinstance(memo, str):
+        memo = {"Memo": memo}
+
     # Apply formatting per section
     for section_title, content in memo.items():
         heading = doc.add_paragraph()
@@ -322,7 +328,7 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
         for para in content.strip().split('\n\n'):
             if para.strip():
                 p = doc.add_paragraph(para.strip())
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Avoid justify for narrow margins
+                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
                 p.paragraph_format.space_after = Pt(10)
                 p.paragraph_format.line_spacing = 1.5
 
@@ -336,5 +342,14 @@ def format_memo_docx(memo, company_name, situation_type, output_path):
     section.bottom_margin = Inches(0.75)
 
     doc.save(output_path)
+
+def split_into_sections(text):
+    sections = {}
+    pattern = re.compile(r"(?P<title>^[A-Z][^\n]{3,}?)\n+(?P<body>.*?)(?=^[A-Z][^\n]{3,}?\n+|$)", re.DOTALL | re.MULTILINE)
+    for match in pattern.finditer(text):
+        title = match.group("title").strip()
+        body = match.group("body").strip()
+        sections[title] = body
+    return sections
 
 
