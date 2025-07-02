@@ -773,8 +773,8 @@ else if (agent.id === "Special_Situations_Analyzer") {
                 <select name="situation_type" required>
                     <option value="">-- Select --</option>
                     <option value="Spin-Off or Split-Up">Spin-Off or Split-Up</option>
-                    <option value="Mergers & Acquisitions (Takeover, Break-Up, LBO)">Mergers & Acquisitions</option>
-                    <option value="Bankruptcy / Distressed / Restructuring">Bankruptcy / Restructuring</option>
+                    <option value="Mergers & Acquisitions"</option>
+                    <option value="Bankruptcy / Restructuring">Bankruptcy / Restructuring</option>
                     <option value="Activist Campaign">Activist Campaign</option>
                     <option value="Regulatory or Legal Catalyst">Regulatory or Legal Catalyst</option>
                     <option value="Asset Sales or Carve-Outs">Asset Sales or Carve-Outs</option>
