@@ -598,49 +598,57 @@ body {
 
 
 .agent-card {
-  
-  background-color: #1f2937;
-  border: 1px solid #3b82f6;
+  background-color: #121212;  /* darker neutral background */
+  border: 1px solid #2f2f2f;  /* subtle border */
   border-radius: 12px;
   padding: 20px;
-  
-  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6); /* richer shadow */
   color: #e5e5e5;
   height: 260px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.agent-card:hover {
+  transform: translateY(-4px); /* slight lift on hover */
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); /* soft blue glow */
+  border-color: #3b82f6;  /* blue border on hover */
+}
 
+/* Headings */
 .agent-card h3 {
   margin-top: 0;
-  color: #93c5fd;
+  color: #60a5fa;  /* light bluish accent */
   font-size: 18px;
   font-weight: 600;
 }
 
+/* Description */
+.agent-card p {
+  font-size: 15px;
+  color: #ccc;
+}
+
+/* Buttons */
 .agent-card button {
-  background-color: #374151; /* dark grey-blue */
-  color: #d1d5db;
-  border: 1px solid #4b5563;
-  padding: 8px 14px;
-  border-radius: 6px;
+  background-color: #1e1e1e;
+  color: #e5e5e5;
+  border: 1px solid #3b82f6;
+  padding: 10px 16px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .agent-card button:hover {
-  background-color: #4b5563; /* slightly lighter on hover */
-  color: #f9fafb;
+  background-color: #3b82f6;
+  color: #ffffff;
 }
 
-
-.agent-card button:hover {
-  background-color: #2563eb;
-}
 
 /* MODAL STYLES */
 .modal {
