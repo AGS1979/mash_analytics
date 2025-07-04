@@ -107,13 +107,14 @@ main {
   padding: 8px 12px;
   margin-bottom: 8px;
   cursor: pointer;
-  color: #101010;
+  color: #e5e5e5;  /* <-- Fix applied here */
   border-radius: 5px;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .chat-history li:hover {
-  background-color: #2b2b2b;
+  background-color: #1f2937;
+  color: #ffffff;
 }
 
 
