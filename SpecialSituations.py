@@ -164,19 +164,9 @@ def truncate_safely(text, limit=7000):
     return text[:cutoff] if cutoff != -1 else text[:limit]
 
 def generate_special_situation_note(company_name: str, situation_type: str, file_paths: List[str], output_path: str):
-    combined_text = ""
-    for path in file_paths:
-        if path.endswith(".pdf"):
-            combined_text += extract_text_from_pdf(path) + "\n"
-        elif path.endswith(".docx"):
-            combined_text += extract_text_from_docx(path) + "\n"
-        else:
-            combined_text += f"[Unsupported file: {path}]\n"
+    # … text extraction as before …
 
-    structure = REPORT_TEMPLATES.get(situation_type)
-    if not structure:
-        raise ValueError(f"Unsupported situation type: {situation_type}")
-
+    # 1) Enhance the prompt to request depth and data:
     prompt = f"""
 You are an institutional investment analyst writing a professional memo on a special situation involving {company_name}.
 The situation is: **{situation_type}**
@@ -185,81 +175,80 @@ Below is the internal company information extracted from various files:
 
 \"\"\"{truncate_safely(combined_text)}\"\"\"
 
-Using the structure below, generate a well-written investment memo. Be factual, insightful, and clear.
+Using the structure below, generate a **detailed, data-driven investment memo**.  For each section:
+- Write at least **three paragraphs** (or 150+ words),
+- Include **quantitative examples** (percentages, figures),
+- Provide **strategic insights** and context,
+- Use clear sub-headings and bullet lists where appropriate.
 
 Structure:
 {structure}
 """
 
-    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
-    payload = {
-        "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3
-    }
+    # … DeepSeek API call as before …
 
-    print("⏳ Generating memo using DeepSeek...")
-    response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
-    response.raise_for_status()
     memo = response.json()["choices"][0]["message"]["content"]
-
     memo = clean_markdown(memo)
-    # Pass the template ('structure') to the splitting function for reliable parsing.
     memo_dict = split_into_sections(memo, structure)
     format_memo_docx(memo_dict, company_name, situation_type, output_path)
 
 
-# ==========================
-# Word Formatting and Section Splitting
-# ==========================
-
 def format_memo_docx(memo_dict, company_name, situation_type, output_path):
     doc = Document()
 
-    # Set default style
-    style = doc.styles['Normal']
-    style.font.name = 'Aptos Display'
-    style.font.size = Pt(11)
+    # 2) Set default Normal style to 12 pt, black, Aptos Display
+    normal = doc.styles['Normal']
+    normal.font.name = 'Aptos Display'
+    normal.font.size = Pt(12)
+    normal.font.color.rgb = RGBColor(0x00, 0x00, 0x00)
+    normal.paragraph_format.line_spacing = 1.15
 
-    # Title
-    title_para = doc.add_paragraph()
-    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_run = title_para.add_run(f"{company_name} – {situation_type} Investment Memo")
-    title_run.font.name = 'Aptos Display'
-    title_run.font.size = Pt(20)
-    title_run.bold = True
+    # 3) Title (centered, 24 pt)
+    title = doc.add_heading(level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = title.add_run(f"{company_name} – {situation_type} Investment Memo")
+    run.font.name = 'Aptos Display'
+    run.font.size = Pt(24)
+    run.bold = True
 
-    doc.add_paragraph()
+    doc.add_paragraph()  # spacer
 
-    # Fallback if memo is not a dictionary
     if not isinstance(memo_dict, dict) or not memo_dict:
-        memo_dict = {"Memo": str(memo_dict)}
+        memo_dict = {"Executive Summary": str(memo_dict)}
 
-    # Apply formatting per section
     for section_title, content in memo_dict.items():
-        heading = doc.add_paragraph()
-        heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        run = heading.add_run(section_title)
-        run.bold = True
-        run.font.size = Pt(14)
-        run.font.name = 'Aptos Display'
+        # 4) Use built-in Heading 1 style for section titles
+        heading = doc.add_heading(section_title, level=1)
+        heading.paragraph_format.space_before = Pt(12)
+        heading.paragraph_format.space_after = Pt(6)
 
-        # Process paragraphs within the section content
-        for para in content.strip().split('\n\n'):
-            if para.strip():
-                p = doc.add_paragraph(para.strip())
-                p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                p.paragraph_format.space_after = Pt(10)
-                p.paragraph_format.line_spacing = 1.5
+        # Bold the first sentence of each section as a mini-lead
+        paras = content.strip().split('\n\n')
+        for idx, para in enumerate(paras):
+            p = doc.add_paragraph()
+            p.paragraph_format.space_after = Pt(8)
+            p.paragraph_format.line_spacing = 1.2
 
+            # first sentence bolded
+            sentences = re.split(r'(?<=[.?!]) +', para.strip())
+            if sentences:
+                run0 = p.add_run(sentences[0].strip() + " ")
+                run0.bold = True
+                run0.font.size = Pt(12)
+                run0.font.name = 'Aptos Display'
+                run_rest = p.add_run(" ".join(sentences[1:]))
+                run_rest.font.size = Pt(12)
+                run_rest.font.name = 'Aptos Display'
+            else:
+                p.add_run(para.strip())
+
+        # 5) Insert a blank paragraph for spacing
         doc.add_paragraph()
 
-    # Set page margins
-    section = doc.sections[0]
-    section.left_margin = Inches(0.75)
-    section.right_margin = Inches(0.75)
-    section.top_margin = Inches(0.75)
-    section.bottom_margin = Inches(0.75)
+    # 6) Tighten page margins
+    sec = doc.sections[0]
+    for margin in ('left', 'right', 'top', 'bottom'):
+        setattr(sec, f"{margin}_margin", Inches(0.75))
 
     doc.save(output_path)
 
