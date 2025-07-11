@@ -774,7 +774,7 @@ else if (agent.id === "Special_Situations_Analyzer") {
                     <option value="">-- Select --</option>
                     <option value="Spin-Off or Split-Up">Spin-Off or Split-Up</option>
                     <option value="Mergers & Acquisitions">Mergers & Acquisitions</option>
-                    <option value="Bankruptcy / Distressed / Restructuring">Bankruptcy / Restructuring</option>
+                    <option value="Bankruptcy / Distressed / Restructuring">Bankruptcy / Distressed / Restructuring</option>
                     <option value="Activist Campaign">Activist Campaign</option>
                     <option value="Regulatory or Legal Catalyst">Regulatory or Legal Catalyst</option>
                     <option value="Asset Sales or Carve-Outs">Asset Sales or Carve-Outs</option>
@@ -811,30 +811,49 @@ else if (agent.id === "Special_Situations_Analyzer") {
         submitBtn.disabled = true;
 
         fetch("/generate-special-situation-memo", {
-            method: "POST",
-            body: formData
+          method: "POST",
+          body: formData
         })
-        .then(r => r.json())
+        .then(response => {
+          // If non-2xx, grab the text and throw it
+          if (!response.ok) {
+            return response.text().then(text => {
+              throw new Error(text || `Server error ${response.status}`);
+            });
+          }
+          // Otherwise only parse JSON if content-type is JSON
+          const ct = response.headers.get("content-type") || "";
+          if (ct.includes("application/json")) {
+            return response.json();
+          } else {
+            return response.text().then(text => {
+              throw new Error(text);
+            });
+          }
+        })
         .then(data => {
-            if (data.download_url) {
-                resultDiv.innerHTML = `
-                    ✅ Memo ready!<br>
-                    <a href="${data.download_url}" target="_blank" style="color:lightblue;font-weight:bold;">
-                        ⬇ Download Memo
-                    </a>`;
-                modal.querySelector("#infographic-section").style.display = "block";
-            } else {
-                resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error}</span>`;
-            }
+          // your existing success block
+          if (data.download_url) {
+            resultDiv.innerHTML = `
+              ✅ Memo ready!<br>
+              <a href="${data.download_url}" target="_blank"
+                 style="color:lightblue;font-weight:bold;">
+                ⬇ Download Memo
+              </a>`;
+            modal.querySelector("#infographic-section").style.display = "block";
+          } else {
+            throw new Error(data.error || "Unknown response");
+          }
         })
         .catch(err => {
-            console.error(err);
-            resultDiv.innerText = `Error: ${err.message}`;
+          console.error(err);
+          resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
         })
         .finally(() => {
-            submitBtn.disabled = false;
-            resultDiv.scrollIntoView({ behavior: "smooth" });
+          submitBtn.disabled = false;
+          resultDiv.scrollIntoView({ behavior: "smooth" });
         });
+
     });
 
     modal.querySelector("#generate-infographic-btn").addEventListener("click", () => {
