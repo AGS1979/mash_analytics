@@ -7,6 +7,7 @@ import requests
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
+from docx.shared import RGBColor
 
 # ==========================
 # DeepSeek Setup
@@ -164,9 +165,22 @@ def truncate_safely(text, limit=7000):
     return text[:cutoff] if cutoff != -1 else text[:limit]
 
 def generate_special_situation_note(company_name: str, situation_type: str, file_paths: List[str], output_path: str):
-    # … text extraction as before …
+    # 1) Build the combined_text from all inputs
+    combined_text = ""
+    for path in file_paths:
+        if path.lower().endswith(".pdf"):
+            combined_text += extract_text_from_pdf(path) + "\n\n"
+        elif path.lower().endswith(".docx"):
+            combined_text += extract_text_from_docx(path) + "\n\n"
+        else:
+            combined_text += f"[Unsupported file: {path}]\n\n"
 
-    # 1) Enhance the prompt to request depth and data:
+    # 2) Grab the template structure
+    structure = REPORT_TEMPLATES.get(situation_type)
+    if not structure:
+        raise ValueError(f"Unsupported situation type: {situation_type}")
+
+    # 3) Now build the enhanced prompt
     prompt = f"""
 You are an institutional investment analyst writing a professional memo on a special situation involving {company_name}.
 The situation is: **{situation_type}**
@@ -175,20 +189,28 @@ Below is the internal company information extracted from various files:
 
 \"\"\"{truncate_safely(combined_text)}\"\"\"
 
-Using the structure below, generate a **detailed, data-driven investment memo**.  For each section:
-- Write at least **three paragraphs** (or 150+ words),
+Using the structure below, generate a **detailed, data-driven investment memo**. For each section:
+- Write at least **three paragraphs** (or ~150 words),
 - Include **quantitative examples** (percentages, figures),
 - Provide **strategic insights** and context,
-- Use clear sub-headings and bullet lists where appropriate.
+- Use sub-headings and bullet lists where helpful.
 
 Structure:
 {structure}
 """
 
-    # … DeepSeek API call as before …
+    # 4) Call DeepSeek as before
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3
+    }
+    response = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
+    response.raise_for_status()
+    memo = clean_markdown(response.json()["choices"][0]["message"]["content"])
 
-    memo = response.json()["choices"][0]["message"]["content"]
-    memo = clean_markdown(memo)
+    # 5) Split & format
     memo_dict = split_into_sections(memo, structure)
     format_memo_docx(memo_dict, company_name, situation_type, output_path)
 
