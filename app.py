@@ -512,8 +512,9 @@ def generate_special_situation_memo():
             return jsonify({"error": "No valid files saved."}), 400
 
         # Save memo to DOCS_FOLDER (used by download_doc route)
-        output_filename = f"{company_name.replace(' ', '_')}_{situation_type.replace(' ', '_')}_Memo.docx"
-        output_path = os.path.join(app.config['DOCS_FOLDER'], output_filename)
+        raw_name       = f"{company_name} – {situation_type} Memo.docx"
+        output_filename = secure_filename(raw_name)
+        output_path     = os.path.join(app.config['DOCS_FOLDER'], output_filename)
 
         # Call generator
         generate_special_situation_note(company_name, situation_type, saved_paths, output_path)
