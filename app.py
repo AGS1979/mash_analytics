@@ -63,7 +63,7 @@ from InvMemoInfographic import generate_infographic_html
 from SpecialSituations import generate_special_situation_note  # Your core function
 from SSInfographic import generate_infographic_entrypoint  # Your earlier function
 from portagent import index_pdf, query_gpt_prompt  # 🔁 import your functions
-
+from openai import OpenAI
 
 UPLOAD_DIR = "uploads"
 OUTPUT_DIR = "infographics"
@@ -72,6 +72,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Define your email whitelist here
 WHITELISTED_EMAILS = {
@@ -581,7 +582,7 @@ def analyze_portfolio_company():
 
         saved_paths = []
         for file in uploaded_files:
-            if not file.filename.lower().endswith('.pdf'):
+            if not file.filename.lower().endswith(('.pdf', '.docx', '.txt')):
                 continue
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -589,7 +590,7 @@ def analyze_portfolio_company():
             saved_paths.append(file_path)
 
         if not saved_paths:
-            return jsonify({"error": "No valid PDF files uploaded."}), 400
+            return jsonify({"error": "No valid files uploaded. Only .pdf, .docx, and .txt are accepted."}), 400
 
         for file_path in saved_paths:
             for company in company_names:
@@ -597,7 +598,7 @@ def analyze_portfolio_company():
 
         prompt = query_gpt_prompt(user_query, company_names)
 
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You're an AI portfolio analysis assistant."},
