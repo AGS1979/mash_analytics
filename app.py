@@ -569,12 +569,13 @@ def generate_infographic():
 @app.route("/analyze-portfolio-company", methods=["POST"])
 def analyze_portfolio_company():
     try:
-        company_name = request.form.get('company_name', '').strip()
+        company_names = request.form.get('company_name', '').split(",")
+        company_names = [c.strip() for c in company_names if c.strip()]
         user_query = request.form.get('query', '').strip()
         uploaded_files = request.files.getlist('files')
 
-        if not company_name or not user_query:
-            return jsonify({"error": "Missing company name or query"}), 400
+        if not company_names or not user_query:
+            return jsonify({"error": "Missing company name(s) or query"}), 400
         if not uploaded_files:
             return jsonify({"error": "No files uploaded"}), 400
 
@@ -590,13 +591,12 @@ def analyze_portfolio_company():
         if not saved_paths:
             return jsonify({"error": "No valid PDF files uploaded."}), 400
 
-        # Index the documents using your portagent logic
         for file_path in saved_paths:
-            index_pdf(file_path, company_name)
+            for company in company_names:
+                index_pdf(file_path, company)
 
-        prompt = query_gpt_prompt(user_query)
+        prompt = query_gpt_prompt(user_query, company_names)
 
-        # Call OpenAI API
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -611,6 +611,7 @@ def analyze_portfolio_company():
     except Exception as e:
         print(f"🔥 Error in /analyze-portfolio-company: {e}")
         return jsonify({"error": f"❌ {str(e)}"}), 500
+
 
 
 @app.route('/custom-agents-data')

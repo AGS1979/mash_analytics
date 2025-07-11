@@ -900,16 +900,17 @@ else if (agent.id === "Portfolio_Analyzer") {
             <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
             <h2>${agent.name}</h2>
             <form id="portfolio-form">
-                <label>Company Name:</label><br>
-                <input type="text" name="company_name" required /><br><br>
+                <label>Company Names (comma-separated):</label><br>
+                <input type="text" name="company_name" placeholder="e.g., Amazon, Apple, Nvidia" required /><br><br>
+
 
                 <label>Your Analysis Question:</label><br>
                 <textarea name="query" rows="4" required></textarea><br><br>
 
-                <label>Upload Portfolio Company PDFs:</label><br>
-                <input type="file" name="files" accept=".pdf" multiple required /><br><br>
+                <label>Upload Portfolio Company Documents (PDF, DOCX, or TXT):</label><br>
+                <input type="file" name="files" accept=".pdf,.docx,.txt" multiple required /><br><br>
 
-                <button type="submit">Ask AI</button>
+                <button type="submit">Ask The Agent</button>
             </form>
             <div id="portfolio-result" style="margin-top: 20px;"></div>
         </div>
@@ -927,7 +928,7 @@ else if (agent.id === "Portfolio_Analyzer") {
         const resultDiv = modal.querySelector("#portfolio-result");
         const submitBtn = form.querySelector("button");
 
-        resultDiv.innerHTML = `⏳ Querying AI... please wait...`;
+        resultDiv.innerHTML = `⏳ Querying Knowledge... please wait...`;
         submitBtn.disabled = true;
 
         fetch("/analyze-portfolio-company", {
