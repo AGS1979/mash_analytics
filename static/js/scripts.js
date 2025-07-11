@@ -882,6 +882,75 @@ else if (agent.id === "Special_Situations_Analyzer") {
     });
 }
 
+else if (agent.id === "Portfolio_Analyzer") {
+    card.innerHTML = `
+        <h3>${agent.name}</h3>
+        <p><strong>Category:</strong> ${agent.category}</p>
+        <p>${agent.description}</p>
+        <button onclick="showPortfolioModal()">Run Agent</button>
+    `;
+
+    grid.appendChild(card);
+
+    const modal = document.createElement("div");
+    modal.id = `modal-${agent.id}`;
+    modal.className = "modal";
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
+            <h2>${agent.name}</h2>
+            <form id="portfolio-form">
+                <label>Company Name:</label><br>
+                <input type="text" name="company_name" required /><br><br>
+
+                <label>Your Analysis Question:</label><br>
+                <textarea name="query" rows="4" required></textarea><br><br>
+
+                <label>Upload Portfolio Company PDFs:</label><br>
+                <input type="file" name="files" accept=".pdf" multiple required /><br><br>
+
+                <button type="submit">Ask AI</button>
+            </form>
+            <div id="portfolio-result" style="margin-top: 20px;"></div>
+        </div>
+    `;
+    document.getElementById("custom-agents-ui").appendChild(modal);
+
+    window.showPortfolioModal = function () {
+        document.getElementById("modal-Portfolio_Analyzer").style.display = "block";
+    };
+
+    modal.querySelector("#portfolio-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const resultDiv = modal.querySelector("#portfolio-result");
+        const submitBtn = form.querySelector("button");
+
+        resultDiv.innerHTML = `⏳ Querying AI... please wait...`;
+        submitBtn.disabled = true;
+
+        fetch("/analyze-portfolio-company", {
+            method: "POST",
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.result) {
+                resultDiv.innerHTML = `<div style="white-space: pre-wrap;">✅ ${data.result}</div>`;
+            } else {
+                resultDiv.innerHTML = `<span style="color:red;">❌ ${data.error}</span>`;
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            resultDiv.innerHTML = `<span style="color:red;">❌ ${err.message}</span>`;
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+        });
+    });
+}
 
 
  else {

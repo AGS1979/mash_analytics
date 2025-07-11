@@ -62,6 +62,7 @@ from DCF import (
 from InvMemoInfographic import generate_infographic_html
 from SpecialSituations import generate_special_situation_note  # Your core function
 from SSInfographic import generate_infographic_entrypoint  # Your earlier function
+from portagent import index_pdf, query_gpt_prompt  # 🔁 import your functions
 
 
 UPLOAD_DIR = "uploads"
@@ -565,6 +566,51 @@ def generate_infographic():
     return send_file(output_path, as_attachment=True, download_name=html_filename, mimetype="text/html")
 
 
+@app.route("/analyze-portfolio-company", methods=["POST"])
+def analyze_portfolio_company():
+    try:
+        company_name = request.form.get('company_name', '').strip()
+        user_query = request.form.get('query', '').strip()
+        uploaded_files = request.files.getlist('files')
+
+        if not company_name or not user_query:
+            return jsonify({"error": "Missing company name or query"}), 400
+        if not uploaded_files:
+            return jsonify({"error": "No files uploaded"}), 400
+
+        saved_paths = []
+        for file in uploaded_files:
+            if not file.filename.lower().endswith('.pdf'):
+                continue
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            saved_paths.append(file_path)
+
+        if not saved_paths:
+            return jsonify({"error": "No valid PDF files uploaded."}), 400
+
+        # Index the documents using your portagent logic
+        for file_path in saved_paths:
+            index_pdf(file_path, company_name)
+
+        prompt = query_gpt_prompt(user_query)
+
+        # Call OpenAI API
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You're an AI portfolio analysis assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        answer = response.choices[0].message.content.strip()
+        return jsonify({"result": answer}), 200
+
+    except Exception as e:
+        print(f"🔥 Error in /analyze-portfolio-company: {e}")
+        return jsonify({"error": f"❌ {str(e)}"}), 500
 
 
 @app.route('/custom-agents-data')
@@ -606,11 +652,11 @@ def get_custom_agents():
             "output": "Excel/JSON DCF report"
         },
         {
-            "id": "new_agent_1",
-            "name": "Sector Heatmap Analyzer",
-            "category": "Sector Insights",
-            "description": "Visualizes sector performance across multiple dimensions like momentum and volatility.",
-            "output": "Sample sector heatmap output..."
+            "id": "Portfolio_Analyzer",
+            "name": "Portfolio Agent",
+            "category": "Private Equity",
+            "description": "Ask questions about uploaded portfolio company PDFs (investment memos, updates, etc.)",
+            "output": "GPT-based analysis answer"
         },
         {
             "id": "new_agent_1",
