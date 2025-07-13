@@ -83,7 +83,7 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 0;  /* ← Add this to avoid content going under header */
+  margin-top: 80px;  /* ← Add this to avoid content going under header */
 }
 
 
@@ -229,7 +229,7 @@ main {
   display: flex;
   width: 100vw;                /* Full width of the viewport */
   height: calc(100vh - 140px); /* Adjust for header */
-  margin: 0 auto;
+  margin: 70px auto 0 auto;
   background-color: #000000;
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
