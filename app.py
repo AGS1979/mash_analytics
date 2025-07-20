@@ -488,17 +488,23 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 @app.route("/generate-special-situation-memo", methods=["POST"])
 def generate_special_situation_memo():
     try:
+        # --- Standard fields (no change) ---
         company_name = request.form.get('company_name', '').strip()
         situation_type = request.form.get('situation_type', '').strip()
         uploaded_files = request.files.getlist('files')
 
+        # --- ✨ New valuation fields ---
+        valuation_mode = request.form.get('valuationMode') # e.g., 'ai_peers' or 'user_peers'
+        parent_peers = request.form.get('parentPeers', '')
+        spinco_peers = request.form.get('spincoPeers', '')
+
+        # --- Input validation (no change) ---
         if not company_name or not situation_type:
             return jsonify({"error": "Missing company_name or situation_type"}), 400
-
         if not uploaded_files:
             return jsonify({"error": "No files uploaded"}), 400
 
-        # Save uploaded files to UPLOAD_FOLDER
+        # --- File handling (no change) ---
         saved_paths = []
         for file in uploaded_files:
             if not file.filename.lower().endswith(('.pdf', '.docx')):
@@ -511,18 +517,27 @@ def generate_special_situation_memo():
         if not saved_paths:
             return jsonify({"error": "No valid files saved."}), 400
 
-        # Save memo to DOCS_FOLDER (used by download_doc route)
-        raw_name       = f"{company_name} – {situation_type} Memo.docx"
+        # --- Output path setup (no change) ---
+        raw_name = f"{company_name} – {situation_type} Memo.docx"
         output_filename = secure_filename(raw_name)
-        output_path     = os.path.join(app.config['DOCS_FOLDER'], output_filename)
+        output_path = os.path.join(app.config['DOCS_FOLDER'], output_filename)
 
-        # Call generator
-        generate_special_situation_note(company_name, situation_type, saved_paths, output_path)
+        # --- ✨ Updated function call ---
+        # Pass the new valuation arguments to the generator function
+        generate_special_situation_note(
+            company_name=company_name,
+            situation_type=situation_type,
+            file_paths=saved_paths,
+            output_path=output_path,
+            valuation_mode=valuation_mode,
+            parent_peers=parent_peers,
+            spinco_peers=spinco_peers
+        )
 
+        # --- Response handling (no change) ---
         if not os.path.exists(output_path):
             return jsonify({"error": "Memo generation failed."}), 500
 
-        # ✅ Use external URL for full download link
         download_url = url_for('download_doc', filename=output_filename, _external=True)
 
         return jsonify({

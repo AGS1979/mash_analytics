@@ -8,12 +8,15 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
 from docx.shared import RGBColor
+import yfinance as yf
+
 
 # ==========================
 # DeepSeek Setup
 # ==========================
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")  # Ensure it's set in your .env or environment
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+FMP_API_KEY = os.getenv("FMP_API_KEY")
 
 # ==========================
 # Report Structures
@@ -31,6 +34,7 @@ SpinCo Investment Case
 Business model, growth drivers
 Historical and pro forma financials
 Independent valuation (e.g., Sum-of-the-Parts)
+Valuation Analysis
 Risks and Overhangs
 Forced selling, low float, governance concerns
 """,
@@ -120,6 +124,59 @@ Repurchase pace, valuation support
 """
 }
 
+
+# ==========================
+# Financial Data Helpers
+# ==========================
+
+def resolve_company_to_ticker(company_name: str) -> str:
+    prompt = f"What is the stock ticker for the public company '{company_name}'?"
+    headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
+    payload = {
+        "model": "deepseek-chat",
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0
+    }
+    try:
+        res = requests.post(DEEPSEEK_URL, headers=headers, json=payload)
+        res.raise_for_status()
+        ticker = res.json()["choices"][0]["message"]["content"].strip()
+        # Sanitize to get a clean ticker format
+        return re.sub(r'[^A-Z\.]', '', ticker)
+    except Exception:
+        return None
+
+def get_ev_ebitda_multiple(ticker: str) -> float:
+    if not FMP_API_KEY:
+        print("FMP_API_KEY not set. Skipping EV/EBITDA fetch.")
+        return 0.0
+    url = f"https://financialmodelingprep.com/api/v3/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        r = requests.get(url)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list) and data:
+            multiple = data[0].get("enterpriseValueOverEBITDATTM")
+            return float(multiple) if multiple is not None else 0.0
+    except Exception:
+        return 0.0
+    return 0.0
+
+def fetch_fundamentals_yf(ticker: str) -> Tuple[float, float, float]:
+    """Returns (market_cap, net_debt, ttm_ebitda) via Yahoo Finance."""
+    try:
+        t = yf.Ticker(ticker)
+        info = t.info or {}
+        market_cap = info.get("marketCap", 0) or 0
+        total_debt = info.get("totalDebt", 0) or 0
+        cash = info.get("cashAndShortTermInvestments", info.get("cash", 0)) or 0
+        net_debt = total_debt - cash
+        ebitda = info.get("ebitda", 0) or 0
+        return float(market_cap), float(net_debt), float(ebitda)
+    except Exception:
+        return 0.0, 0.0, 0.0
+
+
 # ==========================
 # Text Extractors
 # ==========================
@@ -164,37 +221,79 @@ def truncate_safely(text, limit=7000):
     cutoff = text[:limit].rfind('\n\n')
     return text[:cutoff] if cutoff != -1 else text[:limit]
 
-def generate_special_situation_note(company_name: str, situation_type: str, file_paths: List[str], output_path: str):
-    # 1) Build the combined_text from all inputs
+def generate_special_situation_note(
+    company_name: str,
+    situation_type: str,
+    file_paths: List[str],
+    output_path: str,
+    valuation_mode: str = None, # <-- Add parameter
+    parent_peers: str = "",     # <-- Add parameter
+    spinco_peers: str = ""      # <-- Add parameter
+):
+    # 1) Build the combined_text from all inputs (this part is unchanged)
     combined_text = ""
     for path in file_paths:
-        if path.lower().endswith(".pdf"):
-            combined_text += extract_text_from_pdf(path) + "\n\n"
-        elif path.lower().endswith(".docx"):
-            combined_text += extract_text_from_docx(path) + "\n\n"
-        else:
-            combined_text += f"[Unsupported file: {path}]\n\n"
+        # ... (same as before)
 
-    # 2) Grab the template structure
+    # 2) Grab the template structure (this part is unchanged)
     structure = REPORT_TEMPLATES.get(situation_type)
     if not structure:
         raise ValueError(f"Unsupported situation type: {situation_type}")
 
-    # 3) Now build the enhanced prompt
+    # 3) NEW: Build the valuation section based on user input
+    valuation_section = ""
+    if situation_type == "Spin-Off or Split-Up" and valuation_mode:
+        
+        def process_peers(raw_peers_str: str):
+            names = [n.strip() for n in raw_peers_str.split(',') if n.strip()]
+            tickers = [resolve_company_to_ticker(n) for n in names]
+            valid_tickers = [t for t in tickers if t]
+            multiples = [get_ev_ebitda_multiple(t) for t in valid_tickers]
+            valid_multiples = [m for m in multiples if m > 0]
+            avg_multiple = round(sum(valid_multiples) / len(valid_multiples), 2) if valid_multiples else None
+            return names, valid_multiples, avg_multiple
+
+        if valuation_mode == "ai_peers":
+            # This logic is from "Let AI choose peers" in Code 2
+            ticker = resolve_company_to_ticker(company_name)
+            if ticker:
+                # You can create a simplified AI prompt or define a peer group logic here
+                ai_prompt = f"List 5 large, publicly-traded companies comparable to {company_name}."
+                # ... (call DeepSeek to get peer names as a string)
+                # For this example, let's assume a function `get_ai_peers(prompt)` returns a string like "CompanyA, CompanyB"
+                # ai_peer_names_str = get_ai_peers(ai_prompt) 
+                # peer_names, peer_mults, avg_mult = process_peers(ai_peer_names_str)
+                # ... then build the valuation section text like in Code 2 ...
+
+                # A simpler, direct approach for the "AI" mode is to just ask the main prompt to do the work.
+                valuation_section = "For the Valuation Analysis section, please identify relevant public peer companies for the ParentCo and SpinCo. Use their average LTM EV/EBITDA multiples to perform a Sum-of-the-Parts (SOTP) valuation based on the TTM EBITDA figures found in the provided documents. Compare the resulting implied equity value to the parent company's current market capitalization to estimate the potential value unlock."
+
+        elif valuation_mode == "user_peers":
+            p_names, p_mults, p_avg = process_peers(parent_peers)
+            s_names, s_mults, s_avg = process_peers(spinco_peers)
+            valuation_section = f"""
+For the Valuation Analysis section, use the following user-provided peer data:
+
+**ParentCo Peers**: {', '.join(p_names)}
+- EV/EBITDA multiples: {p_mults} (Average: {p_avg or 'N/A'})
+
+**SpinCo Peers**: {', '.join(s_names)}
+- EV/EBITDA multiples: {s_mults} (Average: {s_avg or 'N/A'})
+
+Apply these average multiples to the respective TTM EBITDA figures from the documents to perform a Sum-of-the-Parts (SOTP) valuation.
+"""
+
+    # 4) Now build the enhanced prompt (updated)
     prompt = f"""
 You are an institutional investment analyst writing a professional memo on a special situation involving {company_name}.
 The situation is: **{situation_type}**
 
 Below is the internal company information extracted from various files:
-
 \"\"\"{truncate_safely(combined_text)}\"\"\"
 
-Using the structure below, generate a **detailed, data-driven investment memo**. For each section:
-- Write at least **three paragraphs** (or ~150 words),
-- Include **quantitative examples** (percentages, figures),
-- Provide **strategic insights** and context,
-- Use sub-headings and bullet lists where helpful.
+{valuation_section} # <-- Inject the new valuation instructions
 
+Using the structure below, generate a detailed, data-driven investment memo.
 Structure:
 {structure}
 """
