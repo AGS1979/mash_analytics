@@ -226,21 +226,28 @@ def generate_special_situation_note(
     situation_type: str,
     file_paths: List[str],
     output_path: str,
-    valuation_mode: str = None, # <-- Add parameter
-    parent_peers: str = "",     # <-- Add parameter
-    spinco_peers: str = ""      # <-- Add parameter
+    valuation_mode: str = None,
+    parent_peers: str = "",
+    spinco_peers: str = ""
 ):
-    # 1) Build the combined_text from all inputs (this part is unchanged)
+    # 1) Build the combined_text from all inputs
     combined_text = ""
+    # ✨ START: CORRECTED CODE BLOCK
     for path in file_paths:
-        # ... (same as before)
+        if path.lower().endswith(".pdf"):
+            combined_text += extract_text_from_pdf(path) + "\n\n"
+        elif path.lower().endswith(".docx"):
+            combined_text += extract_text_from_docx(path) + "\n\n"
+        else:
+            combined_text += f"[Unsupported file: {path}]\n\n"
+    # ✨ END: CORRECTED CODE BLOCK
 
-    # 2) Grab the template structure (this part is unchanged)
+    # 2) Grab the template structure
     structure = REPORT_TEMPLATES.get(situation_type)
     if not structure:
         raise ValueError(f"Unsupported situation type: {situation_type}")
 
-    # 3) NEW: Build the valuation section based on user input
+    # 3) Build the valuation section based on user input
     valuation_section = ""
     if situation_type == "Spin-Off or Split-Up" and valuation_mode:
         
@@ -249,24 +256,12 @@ def generate_special_situation_note(
             tickers = [resolve_company_to_ticker(n) for n in names]
             valid_tickers = [t for t in tickers if t]
             multiples = [get_ev_ebitda_multiple(t) for t in valid_tickers]
-            valid_multiples = [m for m in multiples if m > 0]
+            valid_multiples = [m for m in multiples if m and m > 0]
             avg_multiple = round(sum(valid_multiples) / len(valid_multiples), 2) if valid_multiples else None
             return names, valid_multiples, avg_multiple
 
         if valuation_mode == "ai_peers":
-            # This logic is from "Let AI choose peers" in Code 2
-            ticker = resolve_company_to_ticker(company_name)
-            if ticker:
-                # You can create a simplified AI prompt or define a peer group logic here
-                ai_prompt = f"List 5 large, publicly-traded companies comparable to {company_name}."
-                # ... (call DeepSeek to get peer names as a string)
-                # For this example, let's assume a function `get_ai_peers(prompt)` returns a string like "CompanyA, CompanyB"
-                # ai_peer_names_str = get_ai_peers(ai_prompt) 
-                # peer_names, peer_mults, avg_mult = process_peers(ai_peer_names_str)
-                # ... then build the valuation section text like in Code 2 ...
-
-                # A simpler, direct approach for the "AI" mode is to just ask the main prompt to do the work.
-                valuation_section = "For the Valuation Analysis section, please identify relevant public peer companies for the ParentCo and SpinCo. Use their average LTM EV/EBITDA multiples to perform a Sum-of-the-Parts (SOTP) valuation based on the TTM EBITDA figures found in the provided documents. Compare the resulting implied equity value to the parent company's current market capitalization to estimate the potential value unlock."
+            valuation_section = "For the Valuation Analysis section, please identify relevant public peer companies for the ParentCo and SpinCo. Use their average LTM EV/EBITDA multiples to perform a Sum-of-the-Parts (SOTP) valuation based on the TTM EBITDA figures found in the provided documents. Compare the resulting implied equity value to the parent company's current market capitalization to estimate the potential value unlock."
 
         elif valuation_mode == "user_peers":
             p_names, p_mults, p_avg = process_peers(parent_peers)
@@ -283,7 +278,7 @@ For the Valuation Analysis section, use the following user-provided peer data:
 Apply these average multiples to the respective TTM EBITDA figures from the documents to perform a Sum-of-the-Parts (SOTP) valuation.
 """
 
-    # 4) Now build the enhanced prompt (updated)
+    # 4) Build the enhanced prompt
     prompt = f"""
 You are an institutional investment analyst writing a professional memo on a special situation involving {company_name}.
 The situation is: **{situation_type}**
@@ -291,14 +286,14 @@ The situation is: **{situation_type}**
 Below is the internal company information extracted from various files:
 \"\"\"{truncate_safely(combined_text)}\"\"\"
 
-{valuation_section} # <-- Inject the new valuation instructions
+{valuation_section}
 
 Using the structure below, generate a detailed, data-driven investment memo.
 Structure:
 {structure}
 """
 
-    # 4) Call DeepSeek as before
+    # 5) Call DeepSeek and format the output (Note: Corrected step numbering from 4 to 5)
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}"}
     payload = {
         "model": "deepseek-chat",
@@ -309,7 +304,7 @@ Structure:
     response.raise_for_status()
     memo = clean_markdown(response.json()["choices"][0]["message"]["content"])
 
-    # 5) Split & format
+
     memo_dict = split_into_sections(memo, structure)
     format_memo_docx(memo_dict, company_name, situation_type, output_path)
 
