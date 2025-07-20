@@ -760,6 +760,22 @@ else if (agent.id === "Special_Situations_Analyzer") {
     modal.className = "modal";
     modal.innerHTML = `
         <div class="modal-content">
+            <style>
+                .valuation-option-item {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 12px;
+                }
+                .valuation-option-item input[type="radio"] {
+                    margin-right: 10px;
+                    width: 16px;
+                    height: 16px;
+                }
+                .valuation-option-item label {
+                    cursor: pointer;
+                    font-size: 16px;
+                }
+            </style>
             <span class="close" onclick="closeModal('${agent.id}')">&times;</span>
             <h2>${agent.name}</h2>
             <p><strong>Category:</strong> ${agent.category}</p>
@@ -783,20 +799,23 @@ else if (agent.id === "Special_Situations_Analyzer") {
 
                 <div id="valuation-module-${agent.id}" style="display:none; border: 1px solid #444; padding: 15px; margin-bottom: 20px; border-radius: 8px;">
                     <strong>Valuation Module (For Spin-Offs)</strong><br><br>
-                    <label style="cursor:pointer;">
-                        <input type="radio" name="valuationMode" value="ai_peers" checked> Let AI choose peers
-                    </label><br>
-                    <label style="cursor:pointer; margin-top: 5px; display: inline-block;">
-                        <input type="radio" name="valuationMode" value="user_peers"> I'll enter peer names
-                    </label><br><br>
 
-                    <div id="user-peers-section-${agent.id}" style="display:none;">
+                    <div class="valuation-option-item">
+                        <input type="radio" name="valuationMode" value="ai_peers" id="ai_peers-${agent.id}" checked>
+                        <label for="ai_peers-${agent.id}">Let AI choose peers</label>
+                    </div>
+                    <div class="valuation-option-item">
+                        <input type="radio" name="valuationMode" value="user_peers" id="user_peers-${agent.id}">
+                        <label for="user_peers-${agent.id}">I'll enter peer names</label>
+                    </div>
+                    <div id="user-peers-section-${agent.id}" style="display:none; margin-top: 15px;">
                         <label>ParentCo Peer Names (comma-separated):</label><br>
                         <textarea name="parentPeers" rows="2" style="width: 95%;" placeholder="e.g., General Electric, Siemens, 3M"></textarea><br><br>
                         <label>SpinCo Peer Names (comma-separated):</label><br>
                         <textarea name="spincoPeers" rows="2" style="width: 95%;" placeholder="e.g., Parker-Hannifin, Fortive, Roper"></textarea>
                     </div>
                 </div>
+
                 <label>Upload Company Files (.pdf or .docx):</label><br>
                 <input type="file" name="files" accept=".pdf,.docx" multiple required /><br><br>
                 <button type="submit">Generate Memo</button>
@@ -814,13 +833,12 @@ else if (agent.id === "Special_Situations_Analyzer") {
     `;
     document.getElementById("custom-agents-ui").appendChild(modal);
 
-    // ✨ START: New Event Listeners for Valuation Module
+    // Event Listeners (no changes needed here)
     const situationSelect = modal.querySelector('select[name="situation_type"]');
     const valuationModule = modal.querySelector(`#valuation-module-${agent.id}`);
     const userPeersSection = modal.querySelector(`#user-peers-section-${agent.id}`);
     const valuationRadios = modal.querySelectorAll('input[name="valuationMode"]');
 
-    // Show/hide the entire module based on the situation type
     situationSelect.addEventListener('change', () => {
         if (situationSelect.value === 'Spin-Off or Split-Up') {
             valuationModule.style.display = 'block';
@@ -829,7 +847,6 @@ else if (agent.id === "Special_Situations_Analyzer") {
         }
     });
 
-    // Show/hide the text areas based on the radio button selection
     valuationRadios.forEach(radio => {
         radio.addEventListener('change', (e) => {
             if (e.target.value === 'user_peers') {
@@ -839,13 +856,12 @@ else if (agent.id === "Special_Situations_Analyzer") {
             }
         });
     });
-    // ✨ END: New Event Listeners
 
+    // Form Submission Logic (no changes needed here)
     modal.querySelector("#specialsituations-form").addEventListener("submit", function (e) {
         e.preventDefault();
         const form = e.target;
         const formData = new FormData(form);
-
         const resultDiv = modal.querySelector("#specialsituations-result");
         const submitBtn = form.querySelector("button");
 
@@ -858,7 +874,7 @@ else if (agent.id === "Special_Situations_Analyzer") {
         })
         .then(response => {
             if (!response.ok) {
-                return response.json().then(errData => { // Try to parse error JSON
+                return response.json().then(errData => {
                      throw new Error(errData.error || 'Server error');
                 });
             }
@@ -887,7 +903,7 @@ else if (agent.id === "Special_Situations_Analyzer") {
         });
     });
 
-    // The rest of your infographic generation logic remains unchanged...
+    // Infographic Logic (no changes needed here)
     modal.querySelector("#generate-infographic-btn").addEventListener("click", () => {
         // ... (no changes needed here)
     });
